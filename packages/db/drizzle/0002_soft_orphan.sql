@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "avatar_loadout" jsonb DEFAULT '{"skin":"#f2bd8c","shirt":"#f59e0b","pants":"#27364d","hat":"cap","hatColor":"#92400e","backpack":"#92400e"}'::jsonb NOT NULL;

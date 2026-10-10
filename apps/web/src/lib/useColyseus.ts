@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { Client } from "@colyseus/sdk"
 import type { Room } from "@colyseus/sdk"
 import type { RoadDirection } from "@tiral/road-graph"
+import type { AvatarLoadout } from "@tiral/avatars"
 
 type RoomPlayer = {
   id: string
   name: string
   userId?: string | null
+  loadout?: AvatarLoadout
   startPointId: string | null
   roadPosition: { edgeId: string; distanceAlongEdge: number; direction: 1 | -1 } | null
   coordinate: { lat: number; lng: number } | null
@@ -38,6 +40,7 @@ export type RemotePositions = Record<
     roadPosition: RoomPlayer["roadPosition"]
     coordinate: RoomPlayer["coordinate"]
     moving: boolean
+    loadout?: AvatarLoadout
   }
 >
 
@@ -240,24 +243,24 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     }
   }, [getClient])
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (loadout?: AvatarLoadout) => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().joinOrCreate("race")
+      const room = await getClient().joinOrCreate("race", loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       console.error("Failed to connect to Colyseus server:", err)
     }
   }, [getClient, attachRoom, authorize])
 
-  const quickPlay = useCallback(async () => {
+  const quickPlay = useCallback(async (loadout?: AvatarLoadout) => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().joinOrCreate("race")
+      const room = await getClient().joinOrCreate("race", loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       console.error("Quick play failed:", err)
@@ -265,12 +268,12 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     }
   }, [getClient, attachRoom, authorize])
 
-  const createRace = useCallback(async () => {
+  const createRace = useCallback(async (loadout?: AvatarLoadout) => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().create("race")
+      const room = await getClient().create("race", loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       console.error("Create race failed:", err)
@@ -278,12 +281,12 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     }
   }, [getClient, attachRoom, authorize])
 
-  const joinRace = useCallback(async (id: string) => {
+  const joinRace = useCallback(async (id: string, loadout?: AvatarLoadout) => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().joinById(id)
+      const room = await getClient().joinById(id, loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       throw toFriendlyJoinError(err)
@@ -317,7 +320,7 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     }))
   }, [])
 
-  const joinByCode = useCallback(async (code: string) => {
+  const joinByCode = useCallback(async (code: string, loadout?: AvatarLoadout) => {
     const races = await listRaces()
     const match = races.find(
       (race) => race.roomCode.toUpperCase() === code.trim().toUpperCase()
@@ -331,7 +334,7 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     if (match.playerCount >= match.maxClients) {
       throw new Error("That race is full — pick another one")
     }
-    await joinRace(match.roomId)
+    await joinRace(match.roomId, loadout)
   }, [listRaces, joinRace])
 
   const disconnect = useCallback(() => {

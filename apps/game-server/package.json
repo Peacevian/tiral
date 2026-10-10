@@ -13,6 +13,7 @@
   "dependencies": {
     "@colyseus/core": "^0.18.0",
     "@colyseus/ws-transport": "^0.18.0",
+    "@tiral/avatars": "workspace:*",
     "@tiral/db": "workspace:*",
     "@tiral/game-core": "workspace:*",
     "@tiral/road-graph": "workspace:*",

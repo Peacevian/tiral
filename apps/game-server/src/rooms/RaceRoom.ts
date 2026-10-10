@@ -12,6 +12,7 @@ import {
 } from "@tiral/road-graph"
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
+import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
 import { recordRaceResults } from "@tiral/db"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
@@ -25,6 +26,7 @@ type PlayerInfo = {
   id: string
   name: string
   userId: string | null
+  loadout: AvatarLoadout
   startPointId: string | null
   roadPosition: RoadPosition | null
   coordinate: { lat: number; lng: number } | null
@@ -157,13 +159,14 @@ export class RaceRoom extends Room {
     this.tickInterval = setInterval(() => this.tickMovement(), TICK_MS)
   }
 
-  onJoin(client: Client, _options: any, auth?: JoinIdentity) {
+  onJoin(client: Client, options: any, auth?: JoinIdentity) {
     if (this.phase === "finished") {
       this.resetToLobby()
     }
     const existing = this.players[client.sessionId]
     if (existing) {
       existing.connected = true
+      existing.loadout = sanitizeLoadout(options?.loadout)
     } else {
       const verified = auth && !auth.guest ? auth : null
       const name =
@@ -174,6 +177,7 @@ export class RaceRoom extends Room {
         id: client.sessionId,
         name,
         userId: verified ? verified.userId : null,
+        loadout: sanitizeLoadout(options?.loadout),
         startPointId: null,
         roadPosition: null,
         coordinate: null,
@@ -436,13 +440,19 @@ export class RaceRoom extends Room {
   private getPositions() {
     const positions: Record<
       string,
-      { roadPosition: RoadPosition | null; coordinate: { lat: number; lng: number } | null; moving: boolean }
+      {
+        roadPosition: RoadPosition | null
+        coordinate: { lat: number; lng: number } | null
+        moving: boolean
+        loadout: AvatarLoadout
+      }
     > = {}
     for (const [sessionId, player] of Object.entries(this.players)) {
       positions[sessionId] = {
         roadPosition: player.roadPosition,
         coordinate: player.coordinate,
-        moving: player.moving
+        moving: player.moving,
+        loadout: player.loadout
       }
     }
     return positions
