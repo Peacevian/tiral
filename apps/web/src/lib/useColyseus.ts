@@ -8,6 +8,7 @@ import type { RoadDirection } from "@tiral/road-graph"
 type RoomPlayer = {
   id: string
   name: string
+  userId?: string | null
   startPointId: string | null
   roadPosition: { edgeId: string; distanceAlongEdge: number; direction: 1 | -1 } | null
   coordinate: { lat: number; lng: number } | null
@@ -178,52 +179,69 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     setCountdown(null)
   }, [])
 
+  const authorize = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/token")
+      if (!response.ok) return
+      const body = (await response.json()) as { token: string | null }
+      if (body.token) {
+        getClient().auth.token = body.token
+      }
+    } catch {
+      // unsigned requests join as guests
+    }
+  }, [getClient])
+
   const connect = useCallback(async () => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
+      await authorize()
       const room = await getClient().joinOrCreate("race")
       attachRoom(room)
     } catch (err) {
       console.error("Failed to connect to Colyseus server:", err)
     }
-  }, [getClient, attachRoom])
+  }, [getClient, attachRoom, authorize])
 
   const quickPlay = useCallback(async () => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
+      await authorize()
       const room = await getClient().joinOrCreate("race")
       attachRoom(room)
     } catch (err) {
       console.error("Quick play failed:", err)
       throw err
     }
-  }, [getClient, attachRoom])
+  }, [getClient, attachRoom, authorize])
 
   const createRace = useCallback(async () => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
+      await authorize()
       const room = await getClient().create("race")
       attachRoom(room)
     } catch (err) {
       console.error("Create race failed:", err)
       throw err
     }
-  }, [getClient, attachRoom])
+  }, [getClient, attachRoom, authorize])
 
   const joinRace = useCallback(async (id: string) => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
+      await authorize()
       const room = await getClient().joinById(id)
       attachRoom(room)
     } catch (err) {
       console.error("Join race failed:", err)
       throw err
     }
-  }, [getClient, attachRoom])
+  }, [getClient, attachRoom, authorize])
 
   const listRaces = useCallback(async (): Promise<RaceListing[]> => {
     const baseUrl =

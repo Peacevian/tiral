@@ -16,7 +16,8 @@
     "@tiral/game-core": "workspace:*",
     "@tiral/road-graph": "workspace:*",
     "cors": "^2.8.5",
-    "express": "^4.21.0"
+    "express": "^4.21.0",
+    "jose": "^6.2.12"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

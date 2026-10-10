@@ -11,6 +11,7 @@ import {
   type RoadPosition
 } from "@tiral/road-graph"
 import { loadRoadGraph } from "../roads.js"
+import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_INTENT_TIMEOUT_MS = 3000
@@ -22,6 +23,7 @@ const FINISH_WINDOW_MS = 30_000
 type PlayerInfo = {
   id: string
   name: string
+  userId: string | null
   startPointId: string | null
   roadPosition: RoadPosition | null
   coordinate: { lat: number; lng: number } | null
@@ -72,6 +74,10 @@ export class RaceRoom extends Room {
   private finishDeadline: number | null = null
   private roadGraph: RoadGraph | null = null
   private roomCode = ""
+
+  static async onAuth(token: unknown) {
+    return verifyJoinToken(token)
+  }
 
   onCreate(_options: any) {
     this.roomCode = generateRoomCode()
@@ -150,7 +156,7 @@ export class RaceRoom extends Room {
     this.tickInterval = setInterval(() => this.tickMovement(), TICK_MS)
   }
 
-  onJoin(client: Client) {
+  onJoin(client: Client, _options: any, auth?: JoinIdentity) {
     if (this.phase === "finished") {
       this.resetToLobby()
     }
@@ -158,10 +164,15 @@ export class RaceRoom extends Room {
     if (existing) {
       existing.connected = true
     } else {
-      const name = `Player ${Object.keys(this.players).length + 1}`
+      const verified = auth && !auth.guest ? auth : null
+      const name =
+        verified?.displayName && verified.displayName.length > 0
+          ? verified.displayName
+          : `Player ${Object.keys(this.players).length + 1}`
       this.players[client.sessionId] = {
         id: client.sessionId,
         name,
+        userId: verified ? verified.userId : null,
         startPointId: null,
         roadPosition: null,
         coordinate: null,
