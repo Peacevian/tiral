@@ -63,3 +63,32 @@ export function readSessionCookie(cookieHeader: string | null): string | null {
 export function isSecureRequest(url: string): boolean {
   return url.startsWith("https://")
 }
+
+export type OAuthState = {
+  nonce: string
+  guestUserId: string | null
+}
+
+export async function mintOAuthState(guestUserId: string | null): Promise<string> {
+  const nonce = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+  return new SignJWT({ nonce, guestUserId, purpose: "tiktok-oauth" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(getSecret())
+}
+
+export async function verifyOAuthState(state: string): Promise<OAuthState | null> {
+  try {
+    const { payload } = await jwtVerify(state, getSecret())
+    if (payload.purpose !== "tiktok-oauth") return null
+    if (typeof payload.nonce !== "string") return null
+    const guestUserId = payload.guestUserId
+    return {
+      nonce: payload.nonce,
+      guestUserId: typeof guestUserId === "string" ? guestUserId : null
+    }
+  } catch {
+    return null
+  }
+}
