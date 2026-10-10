@@ -4,7 +4,7 @@ import { Canvas } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import type { AvatarLoadout } from "@tiral/avatars"
-import { AvatarModel } from "./Avatar3D"
+import { RealisticAvatar } from "./RealisticAvatar"
 
 export function AvatarPreviewScene({
   loadout,
@@ -29,7 +29,7 @@ export function AvatarPreviewScene({
         <ringGeometry args={[1.1, 1.25, 48]} />
         <meshBasicMaterial color="#f59e0b" transparent opacity={0.7} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      <AvatarModel loadout={loadout} moving={walking} />
+      <RealisticAvatar loadout={loadout} moving={walking} />
       <OrbitControls
         target={[0, 0.95, 0]}
         enablePan={false}
