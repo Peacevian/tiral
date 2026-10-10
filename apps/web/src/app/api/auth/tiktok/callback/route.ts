@@ -51,7 +51,10 @@ export async function GET(request: NextRequest) {
       },
       oauthState.guestUserId ?? undefined
     )
-    const token = await mintSession(user.id)
+    const token = await mintSession(user.id, {
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl
+    })
     const response = NextResponse.redirect(new URL("/", request.url))
     response.headers.set("Set-Cookie", sessionCookie(token, isSecureRequest(request.url)))
     return response

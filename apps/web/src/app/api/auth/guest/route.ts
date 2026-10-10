@@ -9,7 +9,10 @@ function randomNickname(): string {
 export async function POST(request: NextRequest) {
   try {
     const user = await createGuest(randomNickname())
-    const token = await mintSession(user.id)
+    const token = await mintSession(user.id, {
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl
+    })
     const response = NextResponse.json({
       user: { id: user.id, displayName: user.displayName, avatarUrl: user.avatarUrl }
     })

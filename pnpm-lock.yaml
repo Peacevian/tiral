@@ -28,6 +28,9 @@ importers:
       express:
         specifier: ^4.21.0
         version: 4.22.3
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -57,7 +60,7 @@ importers:
         specifier: ^9.0.0
         version: 9.8.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.170.0)
       '@tiral/db':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../../packages/db
       '@tiral/game-core':
         specifier: workspace:*

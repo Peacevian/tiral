@@ -5,6 +5,8 @@ const SESSION_DAYS = 30
 
 export type SessionClaims = {
   userId: string
+  displayName?: string
+  avatarUrl?: string | null
 }
 
 function getSecret(): Uint8Array {
@@ -15,8 +17,14 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
-export async function mintSession(userId: string): Promise<string> {
-  return new SignJWT({ userId } satisfies SessionClaims & JWTPayload)
+export async function mintSession(
+  userId: string,
+  profile?: { displayName: string; avatarUrl: string | null }
+): Promise<string> {
+  return new SignJWT({
+    userId,
+    ...(profile ? { displayName: profile.displayName, avatarUrl: profile.avatarUrl } : {})
+  } satisfies SessionClaims & JWTPayload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
@@ -29,7 +37,11 @@ export async function verifySession(token: string): Promise<SessionClaims | null
     if (typeof payload.userId !== "string" || payload.userId.length === 0) {
       return null
     }
-    return { userId: payload.userId }
+    return {
+      userId: payload.userId,
+      displayName: typeof payload.displayName === "string" ? payload.displayName : undefined,
+      avatarUrl: typeof payload.avatarUrl === "string" ? payload.avatarUrl : undefined
+    }
   } catch {
     return null
   }
