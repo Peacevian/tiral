@@ -51,7 +51,7 @@ Requirements: Node 20+, pnpm 9.
 ```bash
 pnpm install
 
-# terminal 1 — game server (ws://localhost:2567)
+# terminal 1 — game server (ws://localhost:2567, listings http://localhost:2568/races)
 pnpm --filter @tiral/game-server dev
 
 # terminal 2 — web client (http://localhost:3000)
@@ -84,6 +84,7 @@ Open `http://localhost:3000` in two browsers, join in both, pick different start
 - [x] Start selection, position lock, random bounty reveal
 - [x] Arrival validation, finish order, play again
 - [x] Reconnect handling, race HUD (distance + rank), solo start
+- [x] Matchmaking: one room per race, lobby list, join codes, quick play, locked reveals
 - [ ] Accounts, TikTok login, profiles
 - [ ] Leaderboards, rewards, admin
 - [ ] Sponsorships, launch hardening

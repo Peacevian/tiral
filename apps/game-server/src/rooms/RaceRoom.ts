@@ -33,6 +33,23 @@ type PlayerInfo = {
 
 const RECONNECT_SECONDS = 30
 
+const ROOM_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+const usedRoomCodes = new Set<string>()
+
+function generateRoomCode(): string {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    let code = ""
+    for (let i = 0; i < 4; i++) {
+      code += ROOM_CODE_ALPHABET[Math.floor(Math.random() * ROOM_CODE_ALPHABET.length)]!
+    }
+    if (!usedRoomCodes.has(code)) {
+      usedRoomCodes.add(code)
+      return code
+    }
+  }
+  return Math.random().toString(36).slice(2, 6).toUpperCase()
+}
+
 type BountyTarget = {
   destinationId: string
   edgeId: string
@@ -54,8 +71,11 @@ export class RaceRoom extends Room {
   private finishOrder: string[] = []
   private finishDeadline: number | null = null
   private roadGraph: RoadGraph | null = null
+  private roomCode = ""
 
   onCreate(_options: any) {
+    this.roomCode = generateRoomCode()
+    this.syncMetadata()
     this.onMessage("selectStart", (client, startPointId: string) => {
       if (this.phase !== "lobby" && this.phase !== "countdown") return
       const player = this.players[client.sessionId]
@@ -153,6 +173,7 @@ export class RaceRoom extends Room {
     }
     this.snapPlayer(client.sessionId)
     this.broadcast("roomState", this.getRoomState())
+    this.syncMetadata()
 
     if (Object.keys(this.players).length >= 2 && this.phase === "lobby") {
       this.beginCountdown()
@@ -165,30 +186,53 @@ export class RaceRoom extends Room {
     player.connected = false
     player.moving = false
     this.broadcast("roomState", this.getRoomState())
+    this.syncMetadata()
     try {
       await this.allowReconnection(client, RECONNECT_SECONDS)
       const rejoined = this.players[client.sessionId]
       if (rejoined) {
         rejoined.connected = true
         this.broadcast("roomState", this.getRoomState())
+        this.syncMetadata()
       }
     } catch {
       delete this.players[client.sessionId]
       this.broadcast("roomState", this.getRoomState())
+      this.syncMetadata()
     }
   }
 
   onLeave(client: Client) {
     delete this.players[client.sessionId]
+    const remaining = Object.keys(this.players).length
+    if (remaining === 0) {
+      this.stopCountdown()
+    } else if (this.phase === "countdown" && remaining < 2) {
+      this.stopCountdown()
+      this.phase = "lobby"
+      this.countdownSeconds = COUNTDOWN_SECONDS
+    }
     this.broadcast("roomState", this.getRoomState())
+    this.syncMetadata()
   }
 
   onDispose() {
+    usedRoomCodes.delete(this.roomCode)
     this.stopCountdown()
     if (this.tickInterval) {
       clearInterval(this.tickInterval)
       this.tickInterval = null
     }
+  }
+
+  private syncMetadata() {
+    this.setMetadata({
+      roomCode: this.roomCode,
+      phase: this.phase,
+      playerCount: Object.keys(this.players).length,
+      maxClients: this.maxClients,
+      countdownSeconds: this.phase === "countdown" ? this.countdownSeconds : null
+    })
   }
 
   private snapPlayer(sessionId: string) {
@@ -313,6 +357,7 @@ export class RaceRoom extends Room {
   private finishRace() {
     this.phase = "finished"
     this.finishDeadline = null
+    this.syncMetadata()
     for (const player of Object.values(this.players)) {
       player.moving = false
       player.turnIntent = null
@@ -330,6 +375,7 @@ export class RaceRoom extends Room {
 
   private resetToLobby() {
     this.stopCountdown()
+    this.unlock()
     this.phase = "lobby"
     this.countdownSeconds = COUNTDOWN_SECONDS
     this.startedAt = null
@@ -346,6 +392,7 @@ export class RaceRoom extends Room {
     }
     this.snapUnplacedPlayers()
     this.broadcast("roomState", this.getRoomState())
+    this.syncMetadata()
 
     if (Object.keys(this.players).length >= 2) {
       this.beginCountdown()
@@ -373,6 +420,7 @@ export class RaceRoom extends Room {
       countdownSeconds: this.countdownSeconds,
       destinationId: this.destinationId,
       startedAt: this.startedAt,
+      roomCode: this.roomCode,
       players: this.players
     }
   }
@@ -380,6 +428,7 @@ export class RaceRoom extends Room {
   private beginCountdown() {
     this.phase = "countdown"
     this.broadcast("roomState", this.getRoomState())
+    this.syncMetadata()
 
     let remaining = COUNTDOWN_SECONDS
     this.countdownInterval = setInterval(() => {
@@ -395,6 +444,7 @@ export class RaceRoom extends Room {
 
   private launchRace() {
     this.phase = "racing"
+    this.lock()
     this.startedAt = Date.now()
     this.finishOrder = []
     this.finishDeadline = null
@@ -448,6 +498,7 @@ export class RaceRoom extends Room {
       player.finishPosition = null
     }
     this.broadcast("roomState", this.getRoomState())
+    this.syncMetadata()
   }
 
   private stopCountdown() {

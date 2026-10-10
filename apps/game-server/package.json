@@ -14,9 +14,14 @@
     "@colyseus/core": "^0.18.0",
     "@colyseus/ws-transport": "^0.18.0",
     "@tiral/game-core": "workspace:*",
-    "@tiral/road-graph": "workspace:*"
+    "@tiral/road-graph": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.6.0"
   }

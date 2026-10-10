@@ -14,6 +14,8 @@ import {
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
 import { RoadMovementControls } from "@/components/RoadMovementControls"
 import { StartPicker } from "@/components/StartPicker"
+import { LobbyList } from "@/components/LobbyList"
+import type { RaceListing } from "@/lib/useColyseus"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const ThreeLayer = dynamic(
@@ -48,18 +50,28 @@ export default function Home() {
     connected,
     reconnecting,
     sessionId,
+    roomCode,
     roomState,
     positions,
     results,
     countdown,
-    connect,
     sendWalk,
     sendTurn,
     sendTurnAround,
     sendSelectStart,
     sendPlayAgain,
-    sendStartNow
+    sendStartNow,
+    leaveRoom,
+    listRaces,
+    createRace,
+    joinRace,
+    joinByCode,
+    quickPlay
   } = useColyseus()
+  const [races, setRaces] = useState<RaceListing[]>([])
+  const [lobbyLoading, setLobbyLoading] = useState(false)
+  const [lobbyError, setLobbyError] = useState<string | null>(null)
+  const [joining, setJoining] = useState(false)
 
   const phase = roomState?.phase ?? "lobby"
   const locked = connected && phase !== "racing"
@@ -125,6 +137,53 @@ export default function Home() {
 
   const playerCount = roomState ? Object.keys(roomState.players).length : 0
 
+  const refreshRaces = useCallback(async () => {
+    setLobbyLoading(true)
+    setLobbyError(null)
+    try {
+      setRaces(await listRaces())
+    } catch {
+      setLobbyError("Could not load open races")
+    } finally {
+      setLobbyLoading(false)
+    }
+  }, [listRaces])
+
+  useEffect(() => {
+    if (!connected && !reconnecting) {
+      void refreshRaces()
+    }
+  }, [connected, reconnecting, refreshRaces])
+
+  const runJoin = useCallback(
+    async (action: () => Promise<void>) => {
+      setJoining(true)
+      setLobbyError(null)
+      try {
+        await action()
+      } catch (err) {
+        setLobbyError(err instanceof Error ? err.message : "Could not join race")
+        await refreshRaces()
+      } finally {
+        setJoining(false)
+      }
+    },
+    [refreshRaces]
+  )
+
+  const handleJoinCode = useCallback(
+    (code: string) => {
+      void runJoin(async () => {
+        try {
+          await joinByCode(code)
+        } catch {
+          throw new Error("No open race with that code — it may have started already")
+        }
+      })
+    },
+    [joinByCode, runJoin]
+  )
+
   const onMapReady = useCallback((readyMap: maplibregl.Map) => {
     setMap(readyMap)
     readyMap.fitBounds(
@@ -170,6 +229,26 @@ export default function Home() {
 
   const showPicker = connected && (phase === "lobby" || phase === "countdown")
 
+  if (!connected && !reconnecting) {
+    return (
+      <main className="flex h-screen w-screen items-center justify-center bg-slate-950 p-4">
+        <div className="h-[min(92vh,640px)] w-[min(94vw,420px)]">
+          <LobbyList
+            races={races}
+            loading={lobbyLoading || joining}
+            error={lobbyError}
+            joining={joining}
+            onRefresh={() => void refreshRaces()}
+            onJoin={(roomId) => void runJoin(() => joinRace(roomId))}
+            onJoinCode={handleJoinCode}
+            onCreate={() => void runJoin(() => createRace())}
+            onQuickPlay={() => void runJoin(() => quickPlay())}
+          />
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-slate-950">
       <MapView
@@ -207,21 +286,25 @@ export default function Home() {
       )}
 
       <div className="absolute left-4 top-4 z-20 flex w-[min(78vw,260px)] flex-col gap-2">
-        {!connected ? (
-          <button
-            onClick={connect}
-            className="rounded-lg bg-amber-500 px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-amber-600"
-          >
-            Join Race
-          </button>
-        ) : (
+        {connected && (
           <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
-            <div className="mb-1 text-sm text-green-400">
-              {reconnecting
-                ? "Reconnecting…"
-                : `Connected${remoteAvatars.length > 0 ? ` · ${remoteAvatars.length + 1} racers` : ""}${
-                    phase === "racing" ? " · Racing" : " · Positions locked soon"
-                  }`}
+            <div className="mb-1 flex items-center justify-between gap-2 text-sm text-green-400">
+              <span>
+                {reconnecting
+                  ? "Reconnecting…"
+                  : `Race ${roomCode ?? ""}${remoteAvatars.length > 0 ? ` · ${remoteAvatars.length + 1} racers` : ""}${
+                      phase === "racing" ? " · Racing" : ""
+                    }`}
+              </span>
+              {!reconnecting && (
+                <button
+                  type="button"
+                  onClick={leaveRoom}
+                  className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
+                >
+                  Leave
+                </button>
+              )}
             </div>
             {countdown !== null && phase !== "racing" && (
               <div className="font-mono text-2xl font-bold text-amber-400">

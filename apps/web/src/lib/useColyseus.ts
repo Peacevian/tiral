@@ -27,6 +27,7 @@ type RoomState = {
   countdownSeconds: number
   destinationId: string | null
   startedAt: number | null
+  roomCode: string | null
   players: Record<string, RoomPlayer>
 }
 
@@ -39,6 +40,16 @@ export type RemotePositions = Record<
   }
 >
 
+export type RaceListing = {
+  roomId: string
+  roomCode: string
+  phase: string
+  playerCount: number
+  maxClients: number
+  countdownSeconds: number | null
+  locked?: boolean
+}
+
 type UseColyseusOptions = {
   serverUrl?: string
 }
@@ -50,6 +61,8 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
   const [connected, setConnected] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [roomId, setRoomId] = useState<string | null>(null)
+  const [roomCode, setRoomCode] = useState<string | null>(null)
   const [roomState, setRoomState] = useState<RoomState | null>(null)
   const [positions, setPositions] = useState<RemotePositions>({})
   const [results, setResults] = useState<RaceResult[] | null>(null)
@@ -58,14 +71,25 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
   const clientRef = useRef<Client | null>(null)
   const manualLeaveRef = useRef(false)
 
+  const getClient = useCallback(() => {
+    if (!clientRef.current) {
+      clientRef.current = new Client(serverUrl)
+    }
+    return clientRef.current
+  }, [serverUrl])
+
   const attachRoom = useCallback((room: Room) => {
     roomRef.current = room
     setSessionId(room.sessionId)
+    setRoomId(room.roomId)
     setConnected(true)
     setReconnecting(false)
 
     room.onMessage("roomState", (state: RoomState) => {
       setRoomState(state)
+      if (state.roomCode) {
+        setRoomCode(state.roomCode)
+      }
       if (state.phase === "countdown") {
         setCountdown(state.countdownSeconds)
       }
@@ -92,6 +116,8 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
       if (manualLeaveRef.current) {
         setConnected(false)
         setSessionId(null)
+        setRoomId(null)
+        setRoomCode(null)
         setRoomState(null)
         setPositions({})
         setResults(null)
@@ -129,38 +155,118 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     setConnected(false)
     setReconnecting(false)
     setSessionId(null)
+    setRoomId(null)
+    setRoomCode(null)
     setRoomState(null)
     setPositions({})
     setResults(null)
     setCountdown(null)
   }, [attachRoom])
 
-  const connect = useCallback(async () => {
-    if (roomRef.current) return
-    manualLeaveRef.current = false
-    try {
-      const client = new Client(serverUrl)
-      clientRef.current = client
-      const room = await client.joinOrCreate("race")
-      attachRoom(room)
-    } catch (err) {
-      console.error("Failed to connect to Colyseus server:", err)
-    }
-  }, [serverUrl, attachRoom])
-
-  const disconnect = useCallback(() => {
+  const leaveRoom = useCallback(() => {
     manualLeaveRef.current = true
     setReconnecting(false)
     roomRef.current?.leave()
     roomRef.current = null
-    clientRef.current = null
     setConnected(false)
     setSessionId(null)
+    setRoomId(null)
+    setRoomCode(null)
     setRoomState(null)
     setPositions({})
     setResults(null)
     setCountdown(null)
   }, [])
+
+  const connect = useCallback(async () => {
+    if (roomRef.current) return
+    manualLeaveRef.current = false
+    try {
+      const room = await getClient().joinOrCreate("race")
+      attachRoom(room)
+    } catch (err) {
+      console.error("Failed to connect to Colyseus server:", err)
+    }
+  }, [getClient, attachRoom])
+
+  const quickPlay = useCallback(async () => {
+    if (roomRef.current) return
+    manualLeaveRef.current = false
+    try {
+      const room = await getClient().joinOrCreate("race")
+      attachRoom(room)
+    } catch (err) {
+      console.error("Quick play failed:", err)
+      throw err
+    }
+  }, [getClient, attachRoom])
+
+  const createRace = useCallback(async () => {
+    if (roomRef.current) return
+    manualLeaveRef.current = false
+    try {
+      const room = await getClient().create("race")
+      attachRoom(room)
+    } catch (err) {
+      console.error("Create race failed:", err)
+      throw err
+    }
+  }, [getClient, attachRoom])
+
+  const joinRace = useCallback(async (id: string) => {
+    if (roomRef.current) return
+    manualLeaveRef.current = false
+    try {
+      const room = await getClient().joinById(id)
+      attachRoom(room)
+    } catch (err) {
+      console.error("Join race failed:", err)
+      throw err
+    }
+  }, [getClient, attachRoom])
+
+  const listRaces = useCallback(async (): Promise<RaceListing[]> => {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_RACES_API_URL ?? "http://localhost:2568"
+    const response = await fetch(`${baseUrl}/races`)
+    if (!response.ok) {
+      throw new Error(`Race listing failed with ${response.status}`)
+    }
+    const data = (await response.json()) as Array<{
+      roomId: string
+      roomCode: string
+      phase: string
+      playerCount: number
+      maxClients: number
+      countdownSeconds: number | null
+      locked?: boolean
+    }>
+    return data.map((listed) => ({
+      roomId: listed.roomId,
+      roomCode: listed.roomCode,
+      phase: listed.phase,
+      playerCount: listed.playerCount,
+      maxClients: listed.maxClients,
+      countdownSeconds: listed.countdownSeconds,
+      locked: listed.locked ?? false
+    }))
+  }, [])
+
+  const joinByCode = useCallback(async (code: string) => {
+    const races = await listRaces()
+    const match = races.find(
+      (race) => race.roomCode.toUpperCase() === code.trim().toUpperCase()
+    )
+    if (!match) {
+      throw new Error("No open race with that code")
+    }
+    await joinRace(match.roomId)
+  }, [listRaces, joinRace])
+
+  const disconnect = useCallback(() => {
+    leaveRoom()
+    clientRef.current = null
+  }, [leaveRoom])
 
   const sendWalk = useCallback((on: boolean) => {
     roomRef.current?.send("walk", on)
@@ -197,12 +303,20 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     connected,
     reconnecting,
     sessionId,
+    roomId,
+    roomCode,
     roomState,
     positions,
     results,
     countdown,
     connect,
     disconnect,
+    leaveRoom,
+    quickPlay,
+    createRace,
+    joinRace,
+    joinByCode,
+    listRaces,
     sendWalk,
     sendTurn,
     sendTurnAround,
