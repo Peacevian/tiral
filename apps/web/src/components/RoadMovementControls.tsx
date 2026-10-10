@@ -37,7 +37,7 @@ export function RoadMovementControls({ graph, position, moving, loading, error, 
   const nearJunction = distanceToJunction !== null && distanceToJunction <= 28
 
   return (
-    <div className="absolute bottom-5 left-1/2 z-30 w-[min(92vw,430px)] -translate-x-1/2 rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl backdrop-blur-md">
+    <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 w-[min(92vw,430px)] -translate-x-1/2 touch-none rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl backdrop-blur-md">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Road movement</div>
@@ -59,7 +59,7 @@ export function RoadMovementControls({ graph, position, moving, loading, error, 
         <button type="button" onClick={onTurnAround} disabled={!position || locked} className="rounded-xl bg-slate-700 px-3 py-3 text-sm font-bold disabled:opacity-40">Turn around</button>
         <button type="button" onClick={() => onMovingChange(!moving)} disabled={!position || locked} className="rounded-xl bg-amber-400 px-3 py-3 text-sm font-black text-slate-950 disabled:opacity-40">{moving ? "Stop" : "Auto walk"}</button>
       </div>
-      <div className="mt-2 min-h-4 text-center text-[11px] text-slate-400">{locked ? "Positions locked — race starts at zero" : (feedback ?? "W / ↑ walk · A / ← left · D / → right · S / ↓ turn around")}</div>
+      <div className="mt-2 min-h-4 text-center text-[11px] text-slate-400">{locked ? "Positions locked — race starts at zero" : (feedback ?? (<><span className="tiral-keyboard-hint">W / ↑ walk · A / ← left · D / → right · S / ↓ turn around</span><span className="tiral-touch-hint">Hold Walk to move · tap a direction before junctions</span></>))}</div>
     </div>
   )
 }

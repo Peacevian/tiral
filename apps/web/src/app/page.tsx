@@ -235,8 +235,8 @@ export default function Home() {
 
   if (!connected && !reconnecting) {
     return (
-      <main className="flex h-screen w-screen items-center justify-center bg-slate-950 p-4">
-        <div className="h-[min(92vh,640px)] w-[min(94vw,420px)]">
+      <main className="flex h-screen w-screen items-center justify-center bg-slate-950 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="h-[min(92dvh,640px)] w-[min(94vw,420px)] overflow-y-auto">
           <LobbyList
             races={races}
             loading={lobbyLoading || joining}
@@ -254,7 +254,7 @@ export default function Home() {
   }
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-slate-950">
+    <main className="tiral-game relative h-screen w-screen overflow-hidden bg-slate-950">
       <MapView
         center={fallbackStart.position}
         zoom={15}
@@ -291,7 +291,7 @@ export default function Home() {
         </ThreeLayer>
       )}
 
-      <div className="absolute left-4 top-4 z-20 flex w-[min(78vw,260px)] flex-col gap-2">
+      <div className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] z-20 flex w-[min(78vw,260px)] flex-col gap-2">
         <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
           <AuthButton />
         </div>
@@ -309,14 +309,14 @@ export default function Home() {
                 <span className="flex gap-1">
                   <Link
                     href="/leaderboard"
-                    className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
+                    className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
                   >
                     Ranks
                   </Link>
                   <button
                     type="button"
                     onClick={leaveRoom}
-                    className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
+                    className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
                   >
                     Leave
                   </button>

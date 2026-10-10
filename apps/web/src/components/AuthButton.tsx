@@ -91,7 +91,7 @@ export function AuthButton() {
       <span className="flex shrink-0 gap-1">
         <Link
           href="/profile"
-          className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
+          className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
         >
           Profile
         </Link>
@@ -99,7 +99,7 @@ export function AuthButton() {
           type="button"
           onClick={logout}
           disabled={busy}
-          className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300 disabled:opacity-40"
+          className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center disabled:opacity-40"
         >
           Logout
         </button>
