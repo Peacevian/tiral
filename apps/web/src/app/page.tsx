@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import maplibregl from "maplibre-gl"
 import { KAMPALA_ZONE, haversineDistanceMeters } from "@tiral/game-core"
-import { useColyseus } from "@/lib/useColyseus"
+import { useColyseusContext } from "@/components/ColyseusProvider"
 import {
   buildRoadGraph,
   getRoadHeading,
@@ -69,7 +69,7 @@ export default function Home() {
     joinRace,
     joinByCode,
     quickPlay
-  } = useColyseus()
+  } = useColyseusContext()
   const [races, setRaces] = useState<RaceListing[]>([])
   const [lobbyLoading, setLobbyLoading] = useState(false)
   const [lobbyError, setLobbyError] = useState<string | null>(null)
@@ -178,11 +178,7 @@ export default function Home() {
   const handleJoinCode = useCallback(
     (code: string) => {
       void runJoin(async () => {
-        try {
-          await joinByCode(code)
-        } catch {
-          throw new Error("No open race with that code — it may have started already")
-        }
+        await joinByCode(code)
       })
     },
     [joinByCode, runJoin]
