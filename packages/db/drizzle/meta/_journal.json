@@ -15,6 +15,13 @@
       "when": 1791652803404,
       "tag": "0001_reflective_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791655279359,
+      "tag": "0002_soft_orphan",
+      "breakpoints": true
     }
   ]
 }

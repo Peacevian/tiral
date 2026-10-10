@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 
 type AuthUser = {
   id: string
@@ -87,14 +88,22 @@ export function AuthButton() {
         </div>
         <div className="truncate text-sm font-bold text-slate-100">{user.displayName}</div>
       </div>
-      <button
-        type="button"
-        onClick={logout}
-        disabled={busy}
-        className="shrink-0 rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300 disabled:opacity-40"
-      >
-        Logout
-      </button>
+      <span className="flex shrink-0 gap-1">
+        <Link
+          href="/profile"
+          className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
+        >
+          Profile
+        </Link>
+        <button
+          type="button"
+          onClick={logout}
+          disabled={busy}
+          className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300 disabled:opacity-40"
+        >
+          Logout
+        </button>
+      </span>
     </div>
   )
 }

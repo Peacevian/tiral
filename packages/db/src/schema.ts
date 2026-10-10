@@ -1,9 +1,11 @@
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   displayName: text("display_name").notNull(),
   avatarUrl: text("avatar_url"),
+  avatarLoadout: jsonb("avatar_loadout").$type<AvatarLoadout>().default(DEFAULT_LOADOUT).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull()
 })

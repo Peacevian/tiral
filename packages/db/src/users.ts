@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
+import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
 import { getDatabase, type Database } from "./client.js"
-import { tiktokAccounts, users, type User } from "./schema.js"
+import { raceResults, races, tiktokAccounts, users, type User } from "./schema.js"
 
 export async function findUserById(id: string, db: Database = getDatabase()): Promise<User | null> {
   const rows = await db.select().from(users).where(eq(users.id, id)).limit(1)
@@ -97,4 +98,107 @@ export async function upsertTikTokAccount(
     expiresAt: input.expiresAt
   })
   return user
+}
+
+export async function hasTikTokLink(userId: string, db: Database = getDatabase()): Promise<boolean> {
+  const rows = await db
+    .select({ userId: tiktokAccounts.userId })
+    .from(tiktokAccounts)
+    .where(eq(tiktokAccounts.userId, userId))
+    .limit(1)
+  return rows.length > 0
+}
+
+export async function updateGuestDisplayName(
+  userId: string,
+  displayName: string,
+  db: Database = getDatabase()
+): Promise<User | null> {
+  const name = displayName.trim().slice(0, 24)
+  if (name.length < 2) return null
+  if (await hasTikTokLink(userId, db)) return null
+  const rows = await db
+    .update(users)
+    .set({ displayName: name, lastSeenAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning()
+  return rows[0] ?? null
+}
+
+export async function updateAvatarLoadout(
+  userId: string,
+  loadout: unknown,
+  db: Database = getDatabase()
+): Promise<AvatarLoadout | null> {
+  const clean = sanitizeLoadout(loadout)
+  const rows = await db
+    .update(users)
+    .set({ avatarLoadout: clean, lastSeenAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning({ avatarLoadout: users.avatarLoadout })
+  return rows[0]?.avatarLoadout ?? null
+}
+
+export type ProfileStats = {
+  races: number
+  wins: number
+  podiums: number
+  points: number
+  bestPosition: number | null
+}
+
+export async function getProfileStats(
+  userId: string,
+  db: Database = getDatabase()
+): Promise<ProfileStats> {
+  const rows = await db
+    .select({ position: raceResults.position })
+    .from(raceResults)
+    .where(eq(raceResults.userId, userId))
+  let points = 0
+  let wins = 0
+  let podiums = 0
+  let bestPosition: number | null = null
+  for (const row of rows) {
+    if (row.position === 1) {
+      points += 3
+      wins += 1
+    } else if (row.position === 2) {
+      points += 2
+    } else if (row.position === 3) {
+      points += 1
+    }
+    if (row.position <= 3) podiums += 1
+    if (bestPosition === null || row.position < bestPosition) bestPosition = row.position
+  }
+  return { races: rows.length, wins, podiums, points, bestPosition }
+}
+
+export type RecentRace = {
+  raceId: string
+  destinationId: string
+  position: number
+  playerCount: number
+  finishedAt: Date
+}
+
+export async function getRecentRaces(
+  userId: string,
+  limit = 10,
+  db: Database = getDatabase()
+): Promise<RecentRace[]> {
+  const rows = await db
+    .select({
+      raceId: raceResults.raceId,
+      destinationId: races.destinationId,
+      position: raceResults.position,
+      playerCount: races.playerCount,
+      finishedAt: raceResults.finishedAt
+    })
+    .from(raceResults)
+    .innerJoin(races, eq(races.id, raceResults.raceId))
+    .where(eq(raceResults.userId, userId))
+    .orderBy(desc(raceResults.finishedAt))
+    .limit(limit)
+  return rows
 }

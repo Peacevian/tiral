@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber"
 import * as THREE from "three"
 import type { LatLng } from "@tiral/game-core"
 import { lngLatToMercator } from "@tiral/map"
+import { DEFAULT_LOADOUT, type AvatarLoadout, type HatStyle } from "@tiral/avatars"
 
 type Avatar3DProps = {
   latLng: LatLng
@@ -12,6 +13,7 @@ type Avatar3DProps = {
   moving?: boolean
   color?: string
   accentColor?: string
+  loadout?: AvatarLoadout
   smooth?: boolean
 }
 
@@ -38,7 +40,57 @@ function GroundMarker({ color }: { color: string }) {
   )
 }
 
-function Adventurer({ color, accentColor, moving }: { color: string; accentColor: string; moving: boolean }) {
+function Hat({ style, color }: { style: HatStyle; color: string }) {
+  if (style === "none") return null
+  if (style === "beanie") {
+    return (
+      <group>
+        <mesh position={[0, 1.66, 0]} scale={[1, 0.72, 1]} castShadow>
+          <sphereGeometry args={[0.27, 20, 20]} />
+          <meshStandardMaterial color={color} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 1.58, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <torusGeometry args={[0.25, 0.07, 10, 20]} />
+          <meshStandardMaterial color={color} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 1.86, 0]}>
+          <sphereGeometry args={[0.08, 10, 10]} />
+          <meshStandardMaterial color={color} roughness={0.8} />
+        </mesh>
+      </group>
+    )
+  }
+  if (style === "safari") {
+    return (
+      <group>
+        <mesh position={[0, 1.78, 0]} castShadow>
+          <cylinderGeometry args={[0.19, 0.22, 0.18, 16]} />
+          <meshStandardMaterial color={color} roughness={0.75} />
+        </mesh>
+        <mesh position={[0, 1.68, 0]} castShadow>
+          <cylinderGeometry args={[0.42, 0.42, 0.04, 20]} />
+          <meshStandardMaterial color={color} roughness={0.75} />
+        </mesh>
+      </group>
+    )
+  }
+  return (
+    <group>
+      <mesh position={[0, 1.72, 0]} castShadow>
+        <cylinderGeometry args={[0.28, 0.3, 0.14, 20]} />
+        <meshStandardMaterial color={color} roughness={0.68} />
+      </mesh>
+      <mesh position={[0, 1.68, 0.25]} castShadow>
+        <boxGeometry args={[0.4, 0.04, 0.25]} />
+        <meshStandardMaterial color={color} roughness={0.68} />
+      </mesh>
+    </group>
+  )
+}
+
+export function AvatarModel({ loadout, moving }: { loadout: AvatarLoadout; moving: boolean }) {
+  const color = loadout.shirt
+  const accentColor = loadout.backpack
   const bodyRef = useRef<THREE.Group>(null)
   const leftArmRef = useRef<THREE.Mesh>(null)
   const rightArmRef = useRef<THREE.Mesh>(null)
@@ -57,17 +109,17 @@ function Adventurer({ color, accentColor, moving }: { color: string; accentColor
     if (rightLegRef.current) rightLegRef.current.rotation.x = stride * 0.65
   })
 
-  const skin = "#f2bd8c"
+  const skin = loadout.skin
 
   return (
     <group ref={bodyRef}>
       <mesh ref={leftLegRef} position={[-0.14, 0.35, 0]} castShadow>
         <capsuleGeometry args={[0.1, 0.42, 5, 12]} />
-        <meshStandardMaterial color="#27364d" roughness={0.75} />
+        <meshStandardMaterial color={loadout.pants} roughness={0.75} />
       </mesh>
       <mesh ref={rightLegRef} position={[0.14, 0.35, 0]} castShadow>
         <capsuleGeometry args={[0.1, 0.42, 5, 12]} />
-        <meshStandardMaterial color="#27364d" roughness={0.75} />
+        <meshStandardMaterial color={loadout.pants} roughness={0.75} />
       </mesh>
 
       <mesh position={[0, 0.94, 0]} castShadow>
@@ -101,14 +153,7 @@ function Adventurer({ color, accentColor, moving }: { color: string; accentColor
         <meshStandardMaterial color="#172033" roughness={0.35} />
       </mesh>
 
-      <mesh position={[0, 1.72, 0]} castShadow>
-        <cylinderGeometry args={[0.28, 0.3, 0.14, 20]} />
-        <meshStandardMaterial color={accentColor} roughness={0.68} />
-      </mesh>
-      <mesh position={[0, 1.68, 0.25]} castShadow>
-        <boxGeometry args={[0.4, 0.04, 0.25]} />
-        <meshStandardMaterial color={accentColor} roughness={0.68} />
-      </mesh>
+      <Hat style={loadout.hat} color={loadout.hatColor} />
     </group>
   )
 }
@@ -124,6 +169,7 @@ export function Avatar3D({
   moving = false,
   color = "#f59e0b",
   accentColor = "#92400e",
+  loadout = DEFAULT_LOADOUT,
   smooth = false
 }: Avatar3DProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -151,7 +197,7 @@ export function Avatar3D({
     <group ref={groupRef} scale={0.00000045}>
       <GroundMarker color={color} />
       <group rotation={[Math.PI / 2, 0, 0]}>
-        <Adventurer color={color} accentColor={accentColor} moving={moving} />
+        <AvatarModel loadout={loadout} moving={moving} />
       </group>
     </group>
   )

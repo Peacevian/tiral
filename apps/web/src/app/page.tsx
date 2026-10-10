@@ -13,6 +13,8 @@ import {
   type RoadGraph
 } from "@tiral/road-graph"
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
+import { useMyLoadout } from "@/lib/useMyLoadout"
+import { DEFAULT_LOADOUT } from "@tiral/avatars"
 import { RoadMovementControls } from "@/components/RoadMovementControls"
 import { StartPicker } from "@/components/StartPicker"
 import { LobbyList } from "@/components/LobbyList"
@@ -104,6 +106,7 @@ export default function Home() {
   )
 
   const movement = useRoadMovement(graph, assignedStart, handleRoadInput, locked)
+  const myLoadout = useMyLoadout()
 
   const remoteAvatars = useMemo(() => {
     if (!graph) return []
@@ -116,6 +119,7 @@ export default function Home() {
           coordinate: entry.coordinate!,
           heading: getRoadHeading(graph, entry.roadPosition!),
           moving: entry.moving,
+          loadout: entry.loadout ?? DEFAULT_LOADOUT,
           ...palette
         }
       })
@@ -178,10 +182,10 @@ export default function Home() {
   const handleJoinCode = useCallback(
     (code: string) => {
       void runJoin(async () => {
-        await joinByCode(code)
+        await joinByCode(code, myLoadout)
       })
     },
-    [joinByCode, runJoin]
+    [joinByCode, runJoin, myLoadout]
   )
 
   const onMapReady = useCallback((readyMap: maplibregl.Map) => {
@@ -239,10 +243,10 @@ export default function Home() {
             error={lobbyError}
             joining={joining}
             onRefresh={() => void refreshRaces()}
-            onJoin={(roomId) => void runJoin(() => joinRace(roomId))}
+            onJoin={(roomId) => void runJoin(() => joinRace(roomId, myLoadout))}
             onJoinCode={handleJoinCode}
-            onCreate={() => void runJoin(() => createRace())}
-            onQuickPlay={() => void runJoin(() => quickPlay())}
+            onCreate={() => void runJoin(() => createRace(myLoadout))}
+            onQuickPlay={() => void runJoin(() => quickPlay(myLoadout))}
           />
         </div>
       </main>
@@ -269,6 +273,7 @@ export default function Home() {
             moving={movement.moving}
             color="#f59e0b"
             accentColor="#92400e"
+            loadout={myLoadout}
           />
           {remoteAvatars.map((avatar) => (
             <Avatar3D
@@ -278,6 +283,7 @@ export default function Home() {
               moving={avatar.moving}
               color={avatar.color}
               accentColor={avatar.accentColor}
+              loadout={avatar.loadout}
               smooth
             />
           ))}
