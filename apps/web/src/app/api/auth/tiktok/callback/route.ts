@@ -8,6 +8,12 @@ import {
   verifyOAuthState
 } from "@/lib/session"
 
+export async function POST() {
+  // TikTok webhook test events ping this URL; the game does not use
+  // webhooks, so acknowledge without action.
+  return NextResponse.json({ ok: true })
+}
+
 function failure(request: NextRequest, reason: string): NextResponse {
   const url = new URL("/", request.url)
   url.searchParams.set("auth_error", reason)
