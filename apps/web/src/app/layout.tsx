@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import { ColyseusProvider } from "@/components/ColyseusProvider"
 
 export const metadata: Metadata = {
   title: "Tiral — Kampala Treasure Race",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="w-screen h-screen overflow-hidden">{children}</body>
+      <body className="w-screen h-screen overflow-hidden">
+        <ColyseusProvider>{children}</ColyseusProvider>
+      </body>
     </html>
   )
 }

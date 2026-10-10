@@ -57,6 +57,45 @@ type UseColyseusOptions = {
 
 const RECONNECT_ATTEMPTS = 4
 const RECONNECT_DELAY_MS = 2000
+const RECONNECT_STORAGE_KEY = "tiral:reconnect-token"
+
+export function toFriendlyJoinError(err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err)
+  if (/locked/i.test(message)) {
+    return new Error("That race already started — pick another one")
+  }
+  if (/not found|does not exist|expired|seat reservation/i.test(message)) {
+    return new Error("That race no longer exists — the list was refreshed")
+  }
+  if (err instanceof Error) return err
+  return new Error("Could not join race")
+}
+
+function saveReconnectToken(token: string | null | undefined) {
+  try {
+    if (token) {
+      sessionStorage.setItem(RECONNECT_STORAGE_KEY, token)
+    }
+  } catch {
+    // storage unavailable — in-memory retry still applies
+  }
+}
+
+function loadReconnectToken(): string | null {
+  try {
+    return sessionStorage.getItem(RECONNECT_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function clearReconnectToken() {
+  try {
+    sessionStorage.removeItem(RECONNECT_STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
 
 export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOptions = {}) {
   const [connected, setConnected] = useState(false)
@@ -81,6 +120,9 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
 
   const attachRoom = useCallback((room: Room) => {
     roomRef.current = room
+    saveReconnectToken(
+      (room as unknown as { reconnectionToken?: string }).reconnectionToken
+    )
     setSessionId(room.sessionId)
     setRoomId(room.roomId)
     setConnected(true)
@@ -112,9 +154,13 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     })
 
     room.onLeave((code) => {
-      const token = (room as unknown as { reconnectionToken?: string }).reconnectionToken
+      const token =
+        (room as unknown as { reconnectionToken?: string }).reconnectionToken ??
+        loadReconnectToken()
+      saveReconnectToken(token)
       roomRef.current = null
       if (manualLeaveRef.current) {
+        clearReconnectToken()
         setConnected(false)
         setSessionId(null)
         setRoomId(null)
@@ -129,7 +175,7 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     })
   }, [])
 
-  const attemptReconnect = useCallback(async (_code: number, token?: string) => {
+  const attemptReconnect = useCallback(async (_code: number, token?: string | null) => {
     const client = clientRef.current
     if (!client || !token) {
       setConnected(false)
@@ -153,6 +199,7 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
         // retry until attempts run out
       }
     }
+    clearReconnectToken()
     setConnected(false)
     setReconnecting(false)
     setSessionId(null)
@@ -166,6 +213,7 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
 
   const leaveRoom = useCallback(() => {
     manualLeaveRef.current = true
+    clearReconnectToken()
     setReconnecting(false)
     roomRef.current?.leave()
     roomRef.current = null
@@ -238,8 +286,7 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
       const room = await getClient().joinById(id)
       attachRoom(room)
     } catch (err) {
-      console.error("Join race failed:", err)
-      throw err
+      throw toFriendlyJoinError(err)
     }
   }, [getClient, attachRoom, authorize])
 
@@ -278,6 +325,12 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     if (!match) {
       throw new Error("No open race with that code")
     }
+    if (match.locked || (match.phase !== "lobby" && match.phase !== "countdown")) {
+      throw new Error("That race already started — pick another one")
+    }
+    if (match.playerCount >= match.maxClients) {
+      throw new Error("That race is full — pick another one")
+    }
     await joinRace(match.roomId)
   }, [listRaces, joinRace])
 
@@ -310,12 +363,29 @@ export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOp
     roomRef.current?.send("startNow")
   }, [])
 
+  const reclaimAttempted = useRef(false)
+
   useEffect(() => {
-    return () => {
-      manualLeaveRef.current = true
-      roomRef.current?.leave()
-    }
-  }, [])
+    if (reclaimAttempted.current || roomRef.current) return
+    reclaimAttempted.current = true
+    const token = loadReconnectToken()
+    if (!token) return
+    manualLeaveRef.current = false
+    setReconnecting(true)
+    getClient()
+      .reconnect(token)
+      .then((room) => {
+        if (manualLeaveRef.current) {
+          room.leave()
+          return
+        }
+        attachRoom(room)
+      })
+      .catch(() => {
+        clearReconnectToken()
+        setReconnecting(false)
+      })
+  }, [attachRoom, getClient])
 
   return {
     connected,
