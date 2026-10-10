@@ -29,24 +29,11 @@ const KAMPALA_BOUNDS: [[number, number], [number, number]] = [
   [32.75, 0.45]
 ]
 
-const OSM_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors"
-    }
-  },
-  layers: [
-    {
-      id: "osm",
-      type: "raster",
-      source: "osm"
-    }
-  ]
-}
+// Minimal vector style: same OpenStreetMap road data underneath (gameplay
+// needs accurate streets) without the dense POI label clutter of the
+// standard raster tiles. Free, no API key. Attribution required.
+const MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
+const MAP_ATTRIBUTION = "© OpenMapTiles © OpenStreetMap contributors"
 
 function MapView(
   { center = DEFAULT_CENTER, zoom = 15, pitch = 48, bearing = -18, styleUrl, onMapReady }: MapViewProps,
@@ -77,7 +64,7 @@ function MapView(
     if (!containerRef.current || mapRef.current) return
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: OSM_STYLE,
+      style: MAP_STYLE_URL,
       center: [center.lng, center.lat],
       zoom,
       pitch,
@@ -86,7 +73,8 @@ function MapView(
       minZoom: 11,
       maxZoom: 18,
       maxBounds: KAMPALA_BOUNDS,
-      renderWorldCopies: false
+      renderWorldCopies: false,
+      attributionControl: { compact: true, customAttribution: MAP_ATTRIBUTION }
     })
     map.addControl(new maplibregl.NavigationControl(), "bottom-right")
     map.on("load", () => {
