@@ -60,14 +60,22 @@ export function AuthButton() {
 
   if (!user) {
     return (
-      <button
-        type="button"
-        onClick={playAsGuest}
-        disabled={busy}
-        className="w-full rounded-lg bg-white/10 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/20 disabled:opacity-40"
-      >
-        {busy ? "…" : "Play as guest"}
-      </button>
+      <div className="flex flex-col gap-2">
+        <a
+          href="/api/auth/tiktok"
+          className="block w-full rounded-lg bg-white px-3 py-2 text-center text-sm font-black text-slate-950 transition hover:bg-slate-200"
+        >
+          Continue with TikTok
+        </a>
+        <button
+          type="button"
+          onClick={playAsGuest}
+          disabled={busy}
+          className="w-full rounded-lg bg-white/10 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/20 disabled:opacity-40"
+        >
+          {busy ? "…" : "Play as guest"}
+        </button>
+      </div>
     )
   }
 
