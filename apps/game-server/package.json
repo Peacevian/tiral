@@ -1,0 +1,23 @@
+{
+  "name": "@tiral/game-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.18.0",
+    "@colyseus/ws-transport": "^0.18.0",
+    "@tiral/game-core": "workspace:*",
+    "@tiral/road-graph": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.6.0"
+  }
+}
