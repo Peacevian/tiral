@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { useFrame } from "@react-three/fiber"
+import { RoundedBox } from "@react-three/drei"
 import * as THREE from "three"
 import type { AvatarLoadout, HatStyle } from "@tiral/avatars"
 
@@ -95,14 +96,12 @@ function RealisticHat({ style, color }: { style: HatStyle; color: string }) {
 function Shoe({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
-      <mesh position={[0, 0.07, 0.04]} castShadow>
-        <boxGeometry args={[0.15, 0.13, 0.3]} />
+      <RoundedBox args={[0.15, 0.13, 0.3]} radius={0.045} smoothness={4} position={[0, 0.07, 0.04]} castShadow>
         <meshStandardMaterial color={SHOE_COLOR} roughness={0.4} metalness={0.15} />
-      </mesh>
-      <mesh position={[0, 0.015, 0.04]}>
-        <boxGeometry args={[0.16, 0.03, 0.32]} />
+      </RoundedBox>
+      <RoundedBox args={[0.16, 0.035, 0.32]} radius={0.015} smoothness={2} position={[0, 0.018, 0.04]}>
         <meshStandardMaterial color={SOLE_COLOR} roughness={0.9} />
-      </mesh>
+      </RoundedBox>
       {[0.1, 0.15, 0.2].map((z) => (
         <mesh key={z} position={[0, 0.135, z - 0.06]} rotation={[Math.PI / 2, 0, Math.PI / 2]}>
           <torusGeometry args={[0.045, 0.012, 8, 12, Math.PI]} />
@@ -187,10 +186,9 @@ export function RealisticAvatar({
   return (
     <group ref={bodyRef}>
       {/* pelvis */}
-      <mesh position={[0, 0.95, 0]} castShadow>
-        <boxGeometry args={[0.32, 0.2, 0.22]} />
+      <RoundedBox args={[0.32, 0.2, 0.22]} radius={0.07} smoothness={4} position={[0, 0.95, 0]} castShadow>
         <meshStandardMaterial color={loadout.pants} roughness={0.75} />
-      </mesh>
+      </RoundedBox>
 
       {/* legs */}
       {(
@@ -201,16 +199,16 @@ export function RealisticAvatar({
       ).map(({ side, thigh, knee }) => (
         <group key={side} ref={thigh} position={[side * 0.12, 0.95, 0]}>
           <mesh position={[0, -0.2, 0]} castShadow>
-            <cylinderGeometry args={[0.115, 0.085, 0.42, 12]} />
+            <cylinderGeometry args={[0.115, 0.085, 0.42, 20]} />
             <meshStandardMaterial color={loadout.pants} roughness={0.9} map={fabric} />
           </mesh>
           <mesh position={[0, -0.4, 0.01]}>
-            <sphereGeometry args={[0.08, 10, 10]} />
+            <sphereGeometry args={[0.08, 16, 16]} />
             <meshStandardMaterial color={loadout.pants} roughness={0.9} map={fabric} />
           </mesh>
           <group ref={knee} position={[0, -0.4, 0]}>
             <mesh position={[0, -0.2, 0]} castShadow>
-              <cylinderGeometry args={[0.08, 0.062, 0.4, 12]} />
+              <cylinderGeometry args={[0.08, 0.062, 0.4, 20]} />
               <meshStandardMaterial color={loadout.pants} roughness={0.9} map={fabric} />
             </mesh>
             <mesh position={[0, -0.32, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -224,7 +222,7 @@ export function RealisticAvatar({
 
       {/* torso */}
       <mesh ref={torsoRef} position={[0, 1.22, 0]} castShadow>
-        <cylinderGeometry args={[0.3, 0.23, 0.56, 16]} />
+        <cylinderGeometry args={[0.3, 0.23, 0.56, 28]} />
         <meshStandardMaterial color={loadout.shirt} roughness={0.85} map={fabric} />
       </mesh>
       <mesh position={[0, 1.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -247,10 +245,9 @@ export function RealisticAvatar({
       </mesh>
 
       {/* backpack */}
-      <mesh position={[0, 1.2, -0.28]} castShadow>
-        <boxGeometry args={[0.36, 0.46, 0.2]} />
+      <RoundedBox args={[0.36, 0.46, 0.2]} radius={0.07} smoothness={4} position={[0, 1.2, -0.28]} castShadow>
         <meshStandardMaterial color={loadout.backpack} roughness={0.75} />
-      </mesh>
+      </RoundedBox>
       <mesh position={[0, 1.47, -0.28]} rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[0.09, 0.09, 0.34, 12]} />
         <meshStandardMaterial color={loadout.backpack} roughness={0.75} />
@@ -260,10 +257,9 @@ export function RealisticAvatar({
         <meshStandardMaterial color="#1c1917" roughness={0.6} />
       </mesh>
       {[-0.12, 0.12].map((x) => (
-        <mesh key={x} position={[x, 1.08, -0.36]}>
-          <boxGeometry args={[0.1, 0.16, 0.06]} />
+        <RoundedBox key={x} args={[0.1, 0.16, 0.06]} radius={0.025} smoothness={2} position={[x, 1.08, -0.36]}>
           <meshStandardMaterial color={loadout.backpack} roughness={0.75} />
-        </mesh>
+        </RoundedBox>
       ))}
       {[-0.15, 0.15].map((x) => (
         <mesh key={x} position={[x, 1.28, -0.15]} rotation={[0.15, 0, 0]}>
@@ -281,21 +277,21 @@ export function RealisticAvatar({
       ).map(({ side, shoulder, elbow }) => (
         <group key={side} ref={shoulder} position={[side * 0.3, 1.42, 0]}>
           <mesh position={[0, -0.02, 0]}>
-            <sphereGeometry args={[0.105, 12, 12]} />
+            <sphereGeometry args={[0.105, 18, 18]} />
             <meshStandardMaterial color={loadout.shirt} roughness={0.65} />
           </mesh>
           <mesh position={[0, -0.1, 0]} castShadow>
-            <cylinderGeometry args={[0.09, 0.08, 0.16, 10]} />
+            <cylinderGeometry args={[0.09, 0.08, 0.16, 16]} />
             <meshStandardMaterial color={loadout.shirt} roughness={0.65} />
           </mesh>
           <mesh position={[0, -0.22, 0]} castShadow>
-            <cylinderGeometry args={[0.08, 0.068, 0.26, 10]} />
+            <cylinderGeometry args={[0.08, 0.068, 0.26, 16]} />
             <meshStandardMaterial color={loadout.skin} roughness={0.6} />
           </mesh>
           <group ref={elbow} position={[0, -0.34, 0]}>
-            <mesh position={[0, -0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.068, 0.022, 8, 14]} />
-              <meshStandardMaterial color={loadout.shirt} roughness={0.85} />
+            <mesh position={[0, -0.12, 0]} castShadow>
+              <cylinderGeometry args={[0.065, 0.055, 0.26, 16]} />
+              <meshStandardMaterial color={loadout.skin} roughness={0.6} />
             </mesh>
             <mesh position={[0, -0.12, 0]} castShadow>
               <cylinderGeometry args={[0.065, 0.055, 0.26, 10]} />
