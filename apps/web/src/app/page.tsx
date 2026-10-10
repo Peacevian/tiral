@@ -15,6 +15,7 @@ import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
 import { RoadMovementControls } from "@/components/RoadMovementControls"
 import { StartPicker } from "@/components/StartPicker"
 import { LobbyList } from "@/components/LobbyList"
+import { AuthButton } from "@/components/AuthButton"
 import type { RaceListing } from "@/lib/useColyseus"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
@@ -286,6 +287,9 @@ export default function Home() {
       )}
 
       <div className="absolute left-4 top-4 z-20 flex w-[min(78vw,260px)] flex-col gap-2">
+        <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
+          <AuthButton />
+        </div>
         {connected && (
           <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
             <div className="mb-1 flex items-center justify-between gap-2 text-sm text-green-400">

@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
     "@tiral/map",
     "@tiral/road-graph",
     "@tiral/routing",
+    "@tiral/db",
   ],
   webpack: (config) => {
     config.resolve.extensionAlias = {
