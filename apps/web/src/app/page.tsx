@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import maplibregl from "maplibre-gl"
 import { KAMPALA_ZONE, haversineDistanceMeters } from "@tiral/game-core"
 import { useColyseus } from "@/lib/useColyseus"
@@ -75,7 +76,9 @@ export default function Home() {
   const [joining, setJoining] = useState(false)
 
   const phase = roomState?.phase ?? "lobby"
-  const locked = connected && phase !== "racing"
+  const ownFinishPosition =
+    sessionId ? roomState?.players[sessionId]?.finishPosition ?? null : null
+  const locked = (connected && phase !== "racing") || ownFinishPosition !== null
   const destinationId = roomState?.destinationId ?? null
   const revealedBounty = destinationId
     ? KAMPALA_ZONE.bountyLocations.find((bounty) => bounty.id === destinationId) ?? null
@@ -301,13 +304,21 @@ export default function Home() {
                     }`}
               </span>
               {!reconnecting && (
-                <button
-                  type="button"
-                  onClick={leaveRoom}
-                  className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
-                >
-                  Leave
-                </button>
+                <span className="flex gap-1">
+                  <Link
+                    href="/leaderboard"
+                    className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
+                  >
+                    Ranks
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={leaveRoom}
+                    className="rounded-md border border-white/20 px-2 py-1 text-xs font-bold text-slate-300"
+                  >
+                    Leave
+                  </button>
+                </span>
               )}
             </div>
             {countdown !== null && phase !== "racing" && (
@@ -351,6 +362,16 @@ export default function Home() {
         )}
       </div>
 
+      {connected && phase === "racing" && ownFinishPosition !== null && (
+        <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl backdrop-blur-md">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
+            You finished {ownFinishPosition}
+            {ownFinishPosition === 1 ? "st" : ownFinishPosition === 2 ? "nd" : ownFinishPosition === 3 ? "rd" : "th"}!
+          </div>
+          <div className="mt-1 text-sm text-slate-300">Others are still racing…</div>
+        </div>
+      )}
+
       {connected && phase === "finished" && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
           <div className="w-[min(92vw,380px)] rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl">
@@ -390,6 +411,12 @@ export default function Home() {
             >
               Play again
             </button>
+            <Link
+              href="/leaderboard"
+              className="mt-2 block w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
+            >
+              See leaderboard
+            </Link>
           </div>
         </div>
       )}
