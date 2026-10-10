@@ -12,6 +12,7 @@ import {
 } from "@tiral/road-graph"
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
+import { recordRaceResults } from "@tiral/db"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_INTENT_TIMEOUT_MS = 3000
@@ -373,6 +374,7 @@ export class RaceRoom extends Room {
       player.moving = false
       player.turnIntent = null
     }
+    const finishedAt = new Date()
     this.broadcast("roomState", this.getRoomState())
     this.broadcast(
       "raceFinished",
@@ -382,6 +384,27 @@ export class RaceRoom extends Room {
         position: index + 1
       }))
     )
+    void this.persistResults(finishedAt)
+  }
+
+  private async persistResults(finishedAt: Date) {
+    if (!this.destinationId || !this.startedAt) return
+    try {
+      await recordRaceResults({
+        roomCode: this.roomCode,
+        destinationId: this.destinationId,
+        startedAt: new Date(this.startedAt),
+        finishedAt,
+        playerCount: Object.keys(this.players).length,
+        placements: this.finishOrder.map((sessionId, index) => ({
+          userId: this.players[sessionId]?.userId ?? null,
+          position: index + 1,
+          finishedAt
+        }))
+      })
+    } catch (error) {
+      console.error("Failed to persist race results:", error)
+    }
   }
 
   private resetToLobby() {
