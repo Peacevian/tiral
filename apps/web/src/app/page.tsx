@@ -32,6 +32,37 @@ function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
     </div>
   )
 }
+
+function BillboardFinder({
+  pins,
+  onView
+}: {
+  pins: BillboardPin[]
+  onView(pin: BillboardPin): void
+}) {
+  const ads = pins.filter((pin) => pin.kind === "ad")
+  if (ads.length === 0) return null
+  return (
+    <div className="mt-2 rounded-xl border border-amber-300/25 bg-amber-400/10 p-2">
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-amber-200">
+        Live billboards ({ads.length})
+      </div>
+      <div className="flex flex-col gap-1">
+        {ads.map((pin) => (
+          <button
+            key={pin.slotId}
+            type="button"
+            onClick={() => onView(pin)}
+            className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5 text-left text-xs text-slate-100"
+          >
+            <span className="truncate font-bold">{pin.brandName ?? pin.slotName}</span>
+            <span className="ml-2 shrink-0 text-amber-300">View 📍</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 import { selectCurrentAd } from "@/lib/billboards"
 import type { RaceListing } from "@/lib/useColyseus"
 
@@ -388,6 +419,17 @@ export default function Home() {
         <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
           <AuthButton />
         </div>
+        {billboardPins.some((pin) => pin.kind === "ad") && (
+          <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
+            <BillboardFinder
+              pins={billboardPins}
+              onView={(pin) => {
+                map?.flyTo({ center: [pin.lng, pin.lat], zoom: 16, duration: 2000 })
+                setBrandCardPin(pin)
+              }}
+            />
+          </div>
+        )}
         {connected && (
           <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
             <div className="mb-1 flex items-center justify-between gap-2 text-sm text-green-400">
@@ -441,6 +483,13 @@ export default function Home() {
                 {raceHud.distanceMeters}m · {raceHud.rank}/{raceHud.total}
               </div>
             )}
+            <BillboardFinder
+              pins={billboardPins}
+              onView={(pin) => {
+                map?.flyTo({ center: [pin.lng, pin.lat], zoom: 16, duration: 2000 })
+                setBrandCardPin(pin)
+              }}
+            />
             {phase === "lobby" && playerCount < 2 && (
               <button
                 type="button"
