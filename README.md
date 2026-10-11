@@ -51,6 +51,11 @@ Requirements: Node 20+, pnpm 9.
 ```bash
 pnpm install
 
+# terminal 0 — database tunnel (required for login, profiles, leaderboard).
+# If guest login or profiles fail with connection errors, this tunnel is down —
+# restart it. Keep it running alongside the dev servers.
+ssh -N -L 55433:127.0.0.1:5433 geinz-vps
+
 # terminal 1 — game server (ws://localhost:2567, listings http://localhost:2568/races)
 pnpm --filter @tiral/game-server dev
 
