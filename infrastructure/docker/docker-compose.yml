@@ -9,6 +9,8 @@ services:
     env_file:
       - /opt/tiral/web.env
     network_mode: host
+    volumes:
+      - uploads-data:/data/uploads
     restart: unless-stopped
 
   game:
@@ -19,3 +21,6 @@ services:
       - /opt/tiral/game.env
     network_mode: host
     restart: unless-stopped
+
+volumes:
+  uploads-data:
