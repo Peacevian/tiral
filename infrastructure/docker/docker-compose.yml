@@ -8,10 +8,7 @@ services:
         NEXT_PUBLIC_RACES_API_URL: https://tiral.geinz.lol
     env_file:
       - /opt/tiral/web.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "127.0.0.1:3100:3000"
+    network_mode: host
     restart: unless-stopped
 
   game:
@@ -20,9 +17,5 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.game
     env_file:
       - /opt/tiral/game.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "127.0.0.1:2567:2567"
-      - "127.0.0.1:2568:2568"
+    network_mode: host
     restart: unless-stopped
