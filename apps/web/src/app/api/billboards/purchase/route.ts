@@ -9,7 +9,7 @@ import {
   requestRelworxPayment
 } from "@/lib/relworx"
 
-export const PRICE_PER_SLOT_UGX = 20000
+const PRICE_PER_SLOT_UGX = 20000
 
 const BANNED_KEYWORDS = [
   "casino",
