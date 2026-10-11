@@ -5,9 +5,11 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.web
       args:
         NEXT_PUBLIC_GAME_URL: wss://tiral.geinz.lol
-        NEXT_PUBLIC_RACES_API_URL: https://tiral.geinz.lol/races
+        NEXT_PUBLIC_RACES_API_URL: https://tiral.geinz.lol
     env_file:
       - /opt/tiral/web.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:3100:3000"
     restart: unless-stopped
@@ -18,6 +20,8 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.game
     env_file:
       - /opt/tiral/game.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:2567:2567"
       - "127.0.0.1:2568:2568"
