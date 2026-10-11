@@ -1,0 +1,26 @@
+FROM node:22-alpine
+
+RUN corepack enable && corepack prepare pnpm@9.15.7 --activate
+
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages ./packages
+COPY apps ./apps
+
+RUN pnpm install --frozen-lockfile
+
+ARG NEXT_PUBLIC_GAME_URL=wss://playtiral.com
+ARG NEXT_PUBLIC_RACES_API_URL=https://playtiral.com/races
+ENV NEXT_PUBLIC_GAME_URL=$NEXT_PUBLIC_GAME_URL
+ENV NEXT_PUBLIC_RACES_API_URL=$NEXT_PUBLIC_RACES_API_URL
+
+RUN pnpm --filter @tiral/web build
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@tiral/web", "start"]

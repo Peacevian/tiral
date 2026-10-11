@@ -1,0 +1,24 @@
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_GAME_URL: wss://playtiral.com
+        NEXT_PUBLIC_RACES_API_URL: https://playtiral.com/races
+    env_file:
+      - /opt/tiral/web.env
+    ports:
+      - "127.0.0.1:3100:3000"
+    restart: unless-stopped
+
+  game:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.game
+    env_file:
+      - /opt/tiral/game.env
+    ports:
+      - "127.0.0.1:2567:2567"
+      - "127.0.0.1:2568:2568"
+    restart: unless-stopped
