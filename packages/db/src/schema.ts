@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { doublePrecision, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 
 export const users = pgTable("users", {
@@ -49,3 +49,41 @@ export const raceResults = pgTable("race_results", {
 
 export type Race = typeof races.$inferSelect
 export type RaceResult = typeof raceResults.$inferSelect
+
+export const billboardSlots = pgTable("billboard_slots", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  lat: doublePrecision("lat").notNull(),
+  lng: doublePrecision("lng").notNull(),
+  tier: text("tier").default("standard").notNull()
+})
+
+export const billboardCampaigns = pgTable("billboard_campaigns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  brandName: text("brand_name").notNull(),
+  imagePath: text("image_path").notNull(),
+  link: text("link").notNull(),
+  slotIds: text("slot_ids").array().notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  status: text("status").default("pending").notNull(),
+  amountUgx: integer("amount_ugx").notNull(),
+  buyerMsisdn: text("buyer_msisdn"),
+  relworxReference: text("relworx_reference").unique(),
+  relworxInternalRef: text("relworx_internal_ref"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+})
+
+export const billboardImpressions = pgTable("billboard_impressions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  raceId: uuid("race_id").references(() => races.id, { onDelete: "cascade" }),
+  slotId: text("slot_id").notNull(),
+  campaignId: uuid("campaign_id").references(() => billboardCampaigns.id, {
+    onDelete: "cascade"
+  }),
+  viewerCount: integer("viewer_count").notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull()
+})
+
+export type BillboardSlot = typeof billboardSlots.$inferSelect
+export type BillboardCampaign = typeof billboardCampaigns.$inferSelect

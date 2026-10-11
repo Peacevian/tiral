@@ -20,7 +20,36 @@ import { RoadMovementControls } from "@/components/RoadMovementControls"
 import { StartPicker } from "@/components/StartPicker"
 import { LobbyList } from "@/components/LobbyList"
 import { AuthButton } from "@/components/AuthButton"
+import { BillboardLayer, type BillboardPin } from "@/components/BillboardLayer"
+import { BrandCard } from "@/components/BrandCard"
+
+function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
+  if (campaigns.length === 0) return null
+  const names = [...new Set(campaigns.map((campaign) => campaign.brandName))].slice(0, 3)
+  return (
+    <div className="mt-2 text-center text-[11px] text-slate-400">
+      Sponsored by {names.join(" · ")}
+    </div>
+  )
+}
+import { selectCurrentAd } from "@/lib/billboards"
 import type { RaceListing } from "@/lib/useColyseus"
+
+type BillboardSlot = {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  tier: string
+}
+
+type BillboardCampaign = {
+  id: string
+  brandName: string
+  imagePath: string
+  link: string
+  slotIds: string[]
+}
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const ThreeLayer = dynamic(
@@ -222,6 +251,67 @@ export default function Home() {
     return () => controller.abort()
   }, [])
 
+  const [billboardSlots, setBillboardSlots] = useState<BillboardSlot[]>([])
+  const [billboardCampaigns, setBillboardCampaigns] = useState<BillboardCampaign[]>([])
+  const [brandCardPin, setBrandCardPin] = useState<BillboardPin | null>(null)
+  const [rotationTick, setRotationTick] = useState(() => Date.now())
+
+  useEffect(() => {
+    const interval = setInterval(() => setRotationTick(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () => {
+      fetch("/api/billboards/active")
+        .then(async (response) => {
+          if (!response.ok) return null
+          return (await response.json()) as { slots: BillboardSlot[]; campaigns: BillboardCampaign[] }
+        })
+        .then((body) => {
+          if (cancelled || !body) return
+          setBillboardSlots(body.slots)
+          setBillboardCampaigns(body.campaigns)
+        })
+        .catch(() => {})
+    }
+    load()
+    const interval = setInterval(load, 60000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
+  const billboardPins = useMemo<BillboardPin[]>(() => {
+    return billboardSlots.map((slot) => {
+      const ads = billboardCampaigns
+        .filter((campaign) => campaign.slotIds.includes(slot.id))
+        .map((campaign) => ({
+          campaignId: campaign.id,
+          brandName: campaign.brandName,
+          imagePath: campaign.imagePath,
+          link: campaign.link
+        }))
+      const current = selectCurrentAd(ads, rotationTick)
+      if (!current) {
+        return { slotId: slot.id, slotName: slot.name, lat: slot.lat, lng: slot.lng, kind: "house" as const }
+      }
+      return {
+        slotId: slot.id,
+        slotName: slot.name,
+        lat: slot.lat,
+        lng: slot.lng,
+        kind: "ad" as const,
+        brandName: current.brandName,
+        imagePath: current.imagePath,
+        link: current.link,
+        campaignId: current.campaignId
+      }
+    })
+  }, [billboardSlots, billboardCampaigns, rotationTick])
+
   const showPicker = connected && (phase === "lobby" || phase === "countdown")
 
   if (!connected && !reconnecting) {
@@ -280,6 +370,18 @@ export default function Home() {
           ))}
           {revealedBounty && <TreasureBeacon latLng={revealedBounty.position} />}
         </ThreeLayer>
+      )}
+
+      {map && <BillboardLayer map={map} pins={billboardPins} onPinClick={setBrandCardPin} />}
+      {brandCardPin && (
+        <BrandCard
+          pin={brandCardPin}
+          onClose={() => setBrandCardPin(null)}
+          onAdvertise={() => {
+            setBrandCardPin(null)
+            window.location.href = "/advertise"
+          }}
+        />
       )}
 
       <div className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] z-20 flex w-[min(78vw,260px)] flex-col gap-2">
@@ -420,6 +522,7 @@ export default function Home() {
             >
               See leaderboard
             </Link>
+            <ActiveSponsors campaigns={billboardCampaigns} />
           </div>
         </div>
       )}
