@@ -22,11 +22,12 @@ type MapViewProps = {
 
 const DEFAULT_CENTER = { lng: 32.5825, lat: 0.3476 }
 
-// Greater Kampala: keeps all current and near-future bounty zones
-// reachable while preventing panning/zooming out to the rest of the world.
+// Greater Kampala metro (Kampala + Wakiso + Mukono fringe + Entebbe
+// corridor): wide enough to see the whole city at once, including outlying
+// spots like Munyonyo, while keeping players out of the rest of the world.
 const KAMPALA_BOUNDS: [[number, number], [number, number]] = [
-  [32.4, 0.18],
-  [32.75, 0.45]
+  [32.3, 0.02],
+  [32.85, 0.55]
 ]
 
 // Minimal vector style: same OpenStreetMap road data underneath (gameplay
@@ -70,7 +71,7 @@ function MapView(
       pitch,
       bearing,
       maxPitch: 65,
-      minZoom: 11,
+      minZoom: 9,
       maxZoom: 18,
       maxBounds: KAMPALA_BOUNDS,
       renderWorldCopies: false,
