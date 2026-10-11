@@ -168,7 +168,7 @@ export default function Home() {
 
   const movement = useRoadMovement(graph, assignedStart, handleRoadInput, locked)
   const myLoadout = useMyLoadout()
-  const { recenter } = useRaceCamera(map, phase, movement.coordinate, movement.heading)
+  const { recenter, suspendFollow, followSuspended } = useRaceCamera(map, phase, movement.coordinate, movement.heading)
 
   const remoteAvatars = useMemo(() => {
     if (!graph) return []
@@ -424,6 +424,7 @@ export default function Home() {
             <BillboardFinder
               pins={billboardPins}
               onView={(pin) => {
+                suspendFollow()
                 map?.flyTo({ center: [pin.lng, pin.lat], zoom: 16, duration: 2000 })
                 setBrandCardPin(pin)
               }}
@@ -447,7 +448,12 @@ export default function Home() {
                       type="button"
                       onClick={recenter}
                       aria-label="Recenter on me"
-                      className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
+                      title={followSuspended ? "Follow off — tap to resume" : "Recenter on me"}
+                      className={`rounded-md border px-3 py-2 text-xs font-bold min-h-[40px] inline-flex items-center ${
+                        followSuspended
+                          ? "border-amber-300/70 text-amber-300"
+                          : "border-white/20 text-slate-300"
+                      }`}
                     >
                       ◎
                     </button>
@@ -486,6 +492,7 @@ export default function Home() {
             <BillboardFinder
               pins={billboardPins}
               onView={(pin) => {
+                suspendFollow()
                 map?.flyTo({ center: [pin.lng, pin.lat], zoom: 16, duration: 2000 })
                 setBrandCardPin(pin)
               }}
