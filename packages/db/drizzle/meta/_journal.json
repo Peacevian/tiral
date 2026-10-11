@@ -29,6 +29,13 @@
       "when": 1791723057041,
       "tag": "0003_eminent_shinobi_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791724659770,
+      "tag": "0004_speke-resort-slot",
+      "breakpoints": true
     }
   ]
 }
