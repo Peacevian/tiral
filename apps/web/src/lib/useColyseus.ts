@@ -100,7 +100,9 @@ function clearReconnectToken() {
   }
 }
 
-export function useColyseus({ serverUrl = "ws://localhost:2567" }: UseColyseusOptions = {}) {
+export function useColyseus({
+  serverUrl = process.env.NEXT_PUBLIC_GAME_URL ?? "ws://localhost:2567",
+}: UseColyseusOptions = {}) {
   const [connected, setConnected] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)

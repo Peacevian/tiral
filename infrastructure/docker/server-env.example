@@ -1,0 +1,17 @@
+# Copy to /opt/tiral/web.env and /opt/tiral/game.env on the server and fill in.
+# NEVER commit real values. Both files must share SESSION_SECRET.
+
+# ---- /opt/tiral/web.env ----
+# DATABASE_URL=postgres://tiral_app:<password>@127.0.0.1:5433/tiral
+# SESSION_SECRET=<openssl rand -base64 32>
+# TIKTOK_CLIENT_KEY=
+# TIKTOK_CLIENT_SECRET=
+# TIKTOK_REDIRECT_URI=https://tiral.geinz.lol/api/auth/tiktok/callback
+
+# ---- /opt/tiral/game.env ----
+# DATABASE_URL=postgres://tiral_app:<password>@127.0.0.1:5433/tiral
+# SESSION_SECRET=<same value as web.env>
+# PORT=2567
+# API_PORT=2568
+# RACE_COUNTDOWN_SECONDS=300
+# RACE_ARRIVAL_RADIUS=25
