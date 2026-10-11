@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { LatLng } from "@tiral/game-core"
 
 const RACE_ZOOM = 16
@@ -24,11 +24,22 @@ export function useRaceCamera(
   const headingRef = useRef(heading)
   coordinateRef.current = coordinate
   headingRef.current = heading
+  // True once the user grabs the map (drag/pinch/wheel). Follow stays off
+  // until recenter is tapped, so the map is freely movable at any time.
+  const [followSuspended, setFollowSuspended] = useState(false)
+  const suspendedRef = useRef(false)
+
+  const suspendFollow = useCallback(() => {
+    suspendedRef.current = true
+    setFollowSuspended(true)
+  }, [])
 
   const flyToPlayer = useCallback(() => {
     if (!map) return false
     const target = coordinateRef.current
     if (!target) return false
+    suspendedRef.current = false
+    setFollowSuspended(false)
     map.flyTo({
       center: [target.lng, target.lat],
       zoom: RACE_ZOOM,
@@ -40,16 +51,35 @@ export function useRaceCamera(
     return true
   }, [map])
 
+  // Any user-initiated camera move (drag, wheel, pinch) pauses follow.
+  // Programmatic flights carry no originalEvent, so they don't suspend.
+  useEffect(() => {
+    if (!map) return
+    const onMoveStart = (event: maplibregl.MapLibreEvent) => {
+      if (event.originalEvent) suspendFollow()
+    }
+    map.on("movestart", onMoveStart)
+    return () => {
+      map.off("movestart", onMoveStart)
+    }
+  }, [map, suspendFollow])
+
   useEffect(() => {
     const enteredRacing = previousPhaseRef.current !== "racing" && phase === "racing"
     previousPhaseRef.current = phase
     if (enteredRacing) {
+      suspendedRef.current = false
+      setFollowSuspended(false)
       flyToPlayer()
+    }
+    if (phase !== "racing") {
+      suspendedRef.current = false
+      setFollowSuspended(false)
     }
   }, [phase, flyToPlayer])
 
   useEffect(() => {
-    if (!map || phase !== "racing") return
+    if (!map || phase !== "racing" || suspendedRef.current) return
     const target = coordinate
     if (!target) return
     const canvas = map.getCanvas()
@@ -63,5 +93,5 @@ export function useRaceCamera(
     }
   }, [map, phase, coordinate])
 
-  return { recenter: flyToPlayer }
+  return { recenter: flyToPlayer, suspendFollow, followSuspended }
 }

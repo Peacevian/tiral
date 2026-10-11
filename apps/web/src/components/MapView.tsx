@@ -22,13 +22,9 @@ type MapViewProps = {
 
 const DEFAULT_CENTER = { lng: 32.5825, lat: 0.3476 }
 
-// Greater Kampala metro (Kampala + Wakiso + Mukono fringe + Entebbe
-// corridor): wide enough to see the whole city at once, including outlying
-// spots like Munyonyo, while keeping players out of the rest of the world.
-const KAMPALA_BOUNDS: [[number, number], [number, number]] = [
-  [32.3, 0.02],
-  [32.85, 0.55]
-]
+// No pan lock: the map stays freely movable/scrollable at any time.
+// Races start centered on the player (Kampala), and ◎ recenters on demand.
+const MIN_ZOOM = 9
 
 // Minimal vector style: same OpenStreetMap road data underneath (gameplay
 // needs accurate streets) without the dense POI label clutter of the
@@ -71,9 +67,8 @@ function MapView(
       pitch,
       bearing,
       maxPitch: 65,
-      minZoom: 9,
+      minZoom: MIN_ZOOM,
       maxZoom: 18,
-      maxBounds: KAMPALA_BOUNDS,
       renderWorldCopies: false,
       attributionControl: { compact: true, customAttribution: MAP_ATTRIBUTION }
     })
