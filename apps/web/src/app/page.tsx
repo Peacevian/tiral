@@ -14,6 +14,7 @@ import {
 } from "@tiral/road-graph"
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
 import { useMyLoadout } from "@/lib/useMyLoadout"
+import { useRaceCamera } from "@/lib/useRaceCamera"
 import { DEFAULT_LOADOUT } from "@tiral/avatars"
 import { RoadMovementControls } from "@/components/RoadMovementControls"
 import { StartPicker } from "@/components/StartPicker"
@@ -107,6 +108,7 @@ export default function Home() {
 
   const movement = useRoadMovement(graph, assignedStart, handleRoadInput, locked)
   const myLoadout = useMyLoadout()
+  const { recenter } = useRaceCamera(map, phase, movement.coordinate, movement.heading)
 
   const remoteAvatars = useMemo(() => {
     if (!graph) return []
@@ -220,17 +222,6 @@ export default function Home() {
     return () => controller.abort()
   }, [])
 
-  useEffect(() => {
-    if (!map || !revealedBounty) return
-    map.flyTo({
-      center: [revealedBounty.position.lng, revealedBounty.position.lat],
-      zoom: 15.5,
-      pitch: 48,
-      duration: 2500,
-      essential: true
-    })
-  }, [map, destinationId])
-
   const showPicker = connected && (phase === "lobby" || phase === "countdown")
 
   if (!connected && !reconnecting) {
@@ -307,6 +298,16 @@ export default function Home() {
               </span>
               {!reconnecting && (
                 <span className="flex gap-1">
+                  {phase === "racing" && (
+                    <button
+                      type="button"
+                      onClick={recenter}
+                      aria-label="Recenter on me"
+                      className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
+                    >
+                      ◎
+                    </button>
+                  )}
                   <Link
                     href="/leaderboard"
                     className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
