@@ -1,0 +1,520 @@
+# Tiral Economy — progress & decisions log
+
+Where we are on the in-game economy, how we got here, what's locked, and
+what's still open. Companion to `docs/economy.md` (the forward-looking spec):
+**this doc is the record; `economy.md` is the plan.**
+
+Status: **design only — no currency code exists yet.**
+Last updated: 12 Oct 2026.
+
+---
+
+## 1. What actually exists in the code today (audit)
+
+There is **no in-game currency**. What exists:
+
+- **Leaderboard points** — 1st = 3, 2nd = 2, 3rd = 1, computed on the fly
+  (`packages/db/src/results.ts:71`, `packages/db/src/users.ts:173`). Ranking
+  only — never stored, never spendable.
+- **UGX** — real money for **billboard ad purchases** via Relworx
+  (`apps/web/src/lib/relworx.ts`, `billboard_campaigns.amount_ugx`).
+- **Migrations** run `0000`–`0005` (`0005` = `users.house_loadout`). No
+  `coin_ledger` table, no balance column on `users`.
+- `apps/web/src/app/api/auth/me` returns `{user:{id,displayName,avatarUrl}}`;
+  `/api/profile` GET returns `user` + `stats` + `recentRaces`.
+
+Nothing about the economy below is built. It is the agreed design.
+
+---
+
+## 2. Design lineage (how we got here)
+
+1. **First pass — BNG currency spec.** "Banange Coins" (BNG), closed-loop,
+   ledger-driven, with welcome grants, faucets, sinks, transfers, anti-abuse.
+2. **Lagos Life reference study.** Studied `lagoslife.app` (viral browser
+   life-sim, Oct 2026) for what works and what to avoid.
+3. **Pivot — survival/running economy.** Tiral is a *running* game, so the
+   economy must centre on **energy → food → clothes → health**, not an
+   abstract coin shop. "The whole economy should be around that for now."
+4. **TikTok lens.** Acquisition is **TikTok**, so the survival loop is
+   re-read as a **clip-manufacturing and one-tap-conversion engine**.
+5. **Fresh brainstorm — the rivalry economy (§12).** Restarted from "what
+   only Tiral has": real Kampala roads, server-timed races, a live map,
+   billboards, houses. Proposes **Kings of the Road** (own a street by
+   holding its record) as the core, fed by **ghost challenges** and
+   **views → BNG**. Not yet reconciled with §4 — see §12.8.
+
+---
+
+## 3. Locked decisions
+
+- Currency name: **Banange Coins**, ticker **BNG**. Closed-loop, **no
+  cash-out, no redemption**, no off-platform trading.
+- Real money enters **one way only** via Relworx top-up packs.
+- Welcome grant: guests **10,000 BNG**; TikTok-linked **1,000,000** (vested —
+  see open Qs).
+- Spend on **avatar clothes + house items**.
+- **Tasks/quests to earn later.**
+- **Only TikTok-linked users can send**; **guests cannot send.**
+- **Balances are derived from the ledger, never stored.**
+- Leaderboard **points stay separate** from BNG (pure ranking).
+
+---
+
+## 4. Current model — the survival/running economy
+
+**Core loop: Run → Energy drops → Health at risk → Eat / rest / cook →
+Clothing & shoes wear out → back to running.**
+Anything that doesn't serve this loop is parked.
+
+### 4.1 Stats (three, plus one optional)
+- **Energy** — action currency. Sprinting drains fast, walking slowly,
+  standing in shade near zero.
+- **Fullness (hunger)** — slow time-decay. When low, energy can't refill and
+  health ticks down. Forces eating on a clock.
+- **Health** — consequence bar. At 0 → *collapse*: teleport home, short
+  recovery debuff, drop a little unbanked BNG.
+- *(Optional later)* **Hydration** — drinks restore it; heat/rain drain it.
+
+**Design rule: low energy never hard-blocks movement** — you can always limp
+home. It gates sprinting and high-reward actions only.
+
+### 4.2 Food — the heart of the economy
+Two paths; the **price gap between them is the whole game**:
+
+**Buy ready-to-eat (instant, pricier per energy):**
+
+| Item | Energy | Fullness | Price (BNG) | Note |
+|---|---|---|---|---|
+| Gonja (roasted plantain) | +15 | +10 | 200 | cheap snack, instant |
+| Rolex (chapati + eggs) | +35 | +25 | 500 | the iconic fuel |
+| Kikomando (chapati + beans) | +40 | +30 | 600 | lasts longer |
+| Muchomo skewer | +30 | +20 | 700 | +small health |
+| Soda / juice | +5 | — | 300 | hydration |
+| Restaurant plate | +70 | +50 | 2,000 | +health, +mood |
+| Uganda coffee | +10 | — | 400 | temporary **sprint buff** |
+| Nsenene (seasonal) | +25 | +15 | 1,500 | seasonal, rare, high demand |
+
+**Cook at home (cheaper per energy, costs a trip + time):**
+- Buy raw **ingredients** at markets → cook at your **kitchen** → meal.
+  Bulk ingredients ≈ 300 BNG → a +60 meal (~2× cheaper than street food).
+- **Recipes** unlock with better kitchen furniture (reuses the houses work).
+- **Garden plot** → passive ingredient faucet (slow free food).
+- **Fridge** → store food, slows spoilage (soft sink).
+- Flavour twist: meals can be slightly **under/over-cooked** (±value) or go
+  **cold** if not eaten in time.
+
+Why two paths: rich players buy and keep running; broke/new players cook.
+The buy-vs-cook spread justifies top-ups (skip the trip home) **without
+pay-to-win**.
+
+### 4.3 Clothing — cosmetic + functional, durability sink
+| Item | Effect | Price | Note |
+|---|---|---|---|
+| Running shoes | +speed, −energy drain | 5,000 | **wear out** → repair/replace |
+| Cap / hat | −energy drain in sun | 1,200 | |
+| Rain jacket | blocks rain health drain | 3,000 | rainy season |
+| Compression gear | −energy drain on long runs | 8,000 | mid-tier |
+| Backpack | carry more food/treasure | 2,500 | QoL |
+| Jerseys, gomesi, kanzu, shades, chain | pure flex | 3k–250k | whale sink |
+
+**Durability** on gear (degrades per race) = steady BNG burn that scales with
+play time. Best recurring sink for a running game.
+
+### 4.4 Health
+- **Lost by:** sprinting at 0 energy, boda/cart collisions, falls, rain
+  without a jacket, heat exhaustion, mugging in night/danger zones, spoiled
+  food.
+- **Restored by:** sleep in bed (best), a full meal, **free rest spots**
+  (benches/shade/water taps — slow), medicine, hospital/doctor (fast, pricey).
+- Free restore points exist so a penniless player can always recover.
+
+### 4.5 Faucets (tuned so ~1 race ≈ 1–2 meals)
+- Race placement: 1st +120 / 2nd +70 / 3rd +40, finish +10.
+- Treasure chest: +200 common / +1,000 rare.
+- Daily quest (1–3): +150 each. 7-day streak: +500.
+- **Running delivery/errand gigs** (on-theme): carry a package across town
+  → +80–200.
+- First-discovery bonus: +250.
+
+### 4.6 Sinks
+- Avatar clothes + house items (already locked).
+- Shop tiers: Common 2k–5k · Rare 15k–40k · Epic 100k–250k ·
+  Legendary 750k–1.5M.
+- **Weekly house upkeep** (scales by house tier) — the Lagos "rent" lesson,
+  as a flat upkeep rather than progressive tax.
+- Gear durability repairs.
+- Billboard shout-out: 25,000 BNG / 24h (in-game board, not the UGX ads).
+- Staked races: entry fee, winner takes pot minus **10% rake**.
+- Relworx top-up packs: 5k / 25k / 100k BNG.
+
+### 4.7 Home = survival hub
+Kitchen (cook), bed (sleep), fridge (store), shower (hygiene/mood), garden
+(grow). Better house = cheaper survival — finally gives house upgrades an
+economic reason.
+
+### 4.8 Social layer (later)
+- Share/gift food (TikTok-only send still applies).
+- **Player-run food stalls** — cook and sell meals to other players. An
+  emergent, player-driven economy built entirely on the survival loop.
+- Cook for house visitors.
+
+### 4.9 Time, weather, flavour
+- Day/night + Kampala rain/heat drive which gear you need → clothes become
+  situational.
+- Ugandan flavour throughout: rolex, matooke, kikomando, gonja, nsenene,
+  mukene, muchomo, Uganda coffee — leans into "Uganda is a running nation."
+
+---
+
+## 5. TikTok is the acquisition engine (design constraint, not a channel)
+
+**Funnel:** see clip → tap link (no download, web) → play as guest in <5s →
+first rolex moment → hit a small want → "link TikTok, get 1,000,000 BNG" →
+survive & share → their clip recruits the next player.
+
+### 5.1 Why a food/energy economy is TikTok-perfect
+Hunger is universal, instantly understood, cheap to depict, and **funny when
+it goes wrong**. Lagos Life goes viral on *class*; we go viral on **the
+struggle + the come-up**.
+
+### 5.2 Shareable moments to engineer on purpose
+- **The collapse** — faint at 0 energy/health; slow-mo + "Banange!" splash.
+- **The last rolex** — one meal, two starving players; whoever eats wins.
+- **The feed** — gift food to a fainting stranger; kindness content.
+- **The cook-off** — two players race to cook a meal; live timer.
+- **Nsenene season** — limited-time drop; scramble + FOMO.
+- **The come-up** — day 1 broke → day 30 king progression.
+- **Brand drops** — a real food truck's meals rain on the city for 10 min.
+
+### 5.3 First 60 seconds
+- Guest spawns with 10,000 BNG + one free snack; tutorial nudges a street
+  rolex purchase (instant sensory + cultural win).
+- Then the wall: *"Running is hungry work. Link TikTok → 1,000,000 BNG."*
+- **Auto-generate vertical clips** on key moments (first meal, first win,
+  first faint) watermarked + "Banange!" sound.
+- **Share-to-earn:** post/link a clip → BNG or a free meal.
+
+### 5.4 Referral & invite economy
+- **Link TikTok = the 1M vested grant** (biggest conversion lever).
+- Invite a friend who plays 3 races → both get food vouchers + BNG.
+- **Crew/Runner tribes** with your TikTok followers; crew leaderboard +
+  shared weekly reward.
+- **Linked badge** on the leaderboard so linking pays (status + perks).
+
+### 5.5 Creator program (the growth budget)
+- Sponsor Kampala TikTok creators with BNG + cosmetic drops.
+- **Cameo/celebrity avatars**, visitable houses ("come raid my kitchen"),
+  billboards showing creators.
+- **Creator food drops** recruit followers into their city.
+- **Creator-designed clothes/meals** with revenue share.
+
+### 5.6 Trend & challenge formats
+`#BanangeChallenge` (survive N days on 10k, no top-up) · `#BrokeBoyRun`
+(how far on empty before you faint) · `#FeedMeDuet` · `#CookOff` ·
+`#ComeUp` · community goals (feed the city 100k meals → server reward).
+
+### 5.7 Live & gifting bridges
+- **Live gifting hack:** viewers' TikTok gifts trigger in-game food/BNG to a
+  streamer's avatar. *(Feasibility: no public TikTok API for LIVE gifts or
+  comments — would rely on unofficial libraries. See §12.7.)*
+- **Brand-sponsored food:** real Ugandan food brands pay **UGX** (existing
+  Relworx/billboard path) for a free food drop → logo on the clip → their
+  TikTok campaign. Brand pays us, brand markets us.
+- **"Send a meal" deep link** from a TikTok comment lands a new user in-game.
+
+### 5.8 UGC, clout & status
+- TikTok handle on leaderboard + avatar from TikTok pfp.
+- **Clout rank** (followers/crew size → cosmetic titles) separate from BNG,
+  never pay-to-win.
+- **In-app clip studio** (trim, add sound, post) — the easiest possible
+  export to TikTok is a growth feature, not a nice-to-have.
+
+### 5.9 Rule of thumb
+**TikTok is loud in marketing, thin in architecture.** The game must survive
+TikTok disappearing — login + share only, never load-bearing (kept from
+`economy.md` §9).
+
+---
+
+## 6. Reference study — lagoslife.app
+
+Free browser Sims-style life-sim set in a shared Lagos (18+, no install),
+viral Oct 2026. (Homepage is a JS app; findings are from third-party guides
+and reported in-game observations, so treat specifics as *reported*.)
+
+- **Birth lottery:** Nepo Baby (₦500k, flat, car, job) vs LAPO Baby (₦60k
+  loan, ₦72k debt at ₦12k/week, skills learn 25% faster). The direct
+  ancestor of our guest-10k vs TikTok-1M split.
+- **Currency:** Game Naira — fictional, no cash value, no withdrawal.
+  Optional one-way wallet top-up (Flutterwave). Terms ban selling for cash,
+  duplication, exploits, automation.
+- **Loop:** six needs bars decay; work earns, food restores, rent every
+  Saturday or you lose the home.
+- **Earning:** jobs ₦6,600–₦99,000/shift, gigs, daily goals, server-wide
+  daily gem hunt; per-action cooldowns.
+- **Sinks:** rent ₦1,200–₦1,500,000/week, moving = 3× rent, food,
+  transport, furniture, **progressive tax** (first ₦1,000,000/week tax-free,
+  then 20/40/45%).
+- **Systems:** businesses/property with daily income + bad-day risk, savings
+  0.5%/wk, bonds 2%/7d, elections, police/EFCC.
+- **Social:** visit houses, chat, restricted player transfers.
+
+**Lessons:** copy the fictional closed-loop + one-way top-up, the class
+onboarding hook, the recurring sink, daily goals, and restricted transfers.
+Adapt the birth lottery (themed + vested), gem hunts (our chests/tasks), and
+businesses (our player food stalls). Avoid the heavy pressure (lock-outs,
+debt spirals) and do **not** reuse a fiat symbol — **BNG** stays clean.
+
+---
+
+## 7. Ledger & anti-abuse design
+
+- **`coin_ledger`** (immutable, append-only): `id, user_id, delta, reason,
+  race_id, counterparty, created_at`. **Balances derived, never stored.**
+- **Reasons:** `grant, placement, finish_bonus, pathfinder_bonus,
+  daily_quest, streak_bonus, chest, entry_fee, prize_payout, rake, upkeep,
+  purchase, tip, transfer_in, transfer_out, refund`.
+- **Dedupe** on `(reason, race_id)` so a race pays once.
+- Server-validated awards only; client never declares balances.
+- Rate limits per user/day; `race_id` dedupe; OAuth for any
+  transfer-capable state.
+- **Transfer gates:** TikTok-linked sender, account ≥30 days, ≥10 races,
+  **50,000 BNG/day cap**, 5% fee (sink). Guests may **receive**.
+- Terms: no real-world value; delivered top-ups non-refundable; duplicated/
+  exploited balances may be reversed; no off-platform trading.
+
+---
+
+## 8. Code hook points (where the build lands)
+
+- `packages/db/src/schema.ts` — add `coin_ledger`; migration `0006`.
+- `packages/db/src/{users,results}.ts` — `awardCoins()` / `getCoinBalance()`;
+  wire into `recordRaceResults`. (Points math at `results.ts:71`,
+  `users.ts:173`.)
+- `packages/game-core/src/` — pure stat/economy tables (energy drain, food
+  values, earn table) → likely `economy.ts`.
+- `packages/houses/src/catalog.ts` — furniture gains survival roles
+  (kitchen/bed/fridge/garden).
+- `apps/game-server/src/rooms/RaceRoom.ts` — race-finish → coin award; later
+  energy drain + food consumption.
+- `apps/web/src/app/api/{auth/me,profile}/route.ts` — BNG balance in payload.
+- `apps/web/src/components/game/TopBar.tsx` + profile HUD — BNG balance chip.
+- `apps/web/src/components/ProfileCustomizer.tsx`,
+  `components/house/HouseCustomizer.tsx` — spend surfaces.
+- `apps/web/src/lib/relworx.ts` — reuse for BNG top-up packs (UGX).
+
+---
+
+## 9. Build order (proposed)
+
+1. **Ledger + needs model.** Migration `0006` `coin_ledger`;
+   `awardCoins()`/`getCoinBalance()`; pure energy/fullness/health decay in
+   `game-core`.
+2. **Race-finish awards** wired into `RaceRoom` + `recordRaceResults`.
+3. **Food economy v1** — street food buy; "raw item → cook at home" kitchen;
+   energy/fullness restore; collapse + respawn.
+4. **Balance API + HUD chip.**
+5. **Clothing store (functional shoes first)** + gear durability.
+6. **Weekly upkeep** sink.
+7. **Transfers + Relworx top-up packs.**
+8. **TikTok link (OAuth) + vested 1M grant + referral.**
+9. **Tasks/quests, chests, streaks.**
+10. **Player food stalls, creator program, clip studio, live bridges.**
+
+---
+
+## 10. Open questions (need a decision)
+
+1. **Offline decay:** drain energy/fullness while logged out, or freeze?
+   *(lean: freeze energy, slowly decay fullness.)*
+2. **Collapse penalty:** respawn + debuff only, or also a BNG/treasure loss?
+3. **Cooking depth:** full ingredient+recipe system, or v1 = "buy raw item →
+   one-button cook at home"?
+4. **Functional clothes** (shoes/rain gear affect energy/speed) vs
+   cosmetic-only at launch? *(lean: functional shoes only in v1.)*
+5. **Player food stalls**: v1 or later?
+6. **Welcome gap:** vest the 1M (100k liquid + 900k over 90d) vs plain 1M vs
+   shrink to ~250k?
+7. **Upkeep vs tax:** flat weekly upkeep vs progressive weekly tax vs none?
+   *(lean: flat upkeep.)*
+8. **Guests receive gifts:** yes or no? *(lean: yes.)*
+9. **Transfer gates:** 30d + ≥10 races + 50k/day + 5% fee — ok?
+10. **Points vs BNG:** keep separate? *(lean: yes.)*
+11. **Shop gating:** new-items-only, or also gate existing free cosmetics?
+    *(lean: new-items-only.)*
+12. **TikTok link gate:** OAuth (safer vs bot farms) or lighter "@handle"
+    entry?
+13. **Auto clip export** at launch, or share-sheet for v1?
+14. **Creator program** now, or organic-first?
+15. **Live gifting bridge** — worth the hacky overlay, or park?
+16. **Lead signature format:** `#BanangeChallenge` or `#BrokeBoyRun`?
+17. **Name:** keep **BNG**, or make **"Banange"** the currency *and* the
+    sound/brand?
+
+---
+
+## 11. Risks log (do not delete)
+
+- **Chore risk** — hunger must be funny and short, never a grind that kills
+  a fast game.
+- **Paywall perception** — free survival paths (cooking, free rest spots)
+  are mandatory; TikTok will roast a paywall fast.
+- **Sybil/bot farms** on the 1M link bonus — vest it, OAuth-only, gate
+  transfers.
+- **Moderation/child safety** — 18+ framing; no real-cash trading; clear
+  "no cash value" terms.
+- **Cultural respect** — get Ugandan food/terms right, with creators, not at
+  them.
+- Carried from `economy.md`: free players are a cost center; paid races need
+  seeded liquidity + anti-cheat; closed coins only motivate if cosmetics are
+  desirable; TikTok dependency is existential; cash-out = becoming a fintech
+  (deferred).
+
+---
+
+## 12. Fresh brainstorm — the rivalry economy
+
+Started over from one question: **what does Tiral have that no other TikTok
+game has?** Real Kampala streets, server-authoritative race timing, a live
+shared map, billboards, player houses. Every idea below is built on those,
+and on one bet: **player-vs-player conflict makes better TikTok content than
+solo moments.**
+
+Status: **brainstorm — nothing locked.**
+
+### 12.1 Kings of the Road (core pick)
+Strava segments × TikTok beef.
+- The road graph is cut into named **segments** (Jinja Road, Nakasero Hill,
+  the Owino shortcut…). Fastest server-validated time through a segment
+  **owns it**.
+- The owner's TikTok handle + avatar is shown on that stretch of the live
+  map. The city becomes a visible leaderboard.
+- **Economy:** owners earn a small **system-paid tribute** (BNG) every time
+  anyone runs their segment; busier roads pay more. Owned roads = passive
+  income. Runners never pay to move.
+- **TikTok hook:** a dethroning auto-generates a clip — *"@sam just took
+  Jinja Road from @brian 👑"* — tagging the old owner. Losing a road is a
+  reason to come back and post a reply.
+- **Feasibility:** high. `RaceRoom` already tracks server-side positions on
+  the road graph; segment entry/exit timing is an extension of that.
+
+### 12.2 Ghost challenges (supporting)
+Duets, but for races.
+- Every race is recorded as a **ghost** (position samples). Share a link:
+  *"Beat my Nakasero → Owino: 2:41."*
+- The challenger races the ghost solo — no lobby needed. Both stake BNG
+  into a **pot**; winner takes it minus a rake (sink).
+- **TikTok hook:** auto-rendered **split-screen clip** (you vs ghost) —
+  the native duet/stitch format. A challenge link in a bio is a permanent
+  funnel.
+- **Side benefit:** fixes the empty-lobby problem — there's always someone
+  to race.
+- Ghost runs on a segment can take the crown (§12.1) — ties the two together.
+
+### 12.3 Views → BNG (supporting)
+Your clip is your paycheck.
+- Big moments (photo-finish, road takeover, shortcut nobody saw) are cut
+  into vertical clips automatically.
+- Posted via TikTok **Content Posting API**; Tiral reads the post's **view
+  count** via the **Display API** (own videos only) and pays BNG at tiers
+  (e.g. 1k / 10k / 100k views).
+- **Economy:** reach becomes a faucet. Every payout is distribution we'd
+  otherwise buy with ads.
+- **Guards:** only Tiral-generated clips count, daily caps, payouts vest
+  over 48h, one payout per tier per clip.
+
+### 12.4 The clue is in the video (creator drops — later)
+- A creator **funds a chest** with BNG and drops it on any walkable spot.
+  The location is never shown in-game — the **only clue is in their TikTok
+  video** (*"near the best rolex in Wandegeya 👀"*).
+- Followers decode, open Tiral, race. First arrival takes the chest.
+- **TikTok hook:** the video *is* the game; comment sections argue over
+  the clue.
+- **Economy:** chests are a creator sink; creators earn follows + a
+  finder's-fee cut. Reuses the pin-drop bounty idea from `economy.md` §3.
+
+### 12.5 Billboard fame (later)
+- Extend the existing billboard system with **player slots**: rent a board
+  for 24h with BNG to show your clip or avatar + handle.
+- Brands keep premium slots (UGX, Relworx); players bid BNG for the rest.
+- **TikTok hook:** *"I put my face on a billboard on Kampala Road."*
+- **Economy:** an endless status sink on infrastructure that already exists
+  (replaces the flat 25k "shout-out" in §4.6).
+
+### 12.6 Crew turf wars (later)
+- Linked users form **crews** from TikTok mutuals. Crews pool owned
+  segments (§12.1) into **turf** — neighbourhoods painted in crew colours.
+- Weekly turf payout into a crew bank; leaders decide the split.
+- **TikTok hook:** *"Kololo is ours now"* + crews recruiting followers to
+  defend turf.
+
+### 12.7 The loop, and constraints
+
+```
+Run a segment → beat the record → own the road (map + tribute BNG)
+      ↓                                         ↓
+auto clip "@you took X from @them"    rival notified → ghost-challenges back
+      ↓                                         ↓
+post to TikTok → views pay BNG   →   new players tap link → race the ghost
+```
+
+- **TikTok APIs:** Login Kit, Display API (own videos + view counts) and
+  Content Posting API exist. **Direct posting needs app audit** — until
+  then clips land in the user's TikTok drafts. **No public API for reading
+  comments or LIVE gifts**, so comment-/gift-triggered mechanics are out.
+- **Gambling exposure:** ghost pots are stakes. Keep BNG closed-loop (§3)
+  and consider barring freshly topped-up BNG from pots (only earned BNG can
+  be staked).
+- **Anti-cheat:** segment records only from server-validated movement;
+  reject physically impossible times; tribute requires a minimum number of
+  distinct runners per day; no tribute for running your own segment.
+- **Rule of thumb (§5.9) still holds:** if TikTok disappears, segments,
+  ghosts and tribute still work; only the clip faucet goes dark.
+
+### 12.8 How this relates to §4 (undecided)
+Three options:
+1. **Replace** the survival economy with the rivalry economy.
+2. **Layer:** rivalry is the core loop; survival shrinks to light flavour
+   (food as a sprint buff, shoes as cosmetics + small durability sink).
+3. **Keep survival as core**, rivalry as a mode.
+
+*(lean: 2 — rivalry is more TikTok-native and lighter to build; survival
+risks the chore problem in §11.)*
+
+### 12.9 New open questions
+18. Relationship to §4: replace / layer / keep (see §12.8)?
+19. **Segment cutting:** auto (junction-to-junction, merged to ~300–800 m)
+    or hand-curated named landmarks?
+20. **Tribute rate** and daily cap per owner?
+21. **Crowns decay?** Does a record expire after N days so roads churn, or
+    stand forever?
+22. **Ghost pots:** allowed for guests? Earned-BNG-only?
+23. **Views → BNG tiers** and caps; rely on drafts until audit passes?
+24. Clip rendering: **client-side** (canvas capture) or **server-side**
+    render pipeline?
+
+### 12.10 Code hook points (if built)
+- `packages/road-graph/src/index.ts` — segment definitions + lookup by edge.
+- `apps/game-server/src/rooms/RaceRoom.ts` — segment entry/exit timing in
+  the movement tick; ghost sampling; ghost-race room mode.
+- `packages/db/src/schema.ts` — `segments`, `segment_records`, `ghosts`,
+  `clips` tables; tribute via `coin_ledger` reasons `tribute`, `ghost_pot`,
+  `clip_views`.
+- `apps/web/src/components/MapView.tsx` / `BillboardLayer.tsx` — owner
+  labels on roads; player billboard slots.
+- `apps/web/src/lib/tiktok.ts` — Content Posting + Display (video list)
+  scopes.
+
+---
+
+## 13. Revision log
+
+- **12 Oct 2026** — Doc created. Captured: code audit (no currency; points +
+  UGX only), BNG spec, Lagos Life study, pivot to survival/running economy,
+  and the TikTok acquisition lens. Next: resolve open questions → fold into
+  `economy.md` → start build order step 1.
+- **12 Oct 2026** — Added §12, a fresh brainstorm: the rivalry economy
+  (Kings of the Road + ghost challenges + views → BNG; creator clue drops,
+  billboard fame, crew turf for later). Open Qs 18–24. Flagged that the
+  live-gifting idea in §5.7 has no public API.
