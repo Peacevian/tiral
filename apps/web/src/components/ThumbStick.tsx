@@ -3,7 +3,6 @@
 import { useRef, useState } from "react"
 import type { RoadDirection } from "@tiral/road-graph"
 
-const RADIUS = 52
 const DEADZONE = 12
 
 type Zone = "up" | "down" | "left" | "right" | null
@@ -12,6 +11,7 @@ export function ThumbStick({
   axis,
   disabled,
   active,
+  size = 104,
   onWalkChange,
   onTurn,
   onTurnAround
@@ -19,10 +19,14 @@ export function ThumbStick({
   axis: "vertical" | "horizontal"
   disabled: boolean
   active: boolean
+  /** Base diameter in px. Gesture radius scales with it so feel stays identical. */
+  size?: number
   onWalkChange?(walking: boolean): void
   onTurn?(direction: Extract<RoadDirection, "left" | "right">): void
   onTurnAround?(): void
 }) {
+  const radius = Math.max(28, size / 2 - 12)
+  const knobSize = Math.round(size * 0.44)
   const baseRef = useRef<HTMLDivElement>(null)
   const engagedRef = useRef(false)
   const walkingRef = useRef(false)
@@ -45,14 +49,16 @@ export function ThumbStick({
     const base = baseRef.current
     if (!base || !engagedRef.current || disabled) return
     const rect = base.getBoundingClientRect()
-    let dx = clientX - (rect.left + rect.width / 2)
-    let dy = clientY - (rect.top + rect.height / 2)
+    // Scale physical pixels into unit space so smaller sticks feel identical.
+    const scale = radius / (rect.width / 2 || 1)
+    let dx = (clientX - (rect.left + rect.width / 2)) * scale
+    let dy = (clientY - (rect.top + rect.height / 2)) * scale
     if (axis === "vertical") {
       dx = 0
-      dy = Math.max(-RADIUS, Math.min(RADIUS, dy))
+      dy = Math.max(-radius, Math.min(radius, dy))
     } else {
       dy = 0
-      dx = Math.max(-RADIUS, Math.min(RADIUS, dx))
+      dx = Math.max(-radius, Math.min(radius, dx))
     }
     setKnob({ x: dx, y: dy })
 
@@ -105,7 +111,8 @@ export function ThumbStick({
       }}
       onPointerUp={stop}
       onPointerCancel={stop}
-      className={`relative h-32 w-32 touch-none select-none rounded-full border-2 bg-slate-950/60 backdrop-blur-sm sm:bg-slate-950/80 ${
+      style={{ width: size, height: size }}
+      className={`relative touch-none select-none rounded-full border-2 bg-slate-950/60 backdrop-blur-sm sm:bg-slate-950/80 ${
         disabled ? "border-white/10 opacity-40" : "border-cyan-300/40"
       }`}
     >
@@ -129,11 +136,13 @@ export function ThumbStick({
         </>
       )}
       <div
-        className={`absolute left-1/2 top-1/2 h-14 w-14 rounded-full shadow-lg ${
+        className={`absolute left-1/2 top-1/2 rounded-full shadow-lg ${
           active ? "bg-cyan-300" : "bg-slate-200/90"
         }`}
         style={{
-          transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))`
+          width: knobSize,
+          height: knobSize,
+          transform: `translate(calc(-50% + ${(knob.x * (size / 2)) / radius}px), calc(-50% + ${(knob.y * (size / 2)) / radius}px))`
         }}
       />
     </div>

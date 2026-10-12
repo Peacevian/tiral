@@ -350,24 +350,84 @@ export default function Home() {
 
   const showPicker = connected && (phase === "lobby" || phase === "countdown")
 
+  const [lobbyOpen, setLobbyOpen] = useState(false)
+
   if (!connected && !reconnecting) {
+    const joinHandlers = {
+      onRefresh: () => void refreshRaces(),
+      onJoin: (roomId: string) => void runJoin(() => joinRace(roomId, myLoadout)),
+      onJoinCode: handleJoinCode,
+      onCreate: () => void runJoin(() => createRace(myLoadout)),
+      onQuickPlay: () => void runJoin(() => quickPlay(myLoadout))
+    }
     return (
-      <main className="flex h-dvh w-screen flex-col items-center justify-center gap-3 bg-slate-950 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <Link href="/" className="text-lg font-black text-white">
+      <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950">
+        <MapView
+          center={fallbackStart.position}
+          zoom={15}
+          pitch={48}
+          bearing={-18}
+          onMapReady={onMapReady}
+        />
+        {map && <BillboardLayer map={map} pins={billboardPins} onPinClick={setBrandCardPin} />}
+        {brandCardPin && (
+          <BrandCard
+            pin={brandCardPin}
+            onClose={() => setBrandCardPin(null)}
+            onAdvertise={() => {
+              setBrandCardPin(null)
+              window.location.href = "/advertise"
+            }}
+          />
+        )}
+        <Link
+          href="/"
+          className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl bg-slate-950/80 px-3 py-2 text-sm font-black text-white shadow-xl backdrop-blur-md"
+        >
           Tiral
         </Link>
-        <div className="h-[min(84dvh,640px)] w-[min(94vw,420px)] overflow-y-auto">
-          <LobbyList
-            races={races}
-            loading={lobbyLoading || joining}
-            error={lobbyError}
-            joining={joining}
-            onRefresh={() => void refreshRaces()}
-            onJoin={(roomId) => void runJoin(() => joinRace(roomId, myLoadout))}
-            onJoinCode={handleJoinCode}
-            onCreate={() => void runJoin(() => createRace(myLoadout))}
-            onQuickPlay={() => void runJoin(() => quickPlay(myLoadout))}
-          />
+        <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
+          <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setLobbyOpen((open) => !open)}
+              aria-expanded={lobbyOpen}
+              className="flex min-h-[44px] w-full items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-300"
+            >
+              <span aria-hidden>{lobbyOpen ? "▾" : "▴"}</span>
+              {lobbyOpen ? "Hide races" : "Find a race"}
+            </button>
+            {lobbyOpen ? (
+              <div className="max-h-[64dvh] overflow-y-auto px-3 pb-3">
+                <LobbyList
+                  races={races}
+                  loading={lobbyLoading || joining}
+                  error={lobbyError}
+                  joining={joining}
+                  {...joinHandlers}
+                />
+              </div>
+            ) : (
+              <div className="flex gap-2 px-3 pb-3">
+                <button
+                  type="button"
+                  disabled={joining}
+                  onClick={joinHandlers.onCreate}
+                  className="min-h-[48px] flex-1 rounded-xl bg-amber-400 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-300 disabled:opacity-50"
+                >
+                  Create race
+                </button>
+                <button
+                  type="button"
+                  disabled={joining}
+                  onClick={joinHandlers.onQuickPlay}
+                  className="min-h-[48px] flex-1 rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50"
+                >
+                  Quick play
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     )

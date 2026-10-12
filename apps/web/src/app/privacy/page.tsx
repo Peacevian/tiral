@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto min-h-screen w-full max-w-2xl bg-slate-950 px-6 py-12 text-slate-200">
+    <main className="mx-auto min-h-screen w-full max-w-2xl bg-slate-950 px-6 pb-24 pt-12 text-slate-200 md:pb-12">
       <h1 className="text-3xl font-black text-white">Privacy Policy</h1>
       <p className="mt-2 text-sm text-slate-400">Last updated: October 2026 · Tiral (“the Game”)</p>
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { ColyseusProvider } from "@/components/ColyseusProvider"
+import { MobileTabBar } from "@/components/MobileTabBar"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://playtiral.com"
 
@@ -42,6 +43,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="tiral-game w-screen min-h-screen overflow-x-hidden">
         <ColyseusProvider>{children}</ColyseusProvider>
+        <MobileTabBar />
       </body>
     </html>
   )
