@@ -78,7 +78,7 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
+      className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
         active
           ? "border-amber-300 bg-amber-300/20 text-amber-100"
           : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
@@ -108,14 +108,14 @@ function Swatches({
   onSelect(color: string): void
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {colors.map((color) => (
         <button
           key={color}
           type="button"
           onClick={() => onSelect(color)}
           aria-label={color}
-          className={`h-8 w-8 rounded-full border-2 transition ${
+          className={`h-11 w-11 rounded-full border-2 transition ${
             selected === color ? "scale-110 border-amber-300" : "border-white/20 hover:border-white/50"
           }`}
           style={{ backgroundColor: color }}
@@ -223,7 +223,7 @@ export function HouseCustomizer({
         ))}
       </Group>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-4">
         <Group label="Wall paint">
           <Swatches colors={WALL_COLORS} selected={house.colors.wall} onSelect={(wall) => setColor({ wall })} />
         </Group>
@@ -258,7 +258,7 @@ export function HouseCustomizer({
             <button
               type="button"
               onClick={removeSelected}
-              className="rounded-lg border border-rose-400/40 px-2 py-1 text-xs font-bold text-rose-200"
+              className="min-h-[44px] rounded-lg border border-rose-400/40 px-3 text-xs font-bold text-rose-200"
             >
               Remove {FURNITURE_BY_ID[selected.item].label}
             </button>
@@ -321,7 +321,7 @@ export function HouseCustomizer({
                   key={step.label}
                   type="button"
                   onClick={() => moveSelected(step.dx, step.dz)}
-                  className="h-8 w-8 rounded-lg border border-white/15 bg-white/5 text-sm font-bold text-slate-200 hover:bg-white/10"
+                  className="h-11 w-11 rounded-lg border border-white/15 bg-white/5 text-sm font-bold text-slate-200 hover:bg-white/10"
                 >
                   {step.label}
                 </button>
@@ -329,7 +329,7 @@ export function HouseCustomizer({
               <button
                 type="button"
                 onClick={rotateSelected}
-                className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-white/10"
+                className="min-h-[44px] rounded-lg border border-white/15 bg-white/5 px-3 text-xs font-bold text-slate-200 hover:bg-white/10"
               >
                 ⟳ Rotate
               </button>
