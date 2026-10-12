@@ -2,9 +2,28 @@ import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { ColyseusProvider } from "@/components/ColyseusProvider"
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tiral.geinz.lol"
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Tiral — Kampala Treasure Race",
-  description: "Multiplayer map-based treasure-hunting game",
+  description:
+    "Hunt treasure on the real streets of Kampala. Free multiplayer browser game — no install. Pick a start, race rivals to a hidden bounty.",
+  openGraph: {
+    title: "Tiral — Kampala Treasure Race",
+    description:
+      "Free multiplayer treasure-hunting on real Kampala streets. Play in your browser, no install.",
+    url: "/",
+    siteName: "Tiral",
+    type: "website",
+    images: [{ url: "/tiral-icon-1024.png", width: 1024, height: 1024, alt: "Tiral" }]
+  },
+  twitter: {
+    card: "summary",
+    title: "Tiral — Kampala Treasure Race",
+    description: "Free multiplayer treasure-hunting on real Kampala streets. No install.",
+    images: ["/tiral-icon-1024.png"]
+  }
 }
 
 export const viewport: Viewport = {
@@ -21,7 +40,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="tiral-game w-screen h-screen overflow-hidden">
+      <body className="tiral-game w-screen min-h-screen overflow-x-hidden">
         <ColyseusProvider>{children}</ColyseusProvider>
       </body>
     </html>

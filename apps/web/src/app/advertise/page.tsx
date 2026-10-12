@@ -127,7 +127,7 @@ export default function AdvertisePage() {
     <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 py-8 text-white">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black">Advertise in Tiral</h1>
-        <Link href="/" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
+        <Link href="/play" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
           ← Race
         </Link>
       </div>

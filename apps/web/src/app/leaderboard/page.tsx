@@ -49,7 +49,7 @@ export default function LeaderboardPage() {
           </div>
           <h1 className="text-2xl font-black">Leaderboard</h1>
         </div>
-        <Link href="/" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
+        <Link href="/play" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
           ← Race
         </Link>
       </div>

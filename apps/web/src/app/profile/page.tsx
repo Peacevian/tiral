@@ -135,7 +135,7 @@ export default function ProfilePage() {
           You are signed out. Join the game first — a profile is created automatically.
         </p>
         <Link
-          href="/"
+          href="/play"
           className="mt-4 inline-block rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950"
         >
           ← Back to the game
@@ -148,7 +148,7 @@ export default function ProfilePage() {
     <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 py-8 text-white">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black">Profile</h1>
-        <Link href="/" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
+        <Link href="/play" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
           ← Race
         </Link>
       </div>
