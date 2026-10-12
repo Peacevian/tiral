@@ -1,12 +1,120 @@
 "use client"
 
-import { useMemo } from "react"
-import { Canvas } from "@react-three/fiber"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { Environment, Lightformer, OrbitControls } from "@react-three/drei"
+import * as THREE from "three"
 import type { HouseLoadout, PlacedItem } from "@tiral/houses"
+import type { AvatarLoadout } from "@tiral/avatars"
 import { FURNITURE_BY_ID, ROOM_GRID } from "@tiral/houses"
 import { Furniture3D } from "./Furniture3D"
+import { RealisticAvatar } from "../RealisticAvatar"
 import { makeMaterialTexture, materialSurface } from "./houseTextures"
+
+export type HouseView = "outside" | "inside"
+
+const OUTSIDE_CAMERA: [number, number, number] = [7.5, 6.5, 8.5]
+const OUTSIDE_TARGET: [number, number, number] = [0, 0.8, 0]
+const INSIDE_CAMERA: [number, number, number] = [2.6, 2.1, 4.8]
+const INSIDE_TARGET: [number, number, number] = [0, 1.0, -0.5]
+// Open floor away from the default furniture layout.
+export const AVATAR_HOME: RoomSpot = { x: -1.6, z: 1.6 }
+
+export type RoomSpot = { x: number; z: number }
+
+function CameraRig({ view, follow }: { view: HouseView; follow: RoomSpot | null }) {
+  const camera = useThree((state) => state.camera)
+  const controls = useThree((state) => state.controls) as unknown as {
+    target: THREE.Vector3
+    update(): void
+  } | null
+  useEffect(() => {
+    if (view === "inside") {
+      camera.position.set(...INSIDE_CAMERA)
+      controls?.target.set(...INSIDE_TARGET)
+    } else {
+      camera.position.set(...OUTSIDE_CAMERA)
+      controls?.target.set(...OUTSIDE_TARGET)
+    }
+    controls?.update()
+  }, [view, camera, controls])
+  // Gentle follow while strolling inside: glide the orbit target, never the camera.
+  useFrame((_, delta) => {
+    if (!controls || view !== "inside" || !follow) return
+    const t = controls.target
+    const k = 1 - Math.exp(-3 * delta)
+    t.x += (follow.x - t.x) * k
+    t.z += (follow.z - t.z) * k
+  })
+  return null
+}
+
+// Ignore orbit drags: only near-stationary taps count (mirrors map click tolerance).
+function tapped(event: ThreeEvent<MouseEvent>): boolean {
+  return event.delta <= 6
+}
+
+function SelectionRing({ spot }: { spot: RoomSpot }) {
+  const ref = useRef<THREE.Mesh>(null)
+  useFrame(({ clock }) => {
+    const s = 1 + Math.sin(clock.elapsedTime * 4) * 0.08
+    ref.current?.scale.set(s, s, 1)
+  })
+  return (
+    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[spot.x, 0.03, spot.z]}>
+      <ringGeometry args={[0.32, 0.46, 32]} />
+      <meshBasicMaterial color="#f59e0b" transparent opacity={0.9} side={THREE.DoubleSide} />
+    </mesh>
+  )
+}
+
+const STROLL_SPEED = 2.2
+
+function StrollingAvatar({
+  loadout,
+  spot,
+  onTap
+}: {
+  loadout: AvatarLoadout
+  spot: RoomSpot
+  onTap(): void
+}) {
+  const group = useRef<THREE.Group>(null)
+  const current = useRef<RoomSpot>({ ...spot })
+  const strollingRef = useRef(false)
+  const [strolling, setStrolling] = useState(false)
+  useFrame((_, delta) => {
+    const dx = spot.x - current.current.x
+    const dz = spot.z - current.current.z
+    const dist = Math.hypot(dx, dz)
+    if (dist > 0.02) {
+      const step = Math.min(dist, STROLL_SPEED * delta)
+      current.current.x += (dx / dist) * step
+      current.current.z += (dz / dist) * step
+      group.current?.rotation.set(0, Math.atan2(dx, dz), 0)
+      if (!strollingRef.current) {
+        strollingRef.current = true
+        setStrolling(true)
+      }
+    } else if (strollingRef.current) {
+      strollingRef.current = false
+      setStrolling(false)
+    }
+    group.current?.position.set(current.current.x, 0, current.current.z)
+  })
+  return (
+    <group
+      ref={group}
+      onClick={(event) => {
+        if (!tapped(event)) return
+        event.stopPropagation()
+        onTap()
+      }}
+    >
+      <RealisticAvatar loadout={loadout} moving={strolling} />
+    </group>
+  )
+}
 
 const HALF = ROOM_GRID / 2
 const WALL_HEIGHT = 2.5
@@ -50,7 +158,22 @@ function Wall({
   )
 }
 
-function Room({ house, showRoof }: { house: HouseLoadout; showRoof: boolean }) {
+function Room({
+  house,
+  showRoof,
+  onSelectTile,
+  onSelectSurface
+}: {
+  house: HouseLoadout
+  showRoof: boolean
+  onSelectTile(x: number, z: number): void
+  onSelectSurface(kind: "wall" | "roof"): void
+}) {
+  const tileFromPoint = (point: THREE.Vector3) => {
+    const tx = Math.max(0, Math.min(ROOM_GRID - 1, Math.floor(point.x + HALF)))
+    const tz = Math.max(0, Math.min(ROOM_GRID - 1, Math.floor(point.z + HALF)))
+    return { x: tx + 0.5 - HALF, z: tz + 0.5 - HALF }
+  }
   const wallTex = useMemo(() => makeMaterialTexture(house.wallMaterial, 3), [house.wallMaterial])
   const floorTex = useMemo(() => makeMaterialTexture(house.floorMaterial, 4), [house.floorMaterial])
   const roofTex = useMemo(() => makeMaterialTexture(house.roofMaterial, 3), [house.roofMaterial])
@@ -60,8 +183,17 @@ function Room({ house, showRoof }: { house: HouseLoadout; showRoof: boolean }) {
 
   return (
     <group>
-      {/* floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
+      {/* floor (tap = stroll there) */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.01, 0]}
+        receiveShadow
+        onClick={(event) => {
+          if (!tapped(event)) return
+          const tile = tileFromPoint(event.point)
+          onSelectTile(tile.x, tile.z)
+        }}
+      >
         <planeGeometry args={[ROOM_GRID, ROOM_GRID]} />
         <meshStandardMaterial
           map={floorTex ?? undefined}
@@ -78,23 +210,39 @@ function Room({ house, showRoof }: { house: HouseLoadout; showRoof: boolean }) {
       </mesh>
 
       {/* back wall (+z viewer, so wall at -z) */}
-      <Wall
-        position={[0, WALL_HEIGHT / 2, -HALF]}
-        size={[ROOM_GRID, WALL_HEIGHT, WALL_THICKNESS]}
-        color={house.colors.wall}
-        texture={wallTex}
-        roughness={wall.roughness}
-        metalness={wall.metalness}
-      />
+      <group
+        onClick={(event) => {
+          if (!tapped(event)) return
+          event.stopPropagation()
+          onSelectSurface("wall")
+        }}
+      >
+        <Wall
+          position={[0, WALL_HEIGHT / 2, -HALF]}
+          size={[ROOM_GRID, WALL_HEIGHT, WALL_THICKNESS]}
+          color={house.colors.wall}
+          texture={wallTex}
+          roughness={wall.roughness}
+          metalness={wall.metalness}
+        />
+      </group>
       {/* left wall (at -x) */}
-      <Wall
-        position={[-HALF, WALL_HEIGHT / 2, 0]}
-        size={[WALL_THICKNESS, WALL_HEIGHT, ROOM_GRID]}
-        color={house.colors.wall}
-        texture={wallTex}
-        roughness={wall.roughness}
-        metalness={wall.metalness}
-      />
+      <group
+        onClick={(event) => {
+          if (!tapped(event)) return
+          event.stopPropagation()
+          onSelectSurface("wall")
+        }}
+      >
+        <Wall
+          position={[-HALF, WALL_HEIGHT / 2, 0]}
+          size={[WALL_THICKNESS, WALL_HEIGHT, ROOM_GRID]}
+          color={house.colors.wall}
+          texture={wallTex}
+          roughness={wall.roughness}
+          metalness={wall.metalness}
+        />
+      </group>
       {/* skirting trim */}
       <mesh position={[0, 0.12, -HALF + WALL_THICKNESS / 2 + 0.01]}>
         <boxGeometry args={[ROOM_GRID, 0.24, 0.04]} />
@@ -106,7 +254,16 @@ function Room({ house, showRoof }: { house: HouseLoadout; showRoof: boolean }) {
       </mesh>
 
       {showRoof && (
-        <mesh position={[0, WALL_HEIGHT + 0.12, 0]} castShadow receiveShadow>
+        <mesh
+          position={[0, WALL_HEIGHT + 0.12, 0]}
+          castShadow
+          receiveShadow
+          onClick={(event) => {
+            if (!tapped(event)) return
+            event.stopPropagation()
+            onSelectSurface("roof")
+          }}
+        >
           <boxGeometry args={[ROOM_GRID + 0.5, 0.24, ROOM_GRID + 0.5]} />
           <meshStandardMaterial
             map={roofTex ?? undefined}
@@ -131,18 +288,35 @@ function Room({ house, showRoof }: { house: HouseLoadout; showRoof: boolean }) {
 
 export function HousePreviewScene({
   house,
-  showRoof = false
+  showRoof = false,
+  view = "outside",
+  avatarLoadout,
+  avatarSpot = AVATAR_HOME,
+  selection = null,
+  onSelectTile,
+  onSelectAvatar,
+  onSelectSurface
 }: {
   house: HouseLoadout
   showRoof?: boolean
+  view?: HouseView
+  /** When set, the avatar lives inside the room (the profile hero). */
+  avatarLoadout?: AvatarLoadout
+  avatarSpot?: RoomSpot
+  selection?: RoomSpot | null
+  onSelectTile?(x: number, z: number): void
+  onSelectAvatar?(): void
+  onSelectSurface?(kind: "wall" | "roof"): void
 }) {
+  const inside = view === "inside"
   return (
     <Canvas
       style={{ width: "100%", height: "100%" }}
-      camera={{ position: [7.5, 6.5, 8.5], fov: 42 }}
+      camera={{ position: OUTSIDE_CAMERA, fov: 42 }}
       gl={{ antialias: true, alpha: true }}
       shadows
     >
+      <CameraRig view={view} follow={avatarLoadout ? avatarSpot : null} />
       <hemisphereLight args={["#fff4d6", "#293548", 0.6]} />
       <directionalLight
         position={[6, 10, 6]}
@@ -164,14 +338,28 @@ export function HousePreviewScene({
         <circleGeometry args={[14, 48]} />
         <meshStandardMaterial color="#0f1a2b" roughness={1} />
       </mesh>
-      <Room house={house} showRoof={showRoof} />
+      <Room
+        house={house}
+        showRoof={showRoof && !inside}
+        onSelectTile={(x, z) => onSelectTile?.(x, z)}
+        onSelectSurface={(kind) => onSelectSurface?.(kind)}
+      />
+      {selection && <SelectionRing spot={selection} />}
+      {avatarLoadout && (
+        <StrollingAvatar
+          loadout={avatarLoadout}
+          spot={avatarSpot}
+          onTap={() => onSelectAvatar?.()}
+        />
+      )}
       <OrbitControls
-        target={[0, 0.8, 0]}
+        makeDefault
+        target={inside ? INSIDE_TARGET : OUTSIDE_TARGET}
         enablePan={false}
-        minDistance={6}
+        minDistance={inside ? 2 : 6}
         maxDistance={20}
         maxPolarAngle={Math.PI / 2 + 0.05}
-        autoRotate
+        autoRotate={!inside}
         autoRotateSpeed={0.9}
       />
     </Canvas>

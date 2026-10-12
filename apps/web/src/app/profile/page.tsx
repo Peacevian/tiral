@@ -5,10 +5,12 @@ import Link from "next/link"
 import { KAMPALA_ZONE } from "@tiral/game-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
-import { AvatarPreview } from "@/components/AvatarPreview"
 import { ProfileCustomizer } from "@/components/ProfileCustomizer"
 import { HousePreview } from "@/components/house/HousePreview"
 import { HouseCustomizer } from "@/components/house/HouseCustomizer"
+import { HomeHud } from "@/components/house/HomeHud"
+import { HomeSheet, type HomeSheetTab } from "@/components/house/HomeSheet"
+import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/HousePreviewScene"
 
 type ProfileUser = {
   id: string
@@ -50,7 +52,11 @@ export default function ProfilePage() {
   const [draftLoadout, setDraftLoadout] = useState<AvatarLoadout>(DEFAULT_LOADOUT)
   const [draftHouse, setDraftHouse] = useState<HouseLoadout>(DEFAULT_HOUSE)
   const [showRoof, setShowRoof] = useState(true)
-  const [walking, setWalking] = useState(true)
+  const [homeView, setHomeView] = useState<HouseView>("outside")
+  const [sheetTab, setSheetTab] = useState<HomeSheetTab>("avatar")
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [avatarSpot, setAvatarSpot] = useState<RoomSpot>(AVATAR_HOME)
+  const [selection, setSelection] = useState<RoomSpot | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -156,165 +162,167 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 py-8 text-white">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black">Profile</h1>
-        <Link href="/play" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
-          ← Race
-        </Link>
-      </div>
-
-      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xl font-black text-slate-950">
-          {user.displayName.charAt(0).toUpperCase()}
-        </div>
-        <div className="min-w-0 flex-1">
-          {user.tiktokLinked ? (
-            <>
-              <div className="truncate text-lg font-bold">{user.displayName}</div>
-              <div className="text-xs text-slate-400">Synced from TikTok</div>
-            </>
-          ) : (
-            <>
-              <input
-                value={draftName}
-                maxLength={24}
-                onChange={(event) => {
-                  setDraftName(event.target.value)
-                  setDirty(true)
-                }}
-                className="w-full rounded-lg border border-white/15 bg-slate-900 px-2 py-1 text-lg font-bold"
-              />
-              <div className="mt-1 text-xs text-slate-400">Guest nickname — editable</div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-            Your racer
-          </div>
+    <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950 text-white">
+      <HousePreview
+        fill
+        house={draftHouse}
+        showRoof={showRoof}
+        view={homeView}
+        avatarLoadout={draftLoadout}
+        avatarSpot={avatarSpot}
+        selection={selection}
+        onSelectTile={(x, z) => {
+          setAvatarSpot({ x, z })
+          setSelection({ x, z })
+        }}
+        onSelectAvatar={() => {
+          setSelection(null)
+          setSheetTab("avatar")
+          setSheetOpen(true)
+        }}
+        onSelectSurface={() => {
+          setSelection(null)
+          setSheetTab("house")
+          setSheetOpen(true)
+        }}
+      />
+      <HomeHud
+        displayName={user.displayName}
+        dirty={dirty}
+        saving={saving}
+        notice={notice}
+        onSave={() => void save()}
+      />
+      <div className="absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[max(4.25rem,calc(env(safe-area-inset-top)+3.75rem))] z-20 flex overflow-hidden rounded-xl border border-white/15 bg-slate-950/80 shadow-xl backdrop-blur-md">
+        {(["outside", "inside"] as const).map((view) => (
           <button
+            key={view}
             type="button"
-            onClick={() => setWalking((value) => !value)}
-            className="rounded-lg border border-white/15 px-2 py-1 text-xs font-bold text-slate-300"
+            onClick={() => setHomeView(view)}
+            aria-pressed={homeView === view}
+            className={`min-h-[44px] px-4 text-xs font-black capitalize transition ${
+              homeView === view ? "bg-amber-400 text-slate-950" : "text-slate-200"
+            }`}
           >
-            {walking ? "Pause walk" : "Walk"}
+            {view}
           </button>
-        </div>
-        <AvatarPreview loadout={draftLoadout} walking={walking} />
+        ))}
       </div>
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-          Your outfit
-        </div>
-        <ProfileCustomizer
-          loadout={draftLoadout}
-          onChange={(next) => {
-            setDraftLoadout(next)
-            setDirty(true)
-          }}
-        />
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-            My house
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowRoof((value) => !value)}
-            className="rounded-lg border border-white/15 px-2 py-1 text-xs font-bold text-slate-300"
-          >
-            {showRoof ? "Hide roof" : "Show roof"}
-          </button>
-        </div>
-        <HousePreview house={draftHouse} showRoof={showRoof} />
-        <div className="mt-4">
-          <HouseCustomizer
-            house={draftHouse}
+      <HomeSheet
+        tab={sheetTab}
+        onTab={setSheetTab}
+        open={sheetOpen}
+        onToggle={() => setSheetOpen((open) => !open)}
+        avatar={
+          <ProfileCustomizer
+            loadout={draftLoadout}
             onChange={(next) => {
-              setDraftHouse(next)
+              setDraftLoadout(next)
               setDirty(true)
             }}
           />
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={saving || !dirty}
-            className="flex-1 rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-40"
-          >
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDraftLoadout(user.loadout)
-              setDraftHouse(user.house ?? DEFAULT_HOUSE)
-              setDraftName(user.displayName)
-              setDirty(false)
-              setNotice(null)
-            }}
-            disabled={saving || !dirty}
-            className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold text-slate-200 disabled:opacity-40"
-          >
-            Reset
-          </button>
-        </div>
-        {notice && <div className="mt-2 text-center text-xs text-slate-300">{notice}</div>}
-      </div>
-
-      {stats && (
-        <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-          {[
-            { label: "Points", value: stats.points },
-            { label: "Wins", value: stats.wins },
-            { label: "Races", value: stats.races },
-            { label: "Best", value: stats.bestPosition ?? "–" }
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 px-2 py-3">
-              <div className="font-mono text-xl font-black text-cyan-300">{stat.value}</div>
-              <div className="text-[11px] uppercase tracking-wide text-slate-400">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-4">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-          Recent races
-        </div>
-        {recentRaces.length === 0 ? (
-          <div className="rounded-xl border border-white/10 px-4 py-4 text-center text-sm text-slate-400">
-            No finished races yet.
+        }
+        house={
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => setShowRoof((value) => !value)}
+              className="min-h-[44px] rounded-xl border border-white/15 px-3 text-xs font-bold text-slate-200"
+            >
+              {showRoof ? "Hide roof" : "Show roof"}
+            </button>
+            <HouseCustomizer
+              house={draftHouse}
+              onChange={(next) => {
+                setDraftHouse(next)
+                setDirty(true)
+              }}
+            />
           </div>
-        ) : (
-          <ol className="flex flex-col gap-2">
-            {recentRaces.map((race) => (
-              <li
-                key={race.raceId}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-              >
-                <span className="font-bold">{bountyName(race.destinationId)}</span>
-                <span className="text-xs text-slate-400">
-                  {race.position}
-                  {race.position === 1 ? "st" : race.position === 2 ? "nd" : race.position === 3 ? "rd" : "th"} of{" "}
-                  {race.playerCount} · {new Date(race.finishedAt).toLocaleDateString()}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
+        }
+        room={
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-lg font-black text-slate-950">
+                {user.displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                {user.tiktokLinked ? (
+                  <>
+                    <div className="truncate font-bold">{user.displayName}</div>
+                    <div className="text-[11px] text-slate-400">Synced from TikTok</div>
+                  </>
+                ) : (
+                  <input
+                    value={draftName}
+                    maxLength={24}
+                    onChange={(event) => {
+                      setDraftName(event.target.value)
+                      setDirty(true)
+                    }}
+                    className="w-full rounded-lg border border-white/15 bg-slate-900 px-2 py-1.5 font-bold"
+                  />
+                )}
+              </div>
+            </div>
+            {stats && (
+              <div className="grid grid-cols-4 gap-1.5 text-center">
+                {[
+                  { label: "Points", value: stats.points },
+                  { label: "Wins", value: stats.wins },
+                  { label: "Races", value: stats.races },
+                  { label: "Best", value: stats.bestPosition ?? "–" }
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 px-1 py-2">
+                    <div className="font-mono text-base font-black text-cyan-300">{stat.value}</div>
+                    <div className="text-[10px] uppercase tracking-wide text-slate-400">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div>
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Recent races
+              </div>
+              {recentRaces.length === 0 ? (
+                <div className="rounded-xl border border-white/10 px-4 py-3 text-center text-xs text-slate-400">
+                  No finished races yet.
+                </div>
+              ) : (
+                <ol className="flex flex-col gap-1.5">
+                  {recentRaces.map((race) => (
+                    <li
+                      key={race.raceId}
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs"
+                    >
+                      <span className="font-bold">{bountyName(race.destinationId)}</span>
+                      <span className="text-[11px] text-slate-400">
+                        {race.position}
+                        {race.position === 1 ? "st" : race.position === 2 ? "nd" : race.position === 3 ? "rd" : "th"} of{" "}
+                        {race.playerCount} · {new Date(race.finishedAt).toLocaleDateString()}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDraftLoadout(user.loadout)
+                setDraftHouse(user.house ?? DEFAULT_HOUSE)
+                setDraftName(user.displayName)
+                setDirty(false)
+                setNotice(null)
+              }}
+              disabled={saving || !dirty}
+              className="min-h-[44px] rounded-xl border border-white/15 px-4 text-sm font-bold text-slate-200 disabled:opacity-40"
+            >
+              Reset changes
+            </button>
+          </div>
+        }
+      />
     </main>
   )
 }
