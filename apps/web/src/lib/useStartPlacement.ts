@@ -65,6 +65,20 @@ export function useStartPlacement({
     }
   }, [serverPin])
 
+  // One-shot placement: once a pin exists there is no re-adjust UI,
+  // so stand down as soon as the pin lands (optimistic or confirmed).
+  useEffect(() => {
+    if (serverPin || optimisticPin) setArmed(false)
+  }, [serverPin, optimisticPin])
+
+  // Confirmation toast: appears once when the pin lands, then goes away.
+  const hadPinRef = useRef(false)
+  useEffect(() => {
+    const has = !!(serverPin || optimisticPin)
+    if (has && !hadPinRef.current) flashNotice("★ Start pinned — good luck!")
+    hadPinRef.current = has
+  }, [serverPin, optimisticPin, flashNotice])
+
   // Race over: stand down.
   useEffect(() => {
     if (placementOver) setArmed(false)

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import type { RoadDirection, RoadGraph, RoadPosition } from "@tiral/road-graph"
 import { ThumbStick } from "../ThumbStick"
 
@@ -57,13 +58,25 @@ export function ControlDeck({
   const statusText = loadingRoads
     ? "Loading walkable roads…"
     : (roadError ?? edge?.name ?? edge?.highway ?? "Snapped to road")
+  // Collapsible deck: folded away leaves only the joysticks (plus a reopen tab).
+  const [deckOpen, setDeckOpen] = useState(true)
+  const sticksHigh = showStarts && deckOpen && !hasStartPin
 
   return (
     <>
-      <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      {deckOpen ? (
+      <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-slate-950/80 shadow-2xl backdrop-blur-md">
-          {showStarts && (
-            <div className="px-3 pt-2.5">
+          <button
+            type="button"
+            onClick={() => setDeckOpen(false)}
+            aria-label="Collapse controls"
+            className="flex min-h-[28px] w-full items-center justify-center text-[10px] font-bold tracking-[0.25em] text-slate-500"
+          >
+            ▾
+          </button>
+          {showStarts && !hasStartPin && (
+            <div className="px-2.5">
               <button
                 type="button"
                 onClick={onTogglePlacement}
@@ -75,39 +88,31 @@ export function ControlDeck({
               >
                 {placementArmed ? "Done ✓" : "📍 Set my start"}
               </button>
-              <div
-                className={`mt-1.5 rounded-xl border px-3 py-2 text-center text-xs font-bold ${
-                  hasStartPin
-                    ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-200"
-                    : "border-white/10 bg-white/5 text-slate-300"
-                }`}
-              >
+              <div className="mt-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs font-bold text-slate-300">
                 {placementArmed
-                  ? hasStartPin
-                    ? "★ Pinned — tap anywhere to move it, Done to lock in"
-                    : "Tap anywhere on the map to drop your pin"
-                  : hasStartPin
-                    ? "★ Start pinned — Set my start to adjust"
-                    : "No start yet — tap Set my start"}
+                  ? "Tap anywhere on the map to drop your pin"
+                  : "No start yet — tap Set my start"}
               </div>
-              {showSolo && (
-                <button
-                  type="button"
-                  onClick={onStartNow}
-                  className="mt-1.5 min-h-[44px] w-full rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400"
-                >
-                  Start now (solo)
-                </button>
-              )}
+            </div>
+          )}
+          {showStarts && showSolo && (
+            <div className="px-2.5">
+              <button
+                type="button"
+                onClick={onStartNow}
+                className="mt-1 min-h-[44px] w-full rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400"
+              >
+                Start now (solo)
+              </button>
             </div>
           )}
           {notice && (
-            <div className="mx-3 mb-2 rounded-xl border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-center text-xs font-bold text-rose-200">
+            <div className="mx-3 mb-2 rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-2 text-center text-xs font-bold text-amber-100">
               {notice}
             </div>
           )}
-          <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <div className="min-w-0 flex-1 truncate text-xs text-slate-300">
+          <div className="flex items-center justify-between gap-2 px-2.5 pb-2 pt-1.5">
+            <div className="min-w-0 flex-1 truncate text-[11px] text-slate-300">
               {turnIntent ? (
                 <span className="font-bold text-amber-200">
                   {turnIntent === "straight" ? "→ Straight" : turnIntent === "left" ? "← Left" : "Right →"}
@@ -128,16 +133,29 @@ export function ControlDeck({
           </div>
         </div>
       </div>
+      ) : (
+      <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          onClick={() => setDeckOpen(true)}
+          aria-label="Show controls"
+          className="rounded-full border border-white/15 bg-slate-950/80 px-5 py-2 text-[11px] font-bold tracking-[0.2em] text-slate-300 shadow-xl backdrop-blur-md"
+        >
+          ▴ CONTROLS
+        </button>
+      </div>
+      )}
       <div className="tiral-sticks">
         <div
-          className={`absolute left-[max(0.75rem,env(safe-area-inset-left))] z-30 touch-none ${
-            showStarts
-              ? "bottom-[max(13.5rem,calc(env(safe-area-inset-bottom)+12.5rem))]"
-              : "bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))]"
+          className={`absolute left-[max(0.5rem,env(safe-area-inset-left))] z-30 touch-none ${
+            sticksHigh
+              ? "bottom-[max(13rem,calc(env(safe-area-inset-bottom)+12rem))]"
+              : "bottom-[max(5rem,calc(env(safe-area-inset-bottom)+4rem))]"
           }`}
         >
           <ThumbStick
             axis="vertical"
+            size={100}
             disabled={!position || locked}
             active={moving}
             onWalkChange={onMovingChange}
@@ -145,14 +163,15 @@ export function ControlDeck({
           />
         </div>
         <div
-          className={`absolute right-[max(0.75rem,env(safe-area-inset-right))] z-30 touch-none ${
-            showStarts
-              ? "bottom-[max(13.5rem,calc(env(safe-area-inset-bottom)+12.5rem))]"
-              : "bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))]"
+          className={`absolute right-[max(0.5rem,env(safe-area-inset-right))] z-30 touch-none ${
+            sticksHigh
+              ? "bottom-[max(13rem,calc(env(safe-area-inset-bottom)+12rem))]"
+              : "bottom-[max(5rem,calc(env(safe-area-inset-bottom)+4rem))]"
           }`}
         >
           <ThumbStick
             axis="horizontal"
+            size={100}
             disabled={!position || locked}
             active={false}
             onTurn={onRequestTurn}

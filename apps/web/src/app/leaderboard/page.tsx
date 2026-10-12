@@ -41,7 +41,7 @@ export default function LeaderboardPage() {
   }, [load, period])
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 py-8 text-white">
+    <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-24 pt-8 text-white md:pb-8">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">

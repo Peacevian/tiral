@@ -12,7 +12,7 @@ export const dynamic = "force-static"
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen w-full overflow-y-auto bg-slate-950">
+    <main className="min-h-screen w-full overflow-y-auto bg-slate-950 pb-20 md:pb-0">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
         <span className="text-lg font-black text-white">Tiral</span>
         <div className="flex items-center gap-2">

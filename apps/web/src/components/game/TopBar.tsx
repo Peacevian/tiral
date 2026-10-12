@@ -95,8 +95,8 @@ export function TopBar({
 
   return (
     <div className="absolute inset-x-0 top-0 z-20 pt-[max(0.5rem,env(safe-area-inset-top))] px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
-      <div className="flex min-h-[48px] items-center justify-between gap-2 rounded-2xl border border-white/10 bg-slate-950/80 py-1.5 pl-3 pr-1.5 shadow-xl backdrop-blur-md">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-h-[44px] items-center justify-between gap-1.5 rounded-2xl border border-white/10 bg-slate-950/80 py-1 pl-2.5 pr-1 shadow-xl backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-1.5">
           <span className="relative flex h-2.5 w-2.5 shrink-0">
             <span
               className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${
@@ -110,14 +110,14 @@ export function TopBar({
             />
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-black leading-tight text-white">
+            <div className="truncate text-xs font-black leading-tight text-white">
               {roomCode ?? "Tiral"}
-              <span className="ml-1.5 font-bold text-slate-300">
+              <span className="ml-1 font-bold text-slate-300">
                 · {racerCount} racer{racerCount === 1 ? "" : "s"}
-                {locked && phase === "racing" ? "" : locked ? " · 🔒" : ""}
+                {locked && phase !== "racing" ? " · 🔒" : ""}
               </span>
             </div>
-            <div className="truncate font-mono text-xs leading-tight text-cyan-300">
+            <div className="truncate font-mono text-[11px] leading-tight text-cyan-300">
               {bountyName ? <span className="mr-1.5 text-emerald-300">◉ {bountyName}</span> : null}
               {statusLine}
             </div>
