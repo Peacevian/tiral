@@ -56,7 +56,7 @@ export default function TermsPage() {
         </p>
 
         <p className="pt-4">
-          <Link href="/" className="font-bold text-amber-400 hover:text-amber-300">
+          <Link href="/play" className="font-bold text-amber-400 hover:text-amber-300">
             ← Back to the game
           </Link>
         </p>
