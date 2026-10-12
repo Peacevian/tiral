@@ -2,12 +2,16 @@
 
 import {
   BACKPACK_COLORS,
+  GLASSES_STYLES,
   HAT_COLORS,
   HAT_STYLES,
   PANTS_COLORS,
   SHIRT_COLORS,
+  SHOE_COLORS,
   SKIN_TONES,
+  resolveLoadout,
   type AvatarLoadout,
+  type GlassesStyle,
   type HatStyle
 } from "@tiral/avatars"
 
@@ -54,6 +58,7 @@ export function ProfileCustomizer({
   loadout: AvatarLoadout
   onChange(next: AvatarLoadout): void
 }) {
+  const resolved = resolveLoadout(loadout)
   return (
     <div className="flex flex-col gap-4">
       <Swatches
@@ -108,6 +113,33 @@ export function ProfileCustomizer({
         colors={BACKPACK_COLORS}
         selected={loadout.backpack}
         onSelect={(backpack) => onChange({ ...loadout, backpack })}
+      />
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+          Glasses
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {GLASSES_STYLES.map((style: GlassesStyle) => (
+            <button
+              key={style}
+              type="button"
+              onClick={() => onChange({ ...loadout, glasses: style })}
+              className={`rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
+                resolved.glasses === style
+                  ? "border-amber-300 bg-amber-300/20 text-amber-100"
+                  : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
+              }`}
+            >
+              {style}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Swatches
+        label="Shoes"
+        colors={SHOE_COLORS}
+        selected={resolved.shoes}
+        onSelect={(shoes) => onChange({ ...loadout, shoes })}
       />
     </div>
   )

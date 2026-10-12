@@ -36,6 +36,13 @@
       "when": 1791724659770,
       "tag": "0004_speke-resort-slot",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791792975703,
+      "tag": "0005_exotic_deathbird",
+      "breakpoints": true
     }
   ]
 }

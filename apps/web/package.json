@@ -16,6 +16,7 @@
     "@tiral/avatars": "workspace:*",
     "@tiral/db": "workspace:*",
     "@tiral/game-core": "workspace:*",
+    "@tiral/houses": "workspace:*",
     "@tiral/map": "workspace:*",
     "@tiral/road-graph": "workspace:*",
     "@tiral/routing": "workspace:*",

@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { useFrame } from "@react-three/fiber"
 import { RoundedBox } from "@react-three/drei"
 import * as THREE from "three"
-import type { AvatarLoadout, HatStyle } from "@tiral/avatars"
+import { resolveLoadout, type AvatarLoadout, type GlassesStyle, type HatStyle } from "@tiral/avatars"
 
 function makeWeaveTexture(): THREE.CanvasTexture | null {
   if (typeof document === "undefined") return null
@@ -42,7 +42,6 @@ function makeWeaveTexture(): THREE.CanvasTexture | null {
 }
 
 const HAIR_COLOR = "#2b2118"
-const SHOE_COLOR = "#26211c"
 const SOLE_COLOR = "#0f0d0b"
 
 function RealisticHat({ style, color }: { style: HatStyle; color: string }) {
@@ -93,11 +92,11 @@ function RealisticHat({ style, color }: { style: HatStyle; color: string }) {
   )
 }
 
-function Shoe({ position }: { position: [number, number, number] }) {
+function Shoe({ position, color }: { position: [number, number, number]; color: string }) {
   return (
     <group position={position}>
       <RoundedBox args={[0.15, 0.13, 0.3]} radius={0.045} smoothness={4} position={[0, 0.07, 0.04]} castShadow>
-        <meshStandardMaterial color={SHOE_COLOR} roughness={0.4} metalness={0.15} />
+        <meshStandardMaterial color={color} roughness={0.4} metalness={0.15} />
       </RoundedBox>
       <RoundedBox args={[0.16, 0.035, 0.32]} radius={0.015} smoothness={2} position={[0, 0.018, 0.04]}>
         <meshStandardMaterial color={SOLE_COLOR} roughness={0.9} />
@@ -106,6 +105,46 @@ function Shoe({ position }: { position: [number, number, number] }) {
         <mesh key={z} position={[0, 0.135, z - 0.06]} rotation={[Math.PI / 2, 0, Math.PI / 2]}>
           <torusGeometry args={[0.045, 0.012, 8, 12, Math.PI]} />
           <meshStandardMaterial color="#d6c9a8" roughness={0.8} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function Glasses({ style }: { style: GlassesStyle }) {
+  if (style === "none") return null
+  const frame = "#1f2937"
+  const lens = "#7dd3fc"
+  return (
+    <group position={[0, 0.03, 0.17]}>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * 0.08, 0, 0.02]}>
+          {style === "round" ? (
+            <torusGeometry args={[0.055, 0.012, 8, 20]} />
+          ) : (
+            <boxGeometry args={[0.11, 0.08, 0.02]} />
+          )}
+          <meshStandardMaterial color={frame} roughness={0.4} metalness={0.3} />
+        </mesh>
+      ))}
+      {[-1, 1].map((side) => (
+        <mesh key={`lens-${side}`} position={[side * 0.08, 0, 0.035]}>
+          {style === "round" ? (
+            <circleGeometry args={[0.05, 20]} />
+          ) : (
+            <planeGeometry args={[0.1, 0.07]} />
+          )}
+          <meshStandardMaterial color={lens} transparent opacity={0.28} roughness={0.1} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.005, 0.02]}>
+        <boxGeometry args={[0.05, 0.014, 0.014]} />
+        <meshStandardMaterial color={frame} roughness={0.4} metalness={0.3} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={`arm-${side}`} position={[side * 0.155, 0.01, -0.06]} rotation={[0, side * 0.5, 0]}>
+          <boxGeometry args={[0.014, 0.014, 0.16]} />
+          <meshStandardMaterial color={frame} roughness={0.4} metalness={0.3} />
         </mesh>
       ))}
     </group>
@@ -141,6 +180,7 @@ export function RealisticAvatar({
   moving: boolean
 }) {
   const bodyRef = useRef<THREE.Group>(null)
+  const { shoes, glasses } = resolveLoadout(loadout)
   const torsoRef = useRef<THREE.Mesh>(null)
   const headRef = useRef<THREE.Group>(null)
   const thighL = useRef<THREE.Group>(null)
@@ -215,7 +255,7 @@ export function RealisticAvatar({
               <torusGeometry args={[0.075, 0.025, 8, 14]} />
               <meshStandardMaterial color={loadout.pants} roughness={0.9} />
             </mesh>
-            <Shoe position={[0, -0.4, 0.02]} />
+            <Shoe position={[0, -0.4, 0.02]} color={shoes} />
           </group>
         </group>
       ))}
@@ -350,6 +390,7 @@ export function RealisticAvatar({
           <boxGeometry args={[0.09, 0.022, 0.015]} />
           <meshStandardMaterial color="#7c2d12" roughness={0.6} />
         </mesh>
+        <Glasses style={glasses} />
         <RealisticHat style={loadout.hat} color={loadout.hatColor} />
       </group>
     </group>
