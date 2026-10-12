@@ -5,9 +5,11 @@ import {
   getRecentRaces,
   hasTikTokLink,
   updateAvatarLoadout,
-  updateGuestDisplayName
+  updateGuestDisplayName,
+  updateHouseLoadout
 } from "@tiral/db"
 import { isValidLoadout } from "@tiral/avatars"
+import { isValidHouseLoadout } from "@tiral/houses"
 import { readSessionCookie, verifySession } from "@/lib/session"
 
 async function requireUserId(request: NextRequest): Promise<string | null> {
@@ -37,6 +39,7 @@ export async function GET(request: NextRequest) {
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
       loadout: user.avatarLoadout,
+      house: user.houseLoadout,
       tiktokLinked
     },
     stats,
@@ -55,6 +58,7 @@ export async function PATCH(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     displayName?: unknown
     loadout?: unknown
+    house?: unknown
   } | null
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
@@ -80,6 +84,13 @@ export async function PATCH(request: NextRequest) {
     await updateAvatarLoadout(userId, body.loadout)
   }
 
+  if (body.house !== undefined) {
+    if (!isValidHouseLoadout(body.house)) {
+      return NextResponse.json({ error: "Invalid house customization" }, { status: 400 })
+    }
+    await updateHouseLoadout(userId, body.house)
+  }
+
   const user = await findUserById(userId)
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 })
@@ -89,7 +100,8 @@ export async function PATCH(request: NextRequest) {
       id: user.id,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
-      loadout: user.avatarLoadout
+      loadout: user.avatarLoadout,
+      house: user.houseLoadout
     }
   })
 }

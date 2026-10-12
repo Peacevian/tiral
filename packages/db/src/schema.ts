@@ -1,11 +1,13 @@
 import { doublePrecision, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
+import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   displayName: text("display_name").notNull(),
   avatarUrl: text("avatar_url"),
   avatarLoadout: jsonb("avatar_loadout").$type<AvatarLoadout>().default(DEFAULT_LOADOUT).notNull(),
+  houseLoadout: jsonb("house_loadout").$type<HouseLoadout>().default(DEFAULT_HOUSE).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull()
 })

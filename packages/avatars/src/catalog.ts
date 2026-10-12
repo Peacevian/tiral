@@ -49,6 +49,18 @@ export const BACKPACK_COLORS = [
   "#78350f"
 ] as const
 
+export const SHOE_COLORS = [
+  "#26211c",
+  "#e7e5e4",
+  "#b91c1c",
+  "#1e3a8a",
+  "#14532d",
+  "#f59e0b"
+] as const
+
+export const GLASSES_STYLES = ["none", "round", "square"] as const
+export type GlassesStyle = (typeof GLASSES_STYLES)[number]
+
 export type AvatarLoadout = {
   skin: string
   shirt: string
@@ -56,6 +68,8 @@ export type AvatarLoadout = {
   hat: HatStyle
   hatColor: string
   backpack: string
+  shoes?: string
+  glasses?: GlassesStyle
 }
 
 export const DEFAULT_LOADOUT: AvatarLoadout = {
@@ -64,7 +78,18 @@ export const DEFAULT_LOADOUT: AvatarLoadout = {
   pants: "#27364d",
   hat: "cap",
   hatColor: "#92400e",
-  backpack: "#92400e"
+  backpack: "#92400e",
+  shoes: "#26211c",
+  glasses: "none"
+}
+
+export function resolveLoadout(loadout: AvatarLoadout): Required<AvatarLoadout> {
+  return {
+    ...DEFAULT_LOADOUT,
+    ...loadout,
+    shoes: loadout.shoes ?? DEFAULT_LOADOUT.shoes ?? "#26211c",
+    glasses: loadout.glasses ?? DEFAULT_LOADOUT.glasses ?? "none"
+  }
 }
 
 function isHexColor(value: unknown): value is string {
@@ -76,7 +101,7 @@ export function isValidLoadout(value: unknown): value is AvatarLoadout {
   const loadout = value as Record<string, unknown>
   const keys = ["skin", "shirt", "pants", "hat", "hatColor", "backpack"]
   if (!keys.every((key) => key in loadout)) return false
-  return (
+  const baseValid =
     (SKIN_TONES as readonly string[]).includes(loadout.skin as string) &&
     (SHIRT_COLORS as readonly string[]).includes(loadout.shirt as string) &&
     (PANTS_COLORS as readonly string[]).includes(loadout.pants as string) &&
@@ -88,7 +113,14 @@ export function isValidLoadout(value: unknown): value is AvatarLoadout {
     isHexColor(loadout.pants) &&
     isHexColor(loadout.hatColor) &&
     isHexColor(loadout.backpack)
-  )
+  if (!baseValid) return false
+  const shoesValid =
+    loadout.shoes === undefined ||
+    (isHexColor(loadout.shoes) && (SHOE_COLORS as readonly string[]).includes(loadout.shoes))
+  const glassesValid =
+    loadout.glasses === undefined ||
+    (GLASSES_STYLES as readonly string[]).includes(loadout.glasses as GlassesStyle)
+  return shoesValid && glassesValid
 }
 
 export function sanitizeLoadout(value: unknown): AvatarLoadout {

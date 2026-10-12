@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
+import { sanitizeHouseLoadout, type HouseLoadout } from "@tiral/houses"
 import { getDatabase, type Database } from "./client.js"
 import { raceResults, races, tiktokAccounts, users, type User } from "./schema.js"
 
@@ -137,6 +138,20 @@ export async function updateAvatarLoadout(
     .where(eq(users.id, userId))
     .returning({ avatarLoadout: users.avatarLoadout })
   return rows[0]?.avatarLoadout ?? null
+}
+
+export async function updateHouseLoadout(
+  userId: string,
+  house: unknown,
+  db: Database = getDatabase()
+): Promise<HouseLoadout | null> {
+  const clean = sanitizeHouseLoadout(house)
+  const rows = await db
+    .update(users)
+    .set({ houseLoadout: clean, lastSeenAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning({ houseLoadout: users.houseLoadout })
+  return rows[0]?.houseLoadout ?? null
 }
 
 export type ProfileStats = {

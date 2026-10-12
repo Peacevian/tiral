@@ -4,14 +4,18 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { KAMPALA_ZONE } from "@tiral/game-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
+import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 import { AvatarPreview } from "@/components/AvatarPreview"
 import { ProfileCustomizer } from "@/components/ProfileCustomizer"
+import { HousePreview } from "@/components/house/HousePreview"
+import { HouseCustomizer } from "@/components/house/HouseCustomizer"
 
 type ProfileUser = {
   id: string
   displayName: string
   avatarUrl: string | null
   loadout: AvatarLoadout
+  house: HouseLoadout
   tiktokLinked: boolean
 }
 
@@ -44,6 +48,8 @@ export default function ProfilePage() {
   const [recentRaces, setRecentRaces] = useState<RecentRace[]>([])
   const [draftName, setDraftName] = useState("")
   const [draftLoadout, setDraftLoadout] = useState<AvatarLoadout>(DEFAULT_LOADOUT)
+  const [draftHouse, setDraftHouse] = useState<HouseLoadout>(DEFAULT_HOUSE)
+  const [showRoof, setShowRoof] = useState(true)
   const [walking, setWalking] = useState(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -68,6 +74,7 @@ export default function ProfilePage() {
         setRecentRaces(body.recentRaces)
         setDraftName(body.user.displayName)
         setDraftLoadout(body.user.loadout)
+        setDraftHouse(body.user.house ?? DEFAULT_HOUSE)
       })
       .catch(() => {})
       .finally(() => {
@@ -83,12 +90,15 @@ export default function ProfilePage() {
     setSaving(true)
     setNotice(null)
     try {
-      const payload: { displayName?: string; loadout?: AvatarLoadout } = {}
+      const payload: { displayName?: string; loadout?: AvatarLoadout; house?: HouseLoadout } = {}
       if (draftName.trim() !== user.displayName) {
         payload.displayName = draftName.trim()
       }
       if (JSON.stringify(draftLoadout) !== JSON.stringify(user.loadout)) {
         payload.loadout = draftLoadout
+      }
+      if (JSON.stringify(draftHouse) !== JSON.stringify(user.house)) {
+        payload.house = draftHouse
       }
       if (Object.keys(payload).length === 0) {
         setNotice("Nothing to save — no changes yet.")
@@ -110,6 +120,7 @@ export default function ProfilePage() {
       setUser({ ...body.user, tiktokLinked: user.tiktokLinked })
       setDraftName(body.user.displayName)
       setDraftLoadout(body.user.loadout)
+      setDraftHouse(body.user.house ?? DEFAULT_HOUSE)
       setDirty(false)
       setNotice("Saved! Your new look shows up in your next race.")
     } catch {
@@ -117,11 +128,11 @@ export default function ProfilePage() {
     } finally {
       setSaving(false)
     }
-  }, [user, draftName, draftLoadout])
+  }, [user, draftName, draftLoadout, draftHouse])
 
   if (loading) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 py-8 text-white">
+      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-24 pt-8 text-white md:pb-8">
         <div className="text-center text-sm text-slate-400">Loading profile…</div>
       </main>
     )
@@ -129,7 +140,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 py-8 text-white">
+      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-24 pt-8 text-white md:pb-8">
         <h1 className="text-2xl font-black">Profile</h1>
         <p className="mt-2 text-sm text-slate-400">
           You are signed out. Join the game first — a profile is created automatically.
@@ -197,6 +208,9 @@ export default function ProfilePage() {
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+          Your outfit
+        </div>
         <ProfileCustomizer
           loadout={draftLoadout}
           onChange={(next) => {
@@ -204,19 +218,48 @@ export default function ProfilePage() {
             setDirty(true)
           }}
         />
-        <div className="mt-4 flex gap-2">
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+            My house
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowRoof((value) => !value)}
+            className="rounded-lg border border-white/15 px-2 py-1 text-xs font-bold text-slate-300"
+          >
+            {showRoof ? "Hide roof" : "Show roof"}
+          </button>
+        </div>
+        <HousePreview house={draftHouse} showRoof={showRoof} />
+        <div className="mt-4">
+          <HouseCustomizer
+            house={draftHouse}
+            onChange={(next) => {
+              setDraftHouse(next)
+              setDirty(true)
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => void save()}
             disabled={saving || !dirty}
             className="flex-1 rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-40"
           >
-            {saving ? "Saving…" : "Save look"}
+            {saving ? "Saving…" : "Save changes"}
           </button>
           <button
             type="button"
             onClick={() => {
               setDraftLoadout(user.loadout)
+              setDraftHouse(user.house ?? DEFAULT_HOUSE)
               setDraftName(user.displayName)
               setDirty(false)
               setNotice(null)
