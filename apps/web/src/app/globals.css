@@ -66,6 +66,151 @@ body {
   }
 }
 
+/* Roadside billboards (BillboardLayer): DOM boards standing on posts */
+.tiral-bb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  transform-origin: 50% 100%;
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+}
+.tiral-bb__panel {
+  display: block;
+  width: 116px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0f172a;
+  border: 2px solid #fbbf24;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.5);
+  transition: transform 0.15s ease;
+}
+.tiral-bb:hover .tiral-bb__panel,
+.tiral-bb:focus-visible .tiral-bb__panel {
+  transform: translateY(-2px);
+}
+.tiral-bb__panel--in .tiral-bb__art > img,
+.tiral-bb__panel--in .tiral-bb__caption {
+  animation: tiral-bb-in 0.45s ease-out;
+}
+.tiral-bb__art {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #1e293b;
+}
+.tiral-bb__art > img,
+.tiral-bb__badge > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+.tiral-bb__fallback {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: #fbbf24;
+}
+.tiral-bb__tag {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #fde68a;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 13px;
+}
+.tiral-bb__caption {
+  display: block;
+  padding: 2px 6px 3px;
+  background: #fbbf24;
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 13px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tiral-bb__post {
+  display: block;
+  width: 4px;
+  height: 18px;
+  background: linear-gradient(90deg, #475569, #94a3b8 50%, #475569);
+}
+.tiral-bb__post--short {
+  height: 10px;
+}
+.tiral-bb__foot {
+  display: block;
+  width: 14px;
+  height: 5px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.35);
+}
+.tiral-bb__badge {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #0f172a;
+  border: 2px solid #fbbf24;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.4);
+}
+.tiral-bb__badge .tiral-bb__fallback {
+  font-size: 13px;
+}
+.tiral-bb__empty {
+  display: block;
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 1.5px dashed rgba(71, 85, 105, 0.7);
+  background: rgba(255, 255, 255, 0.82);
+  color: #334155;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tiral-bb--empty {
+  opacity: 0.8;
+}
+.tiral-bb--empty:hover {
+  opacity: 1;
+}
+@keyframes tiral-bb-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Twin thumb sticks: touch devices only, never on keypad laptops */
 .tiral-sticks {
   display: none;

@@ -34,7 +34,7 @@ function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
   )
 }
 
-import { selectCurrentAd } from "@/lib/billboards"
+import { ROTATION_SECONDS, selectCurrentAd } from "@/lib/billboards"
 import type { RaceListing } from "@/lib/useColyseus"
 
 type BillboardSlot = {
@@ -292,9 +292,19 @@ export default function Home() {
   const [brandCardPin, setBrandCardPin] = useState<BillboardPin | null>(null)
   const [rotationTick, setRotationTick] = useState(() => Date.now())
 
+  // Tick once per rotation boundary (not every second) so the page only
+  // re-renders when the ad on a board actually changes.
   useEffect(() => {
-    const interval = setInterval(() => setRotationTick(Date.now()), 1000)
-    return () => clearInterval(interval)
+    const period = ROTATION_SECONDS * 1000
+    let timer: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      timer = setTimeout(() => {
+        setRotationTick(Date.now())
+        schedule()
+      }, period - (Date.now() % period) + 50)
+    }
+    schedule()
+    return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {
@@ -331,14 +341,16 @@ export default function Home() {
           link: campaign.link
         }))
       const current = selectCurrentAd(ads, rotationTick)
+      const tier = slot.tier === "premium" ? ("premium" as const) : ("standard" as const)
       if (!current) {
-        return { slotId: slot.id, slotName: slot.name, lat: slot.lat, lng: slot.lng, kind: "house" as const }
+        return { slotId: slot.id, slotName: slot.name, lat: slot.lat, lng: slot.lng, tier, kind: "house" as const }
       }
       return {
         slotId: slot.id,
         slotName: slot.name,
         lat: slot.lat,
         lng: slot.lng,
+        tier,
         kind: "ad" as const,
         brandName: current.brandName,
         imagePath: current.imagePath,
@@ -473,7 +485,14 @@ export default function Home() {
         </ThreeLayer>
       )}
 
-      {map && <BillboardLayer map={map} pins={billboardPins} onPinClick={setBrandCardPin} />}
+      {map && (
+        <BillboardLayer
+          map={map}
+          pins={billboardPins}
+          showEmpty={!connected || phase === "lobby" || phase === "countdown"}
+          onPinClick={setBrandCardPin}
+        />
+      )}
       {map && <StartPins map={map} players={startPinPlayers} ownSessionId={sessionId} />}
       {brandCardPin && (
         <BrandCard
