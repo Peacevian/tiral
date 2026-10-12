@@ -25,7 +25,7 @@ export type RoadInput =
 
 export function useRoadMovement(
   graph: RoadGraph | null,
-  start: LatLng,
+  start: LatLng | null,
   onInput?: (input: RoadInput) => void,
   locked = false
 ) {
@@ -41,8 +41,15 @@ export function useRoadMovement(
   const lockedRef = useRef(locked)
   lockedRef.current = locked
 
+  // No seed, no avatar: the player stays off-map until they drop a start pin.
+  // Crucially this also CLEARS any stale position (previous race, HMR state)
+  // so an avatar can never appear before an explicit placement.
   useEffect(() => {
-    if (!graph) return
+    if (!graph || !start) {
+      positionRef.current = null
+      setPosition(null)
+      return
+    }
     const nearest = findNearestEdge(graph, start)
     if (!nearest) return
     const next: RoadPosition = {
@@ -53,7 +60,7 @@ export function useRoadMovement(
     positionRef.current = next
     setPosition(next)
     setFeedback(nearest.distanceMeters > 20 ? "Snapped to the nearest walkable road" : null)
-  }, [graph, start.lat, start.lng])
+  }, [graph, start?.lat, start?.lng])
 
   useEffect(() => {
     movingRef.current = moving

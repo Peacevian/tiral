@@ -5,17 +5,16 @@ import { LiveStrip } from "@/components/landing/LiveStrip"
 import { AdvertiseCta } from "@/components/landing/AdvertiseCta"
 import { Footer } from "@/components/landing/Footer"
 
-// Fully static marketing page: no sockets, no map, no client JS
-// except the best-effort LiveStrip snapshot.
+// Static marketing page: prerendered shell, no sockets. The hero phone
+// lazily mounts a real live MapLibre map on the client; the LiveStrip
+// snapshot is best-effort and never blocks rendering.
 export const dynamic = "force-static"
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen w-full overflow-y-auto bg-slate-950">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
-        <span className="text-lg font-black text-white">
-          Tiral <span className="hidden font-normal text-slate-400 sm:inline">— Kampala Treasure Race</span>
-        </span>
+        <span className="text-lg font-black text-white">Tiral</span>
         <div className="flex items-center gap-2">
           <Link
             href="/leaderboard"

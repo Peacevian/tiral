@@ -12,6 +12,7 @@ type RoomPlayer = {
   userId?: string | null
   loadout?: AvatarLoadout
   startPointId: string | null
+  startAt?: { lat: number; lng: number } | null
   roadPosition: { edgeId: string; distanceAlongEdge: number; direction: 1 | -1 } | null
   coordinate: { lat: number; lng: number } | null
   moving?: boolean
@@ -360,6 +361,10 @@ export function useColyseus({
     roomRef.current?.send("selectStart", startPointId)
   }, [])
 
+  const sendPlaceStart = useCallback((lat: number, lng: number) => {
+    roomRef.current?.send("placeStart", { lat, lng })
+  }, [])
+
   const sendPlayAgain = useCallback(() => {
     roomRef.current?.send("playAgain")
   }, [])
@@ -414,6 +419,7 @@ export function useColyseus({
     sendTurn,
     sendTurnAround,
     sendSelectStart,
+    sendPlaceStart,
     sendPlayAgain,
     sendStartNow
   }

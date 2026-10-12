@@ -28,6 +28,7 @@ type PlayerInfo = {
   userId: string | null
   loadout: AvatarLoadout
   startPointId: string | null
+  startAt: { lat: number; lng: number } | null
   roadPosition: RoadPosition | null
   coordinate: { lat: number; lng: number } | null
   moving: boolean
@@ -37,6 +38,8 @@ type PlayerInfo = {
 }
 
 const RECONNECT_SECONDS = 30
+
+const MAX_START_SNAP_METERS = 500
 
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 const usedRoomCodes = new Set<string>()
@@ -100,6 +103,34 @@ export class RaceRoom extends Room {
         direction: 1
       }
       player.coordinate = getRoadCoordinate(this.roadGraph, player.roadPosition)
+      player.moving = false
+      player.turnIntent = null
+      this.broadcast("roomState", this.getRoomState())
+    })
+
+    // Tap-to-place start: player drops a pin anywhere in the zone,
+    // server snaps it to the nearest walkable road.
+    this.onMessage("placeStart", (client, point: { lat: number; lng: number }) => {
+      if (this.phase !== "lobby" && this.phase !== "countdown") return
+      const player = this.players[client.sessionId]
+      if (!player || !this.roadGraph) return
+      const lat = Number(point?.lat)
+      const lng = Number(point?.lng)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      const bounds = KAMPALA_ZONE.bounds
+      if (lat < bounds.south || lat > bounds.north || lng < bounds.west || lng > bounds.east) {
+        return
+      }
+      const nearest = findNearestEdge(this.roadGraph, { lat, lng })
+      if (!nearest || nearest.distanceMeters > MAX_START_SNAP_METERS) return
+      player.startPointId = null
+      player.roadPosition = {
+        edgeId: nearest.edgeId,
+        distanceAlongEdge: nearest.distanceAlongEdge,
+        direction: 1
+      }
+      player.coordinate = getRoadCoordinate(this.roadGraph, player.roadPosition)
+      player.startAt = player.coordinate ? { ...player.coordinate } : null
       player.moving = false
       player.turnIntent = null
       this.broadcast("roomState", this.getRoomState())
@@ -179,6 +210,7 @@ export class RaceRoom extends Room {
         userId: verified ? verified.userId : null,
         loadout: sanitizeLoadout(options?.loadout),
         startPointId: null,
+        startAt: null,
         roadPosition: null,
         coordinate: null,
         moving: false,
@@ -187,7 +219,7 @@ export class RaceRoom extends Room {
         connected: true
       }
     }
-    this.snapPlayer(client.sessionId)
+    // No auto-placement: the player stays off-map until they drop a start pin.
     this.broadcast("roomState", this.getRoomState())
     this.syncMetadata()
 
@@ -255,10 +287,12 @@ export class RaceRoom extends Room {
     if (!this.roadGraph) return
     const player = this.players[sessionId]
     if (!player || player.roadPosition) return
+    // Previously pinned spot wins, then legacy preset starts, then default.
     const start =
-      KAMPALA_ZONE.startPoints.find((point) => point.id === player.startPointId) ??
-      KAMPALA_ZONE.startPoints[0]!
-    const nearest = findNearestEdge(this.roadGraph, start.position)
+      player.startAt ??
+      KAMPALA_ZONE.startPoints.find((point) => point.id === player.startPointId)?.position ??
+      KAMPALA_ZONE.startPoints[0]!.position
+    const nearest = findNearestEdge(this.roadGraph, start)
     if (!nearest) return
     player.roadPosition = {
       edgeId: nearest.edgeId,
@@ -266,6 +300,7 @@ export class RaceRoom extends Room {
       direction: 1
     }
     player.coordinate = getRoadCoordinate(this.roadGraph, player.roadPosition)
+    if (player.coordinate) player.startAt = { ...player.coordinate }
   }
 
   private snapUnplacedPlayers() {
@@ -488,6 +523,8 @@ export class RaceRoom extends Room {
 
   private launchRace() {
     this.phase = "racing"
+    // Anyone who never dropped a pin gets the default start so they can race.
+    this.snapUnplacedPlayers()
     this.lock()
     this.startedAt = Date.now()
     this.finishOrder = []
