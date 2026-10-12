@@ -34,7 +34,11 @@ export function ThreeLayer({ map, children }: ThreeLayerProps) {
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
       <Canvas
-        style={{ width: "100%", height: "100%" }}
+        // R3F defaults its wrapper to pointer-events:auto (inline style),
+        // which would cover the whole map and eat every click/drag once
+        // this chunk loads. Force it through so the map stays interactive.
+        // (We attach no handlers to 3D meshes, so nothing is lost.)
+        style={{ width: "100%", height: "100%", pointerEvents: "none" }}
         gl={{ alpha: true, antialias: true }}
         onCreated={({ gl }) => {
           gl.setClearColor(0x000000, 0)

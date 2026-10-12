@@ -53,6 +53,19 @@ body {
   }
 }
 
+/* Start-pin drop-zone pulse (plain DOM markers can't use Tailwind keyframes) */
+@keyframes tiral-pin-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.75;
+  }
+}
+
 /* Twin thumb sticks: touch devices only, never on keypad laptops */
 .tiral-sticks {
   display: none;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import maplibregl from "maplibre-gl"
@@ -13,13 +13,14 @@ import {
   type RoadGraph
 } from "@tiral/road-graph"
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
+import { useStartPlacement } from "@/lib/useStartPlacement"
 import { useMyLoadout } from "@/lib/useMyLoadout"
 import { useRaceCamera } from "@/lib/useRaceCamera"
 import { DEFAULT_LOADOUT } from "@tiral/avatars"
-import { RoadMovementControls } from "@/components/RoadMovementControls"
-import { StartPicker } from "@/components/StartPicker"
 import { LobbyList } from "@/components/LobbyList"
-import { AuthButton } from "@/components/AuthButton"
+import { TopBar } from "@/components/game/TopBar"
+import { ControlDeck } from "@/components/game/ControlDeck"
+import { StartPins } from "@/components/game/StartPins"
 import { BillboardLayer, type BillboardPin } from "@/components/BillboardLayer"
 import { BrandCard } from "@/components/BrandCard"
 
@@ -33,36 +34,6 @@ function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
   )
 }
 
-function BillboardFinder({
-  pins,
-  onView
-}: {
-  pins: BillboardPin[]
-  onView(pin: BillboardPin): void
-}) {
-  const ads = pins.filter((pin) => pin.kind === "ad")
-  if (ads.length === 0) return null
-  return (
-    <div className="mt-2 rounded-xl border border-amber-300/25 bg-amber-400/10 p-2">
-      <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-amber-200">
-        Live billboards ({ads.length})
-      </div>
-      <div className="flex flex-col gap-1">
-        {ads.map((pin) => (
-          <button
-            key={pin.slotId}
-            type="button"
-            onClick={() => onView(pin)}
-            className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5 text-left text-xs text-slate-100"
-          >
-            <span className="truncate font-bold">{pin.brandName ?? pin.slotName}</span>
-            <span className="ml-2 shrink-0 text-amber-300">View 📍</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 import { selectCurrentAd } from "@/lib/billboards"
 import type { RaceListing } from "@/lib/useColyseus"
 
@@ -123,7 +94,7 @@ export default function Home() {
     sendWalk,
     sendTurn,
     sendTurnAround,
-    sendSelectStart,
+    sendPlaceStart,
     sendPlayAgain,
     sendStartNow,
     leaveRoom,
@@ -147,14 +118,28 @@ export default function Home() {
     ? KAMPALA_ZONE.bountyLocations.find((bounty) => bounty.id === destinationId) ?? null
     : null
 
+  const ownStartPin = sessionId ? (roomState?.players[sessionId]?.startAt ?? null) : null
   const ownStartId = sessionId ? roomState?.players[sessionId]?.startPointId ?? null : null
+
+  // Explicit placement mode: arm via the deck button, tap the map to drop.
+  const placement = useStartPlacement({
+    map,
+    graph,
+    canPlace: connected && (phase === "lobby" || phase === "countdown"),
+    placementOver: phase !== "lobby" && phase !== "countdown",
+    serverPin: ownStartPin,
+    sendPlaceStart
+  })
+
   const assignedStart = useMemo(() => {
-    if (!ownStartId) return fallbackStart.position
-    return (
-      KAMPALA_ZONE.startPoints.find((point) => point.id === ownStartId)?.position ??
-      fallbackStart.position
-    )
-  }, [ownStartId])
+    // Explicit placement only: optimistic pin shows instantly, server pin
+    // wins on confirm, legacy presets work, otherwise null so no avatar
+    // appears before the player chooses.
+    if (placement.effectivePin) return placement.effectivePin
+    if (ownStartPin) return ownStartPin
+    if (!ownStartId) return null
+    return KAMPALA_ZONE.startPoints.find((point) => point.id === ownStartId)?.position ?? null
+  }, [placement.effectivePin, ownStartPin, ownStartId])
 
   const handleRoadInput = useCallback(
     (input: RoadInput) => {
@@ -168,7 +153,7 @@ export default function Home() {
 
   const movement = useRoadMovement(graph, assignedStart, handleRoadInput, locked)
   const myLoadout = useMyLoadout()
-  const { recenter, suspendFollow, followSuspended } = useRaceCamera(map, phase, movement.coordinate, movement.heading)
+  const { recenter, followSuspended } = useRaceCamera(map, phase, movement.coordinate, movement.heading)
 
   const remoteAvatars = useMemo(() => {
     if (!graph) return []
@@ -188,7 +173,7 @@ export default function Home() {
   }, [graph, positions, sessionId])
 
   const raceHud = useMemo(() => {
-    if (phase !== "racing" || !revealedBounty) return null
+    if (phase !== "racing" || !revealedBounty || !movement.coordinate) return null
     const entries: Array<{ id: string; distance: number }> = [
       { id: sessionId ?? "self", distance: haversineDistanceMeters(movement.coordinate, revealedBounty.position) }
     ]
@@ -257,6 +242,26 @@ export default function Home() {
       { padding: { top: 70, right: 45, bottom: 170, left: 45 }, maxZoom: 16 }
     )
   }, [])
+
+  const startPinPlayers = useMemo(() => {
+    const list = roomState
+      ? Object.entries(roomState.players).map(([id, player]) => ({
+          sessionId: id,
+          name: player.name,
+          startAt: player.startAt ?? null
+        }))
+      : []
+    // Optimistic own pin until the server confirms it.
+    const hasOwn = sessionId !== null && list.some((p) => p.sessionId === sessionId && p.startAt)
+    if (!hasOwn && placement.effectivePin && sessionId) {
+      list.push({
+        sessionId,
+        name: (roomState?.players[sessionId]?.name ?? "You") as string,
+        startAt: placement.effectivePin
+      })
+    }
+    return list
+  }, [roomState, placement.effectivePin, sessionId])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -347,8 +352,11 @@ export default function Home() {
 
   if (!connected && !reconnecting) {
     return (
-      <main className="flex h-screen w-screen items-center justify-center bg-slate-950 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="h-[min(92dvh,640px)] w-[min(94vw,420px)] overflow-y-auto">
+      <main className="flex h-dvh w-screen flex-col items-center justify-center gap-3 bg-slate-950 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <Link href="/" className="text-lg font-black text-white">
+          Tiral
+        </Link>
+        <div className="h-[min(84dvh,640px)] w-[min(94vw,420px)] overflow-y-auto">
           <LobbyList
             races={races}
             loading={lobbyLoading || joining}
@@ -366,7 +374,7 @@ export default function Home() {
   }
 
   return (
-    <main className="tiral-game relative h-screen w-screen overflow-hidden bg-slate-950">
+    <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950">
       <MapView
         center={fallbackStart.position}
         zoom={15}
@@ -379,14 +387,16 @@ export default function Home() {
         <ThreeLayer map={map}>
           <hemisphereLight args={["#fff4d6", "#293548", 1.6]} />
           <directionalLight position={[4, 8, 10]} intensity={2.2} />
-          <Avatar3D
-            latLng={movement.coordinate}
-            heading={movement.heading}
-            moving={movement.moving}
-            color="#f59e0b"
-            accentColor="#92400e"
-            loadout={myLoadout}
-          />
+          {movement.coordinate && (
+            <Avatar3D
+              latLng={movement.coordinate}
+              heading={movement.heading}
+              moving={movement.moving}
+              color="#f59e0b"
+              accentColor="#92400e"
+              loadout={myLoadout}
+            />
+          )}
           {remoteAvatars.map((avatar) => (
             <Avatar3D
               key={avatar.id}
@@ -404,6 +414,7 @@ export default function Home() {
       )}
 
       {map && <BillboardLayer map={map} pins={billboardPins} onPinClick={setBrandCardPin} />}
+      {map && <StartPins map={map} players={startPinPlayers} ownSessionId={sessionId} />}
       {brandCardPin && (
         <BrandCard
           pin={brandCardPin}
@@ -415,113 +426,24 @@ export default function Home() {
         />
       )}
 
-      <div className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] z-20 flex w-[min(78vw,260px)] flex-col gap-2">
-        <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
-          <AuthButton />
-        </div>
-        {billboardPins.some((pin) => pin.kind === "ad") && (
-          <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
-            <BillboardFinder
-              pins={billboardPins}
-              onView={(pin) => {
-                suspendFollow()
-                map?.flyTo({ center: [pin.lng, pin.lat], zoom: 16, duration: 2000 })
-                setBrandCardPin(pin)
-              }}
-            />
-          </div>
-        )}
-        {connected && (
-          <div className="rounded-lg bg-black/70 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
-            <div className="mb-1 flex items-center justify-between gap-2 text-sm text-green-400">
-              <span>
-                {reconnecting
-                  ? "Reconnecting…"
-                  : `Race ${roomCode ?? ""}${remoteAvatars.length > 0 ? ` · ${remoteAvatars.length + 1} racers` : ""}${
-                      phase === "racing" ? " · Racing" : ""
-                    }`}
-              </span>
-              {!reconnecting && (
-                <span className="flex gap-1">
-                  {phase === "racing" && (
-                    <button
-                      type="button"
-                      onClick={recenter}
-                      aria-label="Recenter on me"
-                      title={followSuspended ? "Follow off — tap to resume" : "Recenter on me"}
-                      className={`rounded-md border px-3 py-2 text-xs font-bold min-h-[40px] inline-flex items-center ${
-                        followSuspended
-                          ? "border-amber-300/70 text-amber-300"
-                          : "border-white/20 text-slate-300"
-                      }`}
-                    >
-                      ◎
-                    </button>
-                  )}
-                  <Link
-                    href="/leaderboard"
-                    className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
-                  >
-                    Ranks
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={leaveRoom}
-                    className="rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-slate-300 min-h-[40px] inline-flex items-center"
-                  >
-                    Leave
-                  </button>
-                </span>
-              )}
-            </div>
-            {countdown !== null && phase !== "racing" && (
-              <div className="font-mono text-2xl font-bold text-amber-400">
-                {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, "0")}
-              </div>
-            )}
-            {revealedBounty && (
-              <div className="mt-1 text-sm font-bold text-emerald-300">
-                Bounty: {revealedBounty.name}
-              </div>
-            )}
-            {raceHud && (
-              <div className="mt-1 font-mono text-lg font-bold text-cyan-300">
-                {raceHud.distanceMeters}m · {raceHud.rank}/{raceHud.total}
-              </div>
-            )}
-            <BillboardFinder
-              pins={billboardPins}
-              onView={(pin) => {
-                suspendFollow()
-                map?.flyTo({ center: [pin.lng, pin.lat], zoom: 16, duration: 2000 })
-                setBrandCardPin(pin)
-              }}
-            />
-            {phase === "lobby" && playerCount < 2 && (
-              <button
-                type="button"
-                onClick={sendStartNow}
-                className="mt-2 w-full rounded-lg bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400"
-              >
-                Start now (solo)
-              </button>
-            )}
-          </div>
-        )}
-        {showPicker && roomState && (
-          <StartPicker
-            players={roomState.players}
-            ownSessionId={sessionId}
-            locked={false}
-            onSelect={sendSelectStart}
-          />
-        )}
-        {connected && phase !== "lobby" && phase !== "countdown" && phase !== "finished" && (
-          <div className="rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-sm text-slate-200 shadow-2xl backdrop-blur-md">
-            Positions locked — race to the bounty.
-          </div>
-        )}
-      </div>
+      {connected && (
+        <TopBar
+          roomCode={roomCode}
+          racerCount={remoteAvatars.length + 1}
+          phase={phase}
+          reconnecting={reconnecting}
+          countdown={countdown}
+          bountyName={revealedBounty?.name ?? null}
+          hudText={
+            raceHud ? `${raceHud.distanceMeters}m · ${raceHud.rank}/${raceHud.total}` : null
+          }
+          locked={locked}
+          showRecenter={phase === "racing"}
+          followSuspended={followSuspended}
+          onRecenter={recenter}
+          onLeave={leaveRoom}
+        />
+      )}
 
       {connected && phase === "racing" && ownFinishPosition !== null && (
         <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl backdrop-blur-md">
@@ -583,20 +505,26 @@ export default function Home() {
         </div>
       )}
 
-      <RoadMovementControls
+      <ControlDeck
         graph={graph}
         position={movement.position}
         moving={movement.moving}
-        loading={loadingRoads}
-        error={roadError}
+        loadingRoads={loadingRoads}
+        roadError={roadError}
         turnIntent={movement.turnIntent}
         feedback={movement.feedback}
         distanceToJunction={movement.distanceToJunction}
-        availableDirections={movement.availableDirections}
         locked={locked}
         onMovingChange={movement.setMoving}
         onTurnAround={movement.turnAround}
         onRequestTurn={movement.requestTurn}
+        showStarts={showPicker && roomState !== null}
+        hasStartPin={placement.hasPin}
+        placementArmed={placement.armed}
+        onTogglePlacement={() => placement.setArmed((armed) => !armed)}
+        showSolo={phase === "lobby" && playerCount < 2}
+        onStartNow={sendStartNow}
+        notice={placement.notice}
       />
     </main>
   )
