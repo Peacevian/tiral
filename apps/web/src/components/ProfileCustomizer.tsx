@@ -31,14 +31,14 @@ function Swatches({
       <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
         {label}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {colors.map((color) => (
           <button
             key={color}
             type="button"
             onClick={() => onSelect(color)}
             aria-label={`${label} ${color}`}
-            className={`h-9 w-9 rounded-full border-2 transition ${
+            className={`h-11 w-11 rounded-full border-2 transition ${
               selected === color
                 ? "scale-110 border-amber-300"
                 : "border-white/20 hover:border-white/50"
@@ -89,7 +89,7 @@ export function ProfileCustomizer({
               key={style}
               type="button"
               onClick={() => onChange({ ...loadout, hat: style })}
-              className={`rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
+              className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
                 loadout.hat === style
                   ? "border-amber-300 bg-amber-300/20 text-amber-100"
                   : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
@@ -124,7 +124,7 @@ export function ProfileCustomizer({
               key={style}
               type="button"
               onClick={() => onChange({ ...loadout, glasses: style })}
-              className={`rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
+              className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
                 resolved.glasses === style
                   ? "border-amber-300 bg-amber-300/20 text-amber-100"
                   : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"

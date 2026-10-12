@@ -163,50 +163,67 @@ export default function ProfilePage() {
 
   return (
     <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950 text-white">
-      <HousePreview
-        fill
-        house={draftHouse}
-        showRoof={showRoof}
-        view={homeView}
-        avatarLoadout={draftLoadout}
-        avatarSpot={avatarSpot}
-        selection={selection}
-        onSelectTile={(x, z) => {
-          setAvatarSpot({ x, z })
-          setSelection({ x, z })
-        }}
-        onSelectAvatar={() => {
-          setSelection(null)
-          setSheetTab("avatar")
-          setSheetOpen(true)
-        }}
-        onSelectSurface={() => {
-          setSelection(null)
-          setSheetTab("house")
-          setSheetOpen(true)
-        }}
-      />
-      <HomeHud
-        displayName={user.displayName}
-        dirty={dirty}
-        saving={saving}
-        notice={notice}
-        onSave={() => void save()}
-      />
-      <div className="absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[max(4.25rem,calc(env(safe-area-inset-top)+3.75rem))] z-20 flex overflow-hidden rounded-xl border border-white/15 bg-slate-950/80 shadow-xl backdrop-blur-md">
-        {(["outside", "inside"] as const).map((view) => (
-          <button
-            key={view}
-            type="button"
-            onClick={() => setHomeView(view)}
-            aria-pressed={homeView === view}
-            className={`min-h-[44px] px-4 text-xs font-black capitalize transition ${
-              homeView === view ? "bg-amber-400 text-slate-950" : "text-slate-200"
-            }`}
-          >
-            {view}
-          </button>
-        ))}
+      {/* Scene viewport: shrinks above the open sheet on phones so the house
+          stays in view; docks left of the side panel on tablet/desktop. */}
+      <div
+        className={`absolute inset-x-0 top-0 transition-[bottom] duration-200 md:bottom-0 md:right-[22rem] ${
+          sheetOpen ? "bottom-[46dvh] sm:bottom-[50dvh]" : "bottom-0"
+        }`}
+      >
+        <HousePreview
+          fill
+          house={draftHouse}
+          showRoof={showRoof}
+          view={homeView}
+          avatarLoadout={draftLoadout}
+          avatarSpot={avatarSpot}
+          selection={selection}
+          onSelectTile={(x, z) => {
+            setAvatarSpot({ x, z })
+            setSelection({ x, z })
+          }}
+          onSelectAvatar={() => {
+            setSelection(null)
+            setSheetTab("avatar")
+            setSheetOpen(true)
+          }}
+          onSelectSurface={() => {
+            setSelection(null)
+            setSheetTab("house")
+            setSheetOpen(true)
+          }}
+        />
+        <HomeHud
+          displayName={user.displayName}
+          dirty={dirty}
+          saving={saving}
+          notice={notice}
+          onSave={() => void save()}
+          showRoof={showRoof}
+          onToggleRoof={() => setShowRoof((value) => !value)}
+          onReset={() => {
+            setDraftLoadout(user.loadout)
+            setDraftHouse(user.house ?? DEFAULT_HOUSE)
+            setDraftName(user.displayName)
+            setDirty(false)
+            setNotice(null)
+          }}
+        />
+        <div className="absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[max(4.25rem,calc(env(safe-area-inset-top)+3.75rem))] z-20 flex overflow-hidden rounded-xl border border-white/15 bg-slate-950/80 shadow-xl backdrop-blur-md">
+          {(["outside", "inside"] as const).map((view) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => setHomeView(view)}
+              aria-pressed={homeView === view}
+              className={`min-h-[44px] px-3 text-[11px] font-black capitalize transition sm:px-4 sm:text-xs ${
+                homeView === view ? "bg-amber-400 text-slate-950" : "text-slate-200"
+              }`}
+            >
+              {view}
+            </button>
+          ))}
+        </div>
       </div>
       <HomeSheet
         tab={sheetTab}

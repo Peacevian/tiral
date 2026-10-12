@@ -13,6 +13,9 @@ const TABS = [
 // Fixed height ~4rem + safe area; bottom-anchored overlays lift above it.
 export function MobileTabBar() {
   const pathname = usePathname()
+  // The profile home is a full-bleed scene: its HUD + sheet cover navigation,
+  // so give the 3D view the vertical space instead of a tab bar.
+  if (pathname?.startsWith("/profile")) return null
   return (
     <nav
       aria-label="Primary"
