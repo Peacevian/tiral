@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic"
 import type { HouseLoadout } from "@tiral/houses"
+import type { AvatarLoadout } from "@tiral/avatars"
+import type { HouseView, RoomSpot } from "./HousePreviewScene"
 
 const PreviewScene = dynamic(
   () =>
@@ -13,14 +15,50 @@ const PreviewScene = dynamic(
 
 export function HousePreview({
   house,
-  showRoof
+  showRoof,
+  view = "outside",
+  avatarLoadout,
+  avatarSpot,
+  selection,
+  onSelectTile,
+  onSelectAvatar,
+  onSelectSurface,
+  hero = false,
+  fill = false
 }: {
   house: HouseLoadout
   showRoof?: boolean
+  view?: HouseView
+  avatarLoadout?: AvatarLoadout
+  avatarSpot?: RoomSpot
+  selection?: RoomSpot | null
+  onSelectTile?(x: number, z: number): void
+  onSelectAvatar?(): void
+  onSelectSurface?(kind: "wall" | "roof"): void
+  /** Tall hero framing for the profile top (default keeps the compact card). */
+  hero?: boolean
+  /** Edge-to-edge fill for full-bleed pages (no rounding, parent positions). */
+  fill?: boolean
 }) {
   return (
-    <div className="h-72 w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-slate-800 to-slate-950">
-      <PreviewScene house={house} showRoof={showRoof} />
+    <div
+      className={`w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 ${
+        fill
+          ? "absolute inset-0 border-0"
+          : `border border-white/10 ${hero ? "h-[52dvh] rounded-3xl" : "h-72 rounded-2xl"}`
+      }`}
+    >
+      <PreviewScene
+        house={house}
+        showRoof={showRoof}
+        view={view}
+        avatarLoadout={avatarLoadout}
+        avatarSpot={avatarSpot}
+        selection={selection}
+        onSelectTile={onSelectTile}
+        onSelectAvatar={onSelectAvatar}
+        onSelectSurface={onSelectSurface}
+      />
     </div>
   )
 }
