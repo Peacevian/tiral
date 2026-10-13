@@ -4,8 +4,9 @@ Where we are on the in-game economy, how we got here, what's locked, and
 what's still open. Companion to `docs/economy.md` (the forward-looking spec):
 **this doc is the record; `economy.md` is the plan.**
 
-Status: **design only — no currency code exists yet.**
-Last updated: 12 Oct 2026.
+Status: **design only — no currency code exists yet.** Current direction is
+**§13 Kampala Hustle**; the build plan is **§14**.
+Last updated: 14 Oct 2026.
 
 ---
 
@@ -22,6 +23,12 @@ There is **no in-game currency**. What exists:
   `coin_ledger` table, no balance column on `users`.
 - `apps/web/src/app/api/auth/me` returns `{user:{id,displayName,avatarUrl}}`;
   `/api/profile` GET returns `user` + `stats` + `recentRaces`.
+- **Rarity tiers exist** for cosmetics (common / rare / epic / legendary) in
+  `packages/avatars/src/catalog.ts` (`ITEM_RARITY`, `loadoutRarity`) — no
+  prices yet; everything is free.
+- **Movement:** one fixed speed for everyone,
+  `WALK_SPEED_METERS_PER_SECOND = 18` in `apps/game-server/src/rooms/RaceRoom.ts`.
+  No sprint, no stats affect racing. Races last ~1–2 minutes.
 
 Nothing about the economy below is built. It is the agreed design.
 
@@ -43,6 +50,17 @@ Nothing about the economy below is built. It is the agreed design.
    billboards, houses. Proposes **Kings of the Road** (own a street by
    holding its record) as the core, fed by **ghost challenges** and
    **views → BNG**. Not yet reconciled with §4 — see §12.8.
+6. **Lean pass (13 Oct 2026).** Cut §4 down to what fits a 1–2 minute race
+   game: BNG ledger, **Energy** (sprint resource), light **Health**
+   (collapse), food, cosmetics. Fullness, cooking, spoilage, gear wear,
+   hydration and upkeep parked. Duels on contact were explored and
+   **dropped**.
+7. **Kampala Hustle (14 Oct 2026, current direction — §13).** The economy
+   should depict real life for Ugandan youth: arrive with little money and
+   few connections, hustle informal gigs, juggle rent, food, family and
+   loans, face the pull of betting and loan apps, and work towards a
+   come-up. Built on the lean pass, grounded in research (§13.1).
+   **No real money ever buys coins.**
 
 ---
 
@@ -50,9 +68,15 @@ Nothing about the economy below is built. It is the agreed design.
 
 - Currency name: **Banange Coins**, ticker **BNG**. Closed-loop, **no
   cash-out, no redemption**, no off-platform trading.
-- Real money enters **one way only** via Relworx top-up packs.
-- Welcome grant: guests **10,000 BNG**; TikTok-linked **1,000,000** (vested —
-  see open Qs).
+- **No real money ever buys BNG** (decided 14 Oct 2026; replaces the earlier
+  "Relworx top-up packs" decision). BNG is earned in-game only. Real money
+  (UGX via Relworx) stays limited to **brand billboards / sponsorships**.
+  This keeps any in-game betting (§13.6) clear of real-money gambling.
+- **Prices mirror real UGX** (a rolex ≈ 2,000 BNG, a room ≈ 150,000/month),
+  so players recognise the numbers.
+- Welcome grant: guests **10,000 BNG** ("you arrive with 10k"). The
+  TikTok-linked **1,000,000** grant conflicts with UGX-scale prices and the
+  "arrive broke" premise — **under review**, see open Q 25.
 - Spend on **avatar clothes + house items**.
 - **Tasks/quests to earn later.**
 - **Only TikTok-linked users can send**; **guests cannot send.**
@@ -61,7 +85,11 @@ Nothing about the economy below is built. It is the agreed design.
 
 ---
 
-## 4. Current model — the survival/running economy
+## 4. Earlier model — the survival/running economy
+
+> **Superseded in part.** The lean pass and §13 Kampala Hustle replace this
+> section's scope. Kept for reference; prices here are pre-UGX-scale. Top-up
+> packs in §4.6 are **cancelled** (no real money buys BNG).
 
 **Core loop: Run → Energy drops → Health at risk → Eat / rest / cook →
 Clothing & shoes wear out → back to running.**
@@ -146,7 +174,8 @@ play time. Best recurring sink for a running game.
 - Gear durability repairs.
 - Billboard shout-out: 25,000 BNG / 24h (in-game board, not the UGX ads).
 - Staked races: entry fee, winner takes pot minus **10% rake**.
-- Relworx top-up packs: 5k / 25k / 100k BNG.
+- ~~Relworx top-up packs: 5k / 25k / 100k BNG.~~ Cancelled — no real money
+  buys BNG.
 
 ### 4.7 Home = survival hub
 Kitchen (cook), bed (sleep), fridge (store), shower (hygiene/mood), garden
@@ -281,7 +310,7 @@ debt spirals) and do **not** reuse a fiat symbol — **BNG** stays clean.
   transfer-capable state.
 - **Transfer gates:** TikTok-linked sender, account ≥30 days, ≥10 races,
   **50,000 BNG/day cap**, 5% fee (sink). Guests may **receive**.
-- Terms: no real-world value; delivered top-ups non-refundable; duplicated/
+- Terms: no real-world value; no purchase path for BNG; duplicated/
   exploited balances may be reversed; no off-platform trading.
 
 ---
@@ -302,11 +331,11 @@ debt spirals) and do **not** reuse a fiat symbol — **BNG** stays clean.
 - `apps/web/src/components/game/TopBar.tsx` + profile HUD — BNG balance chip.
 - `apps/web/src/components/ProfileCustomizer.tsx`,
   `components/house/HouseCustomizer.tsx` — spend surfaces.
-- `apps/web/src/lib/relworx.ts` — reuse for BNG top-up packs (UGX).
+- `apps/web/src/lib/relworx.ts` — ~~reuse for BNG top-up packs~~ (cancelled; Relworx stays billboards-only).
 
 ---
 
-## 9. Build order (proposed)
+## 9. Build order (proposed — superseded by §14)
 
 1. **Ledger + needs model.** Migration `0006` `coin_ledger`;
    `awardCoins()`/`getCoinBalance()`; pure energy/fullness/health decay in
@@ -317,7 +346,7 @@ debt spirals) and do **not** reuse a fiat symbol — **BNG** stays clean.
 4. **Balance API + HUD chip.**
 5. **Clothing store (functional shoes first)** + gear durability.
 6. **Weekly upkeep** sink.
-7. **Transfers + Relworx top-up packs.**
+7. **Transfers.** ~~Relworx top-up packs~~ (cancelled).
 8. **TikTok link (OAuth) + vested 1M grant + referral.**
 9. **Tasks/quests, chests, streaks.**
 10. **Player food stalls, creator program, clip studio, live bridges.**
@@ -463,9 +492,8 @@ post to TikTok → views pay BNG   →   new players tap link → race the ghost
   Content Posting API exist. **Direct posting needs app audit** — until
   then clips land in the user's TikTok drafts. **No public API for reading
   comments or LIVE gifts**, so comment-/gift-triggered mechanics are out.
-- **Gambling exposure:** ghost pots are stakes. Keep BNG closed-loop (§3)
-  and consider barring freshly topped-up BNG from pots (only earned BNG can
-  be staked).
+- **Gambling exposure:** ghost pots are stakes. Keep BNG closed-loop (§3);
+  since no real money buys BNG (decided 14 Oct), all staked BNG is earned.
 - **Anti-cheat:** segment records only from server-validated movement;
   reject physically impossible times; tribute requires a minimum number of
   distinct runners per day; no tribute for running your own segment.
@@ -494,6 +522,17 @@ risks the chore problem in §11.)*
 24. Clip rendering: **client-side** (canvas capture) or **server-side**
     render pipeline?
 
+**Kampala Hustle (§13):**
+25. **TikTok-link grant** at UGX scale: drop the 1,000,000, or replace it with
+    connections + a modest bonus (e.g. 20,000)?
+26. **Game clock:** real days (rent every real week) or a faster in-game day?
+27. **Betting:** include BetLeo at all? If yes, confirm caps, 18+ framing
+    and how it's presented (cautionary vs neutral).
+28. **Starting archetypes** (e.g. village arrival vs city-born, Lagos-Life
+    style) or everyone starts the same?
+29. **Transfers:** keep "TikTok-linked only can send" — and allow sending to
+    family/friends as a gameplay action?
+
 ### 12.10 Code hook points (if built)
 - `packages/road-graph/src/index.ts` — segment definitions + lookup by edge.
 - `apps/game-server/src/rooms/RaceRoom.ts` — segment entry/exit timing in
@@ -508,7 +547,188 @@ risks the chore problem in §11.)*
 
 ---
 
-## 13. Revision log
+## 13. Kampala Hustle — the life economy (current direction)
+
+Players start as **a young person arriving in Kampala with almost nothing**
+and build a life: hustle gigs, keep up with rent, food and family, resist (or
+fall for) loan apps and betting, and work towards a come-up. Races are the
+**big-break events** inside that life. Tone: honest and funny, made *with*
+Ugandan creators, never mocking people for being poor.
+
+### 13.1 Research basis (Oct 2026; figures from press summaries, approximate)
+- **Jobs are scarce and informal.** Youth unemployment ~16–18% (UBOS 2025;
+  17.9% for 15–24 in the Apr 2026 release); ~42% of 15–24s are NEET; ~88–90%
+  of workers are informal (boda, market, casual labour).
+- **Pay is low.** ~Half of employed Ugandans earned ≤ UGX 200,000/month (NLFS
+  2021). Minimum wage (130,000) recommended in 2018, never enforced.
+- **Costs.** Rolex ~1,500–2,000; shared room ~200–270k/month; a frugal young
+  person's monthly budget ~620–770k.
+- **Boda riders** who don't own the bike remit ~8–10k/day to the owner before
+  earning; fuel keeps rising.
+- **Debt.** Instant mobile-money loans (MoKash, Wewole) with automatic
+  deductions; ~61% of digital borrowers borrow for daily consumption;
+  collection by threats and public shaming.
+- **Betting is mainstream.** ~87% of surveyed Ugandan youth have placed a bet
+  (GeoPoll 2025); local studies describe a "vicious cycle of poverty".
+- **Family obligations** commit wages before they arrive.
+
+Sources: [Ecofin](https://www.ecofinagency.com/news-services/0907-57225-uganda-s-economy-finds-work-for-only-one-in-three-young-people-entering-the-labor-market) ·
+[AllAfrica — youth unemployment 17.9%](https://allafrica.com/stories/202604230738.html) ·
+[NTV — UBOS 12%](https://ntv.co.ug/news/ubos-report-ugandas-unemployment-rate-stagnates-at-12) ·
+[Monitor — Shs200,000/month](https://www.monitor.co.ug/uganda/business/prosper/60-of-ugandans-earn-shs200-000-per-month-4045490) ·
+[GeoPoll — Betting in Africa 2025](https://geopoll.com/blog/report-betting-in-africa-2025) ·
+[EPRC — betting & poverty](https://eprcug.org/eprc-in-the-news/sports-betting-youth-left-in-vicious-cycle-of-poverty/) ·
+[Monitor — boda remittance](https://www.monitor.co.ug/uganda/news/national/bodas-to-pay-owners-extra-shs5-000-per-day--3872306) ·
+[Uni2Study — Kampala budget](https://www.uni2study.com/articles/monthly-student-budget-kampala) ·
+[Observer — digital loans](https://observer.ug/news/digital-loans-are-fuelling-new-debt-crisis/) ·
+[BusinessTimes — debt culture](https://businesstimesug.com/ugandas-growing-debt-culture-in-the-digital-age/)
+
+### 13.2 Core loop
+**Hustle → earn a little → pay needs (food, rent, transport, data, family) →
+stress builds → temptation (loan app, betting) or discipline (savings group,
+skills) → shocks → race for the big break → come-up (or setback) → repeat.**
+
+### 13.3 Money (BNG at UGX scale)
+- Every price mirrors street prices. Start: **10,000 BNG**.
+- Balances derived from the ledger only (§7); every award or spend is a
+  server-validated ledger row.
+- **No purchase path for BNG.** No cash-out. No trading off-platform.
+
+### 13.4 Hustles — how you earn (running gigs on the real map)
+| Hustle | Play | Pay (BNG) |
+|---|---|---|
+| Market porter (Owino) | carry loads stall to stall against a timer | ~5–10k/day |
+| Boda courier | pick-up → drop-off across town; owner takes ~10k/day | ~20–30k net |
+| Casual labour | run to a site, work a shift | ~15k |
+| Races | big-break event; bounty prize ≈ a week's earnings | top prize |
+
+Gigs reuse the existing road graph and movement; they are solo, server-timed
+runs. Pay lands in the ledger only on a validated finish.
+
+### 13.5 Responsibilities, needs and stats
+- **Energy (0–100)** — the race stat (lean pass): **Sprint** ≈ 1.35× speed,
+  burns energy; walking is always free; regenerates over real time (full in a
+  few hours); food refills it. Speed edge capped — fed players are slightly
+  faster, never unbeatable.
+- **Health (0–100)** — light: sprinting on empty drains it; at 0 you
+  **collapse** for ~6 s ("Banange!") and carry on, never eliminated. Restored
+  by sleeping in your house's bed or a proper meal.
+- **Stress (0–100)** — the life stat that captures frustration. Up: debt, late
+  rent, losses, refused family requests. Down: wins, friends, rest, football,
+  church. **High stress raises the frequency of loan-app and betting
+  temptations** — mirroring real behaviour, not forcing it.
+- **Rent** — weekly, by housing tier; your tier *is* your house (single room in
+  Kisenyi → … → flat in Ntinda). Missing rent means a move **down a tier**,
+  never a lock-out.
+- **Food, transport, data/airtime** — small daily sinks; data gates seeing
+  gigs.
+- **Family events** — "Maama is in hospital, send 50k", school fees. Paying
+  costs money; refusing costs stress and respect.
+- **Shocks** — fuel price rise, KCCA confiscates the stall, phone stolen.
+
+### 13.6 Traps (depicted honestly)
+- **Loan app ("Fast Cash", fictional)** — instant BNG, steep fee, **automatic
+  deduction from your next earnings**, nagging/shaming messages when late.
+- **Betting shop ("BetLeo", fictional)** — bet on **live Tiral races between
+  other players**. Odds carry a house margin, so most bettors lose over time.
+  Rules: BNG only (never real money, never cash-out); no near-miss tricks; a
+  plain lifetime **staked vs returned** figure on screen; daily stake cap;
+  18+ framing; cool-off after big losses.
+
+### 13.7 Escapes and the come-up
+- **Savings group (VSLA/SACCO)** with friends — weekly contribution, rotating
+  payout.
+- **Connections** — linking TikTok adds contacts who share better gigs
+  ("who you know").
+- **Skills** — courses unlock better hustles (driving permit, mobile money
+  agent, salon).
+- **Own business** — rolex stall (daily income, bad-day risk) or your own
+  boda (stop paying an owner; rent it out).
+- **Status ladder** — Broke → Hustler → Stable → Boss, on the profile and in
+  the house you can afford.
+
+### 13.8 Spending
+Food, rent, transport/data, family, fees and loans — plus cosmetics: outfits,
+hair and trails priced by their existing rarity tier.
+
+### 13.9 Risks specific to this direction
+- **Frustration churns players** unless every bad situation has a way out
+  that rewards effort. The struggle is the setup; the come-up is the payoff.
+- **Betting** — even with no real money, keep it educational, capped and
+  18+-framed; review platform (TikTok/app store) rules before launch.
+- **Tone** — real hardship; co-create with Ugandan creators.
+- **Scope** — large; ship in phases (§14) and balance with a simulation.
+
+---
+
+## 14. Implementation plan (phase by phase)
+
+Each phase ships on its own, is playable, and is balanced before the next.
+
+### Phase 1 — Coins foundation
+- **DB:** migration `0006` — `coin_ledger` (`id, user_id, delta, reason,
+  ref_id, meta jsonb, created_at`), unique `(user_id, reason, ref_id)` so an
+  event can only pay once.
+- **`packages/db`:** `awardCoins()`, `spendCoins()` (transactional, refuses to
+  go below 0), `getCoinBalance()`, `listLedger()`.
+- **`packages/game-core/src/economy.ts`:** pure earn table and price list at
+  UGX scale.
+- **Earnings:** welcome grant 10,000 (once per user); race payouts in
+  `recordRaceResults` — finish, 1st/2nd/3rd, first win of the day, streak.
+  Solo/empty races pay little or nothing (anti-farming).
+- **API:** balance in `/api/auth/me` and `/api/profile`; `GET /api/wallet`
+  (history).
+- **UI:** BNG chip in the play TopBar and profile; wallet history tab.
+- **Tests:** dedupe, no negative balances, payout table.
+
+### Phase 2 — Energy, Sprint, Health, Food
+- **DB:** migration `0007` — `users.energy, energy_at, health, health_at`;
+  current values computed lazily from timestamps (regen over real time).
+- **`game-core/src/needs.ts`:** regen, sprint drain, 1.35× cap, health drain
+  on empty, collapse rules — pure and unit-tested.
+- **Game server (`RaceRoom`):** `sprint` message; per-tick drain; 6 s
+  collapse; load needs on join, save on finish/leave.
+- **Food shop:** gonja, chapati, rolex, kikomando, a full plate (health) —
+  `POST /api/shop/eat` spends BNG and applies the effect.
+- **Rest at home:** the house bed restores health over time.
+- **UI:** Sprint button (+ Shift on desktop), energy/health bars in the race
+  HUD and profile, collapse "Banange!" overlay.
+
+### Phase 3 — Survival life: rent, stress, family, hustles
+- **Housing tiers + weekly rent** (house catalog gains tier and rent); missed
+  rent → move down a tier.
+- **Stress** stat + its effects (temptation frequency, slower recovery).
+- **Family events and shocks** — server-scheduled, with choices.
+- **Hustles v1:** market porter and boda courier as solo timed gig runs on the
+  road graph (new room mode), paying through the ledger.
+- **Transport/data** daily sinks.
+
+### Phase 4 — Traps and escapes
+- **Fast Cash loan app:** borrow limit, fee, auto-deduct from next earnings,
+  late nags + stress.
+- **Savings groups:** create/join with friends, weekly contribution, rotating
+  payout.
+- **BetLeo:** markets on live races, house margin, settlement from race
+  results, caps, transparency stats, cool-off, 18+ gate.
+
+### Phase 5 — The come-up
+- **Skills/courses** unlocking better hustles.
+- **Own business:** rolex stall and own boda (passive income with risk).
+- **Status ladder** and house moves tied to rent tier.
+- **Cosmetics shop:** outfits, hair, trails priced by rarity.
+
+### Cross-cutting (every phase)
+- Server-only awards; ledger dedupe; rate limits.
+- A small balancing script that simulates a week of play per archetype
+  (grinder, gambler, saver) before each phase ships.
+- Analytics: earn/spend per day, debt levels, betting losses, churn after
+  setbacks.
+- **Revenue note:** with no coin sales, money comes from brand billboards,
+  sponsored food/items and the creator program.
+
+---
+
+## 15. Revision log
 
 - **12 Oct 2026** — Doc created. Captured: code audit (no currency; points +
   UGX only), BNG spec, Lagos Life study, pivot to survival/running economy,
@@ -518,3 +738,11 @@ risks the chore problem in §11.)*
   (Kings of the Road + ghost challenges + views → BNG; creator clue drops,
   billboard fame, crew turf for later). Open Qs 18–24. Flagged that the
   live-gifting idea in §5.7 has no public API.
+- **13 Oct 2026** — Lean pass agreed: BNG ledger, Energy + Sprint, light
+  Health with collapse, food, cosmetics; duels on contact explored and
+  dropped.
+- **14 Oct 2026** — New direction **§13 Kampala Hustle** (life economy of
+  Ugandan youth, with research and sources) and **§14 phased implementation
+  plan**. **Decision: no real money ever buys BNG** (top-up packs
+  cancelled; §3, §4.6, §9 updated). Code audit (§1) refreshed. Open Qs
+  25–29 added.
