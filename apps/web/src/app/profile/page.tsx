@@ -10,6 +10,7 @@ import { HousePreview } from "@/components/house/HousePreview"
 import { HouseCustomizer } from "@/components/house/HouseCustomizer"
 import { HomeHud } from "@/components/house/HomeHud"
 import { HomeSheet, type HomeSheetTab } from "@/components/house/HomeSheet"
+import { WalletPanel } from "@/components/WalletPanel"
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
 
 type ProfileUser = {
@@ -61,6 +62,14 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+
+  // The race HUD's coin chip links to /profile?tab=wallet.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "wallet") {
+      setSheetTab("wallet")
+      setSheetOpen(true)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -239,6 +248,7 @@ export default function ProfilePage() {
             }}
           />
         }
+        wallet={<WalletPanel />}
         house={
           <div className="flex flex-col gap-3">
             <button

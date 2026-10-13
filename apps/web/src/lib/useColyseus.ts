@@ -5,6 +5,7 @@ import { Client } from "@colyseus/sdk"
 import type { Room } from "@colyseus/sdk"
 import type { RoadDirection } from "@tiral/road-graph"
 import type { AvatarLoadout } from "@tiral/avatars"
+import { notifyCoinsChanged } from "./useCoins"
 
 type RoomPlayer = {
   id: string
@@ -18,6 +19,11 @@ type RoomPlayer = {
   moving?: boolean
   finishPosition?: number | null
   connected?: boolean
+}
+
+export type RaceEarnings = {
+  position: number
+  earnings: Array<{ reason: string; amount: number }>
 }
 
 export type RaceResult = {
@@ -112,6 +118,7 @@ export function useColyseus({
   const [roomState, setRoomState] = useState<RoomState | null>(null)
   const [positions, setPositions] = useState<RemotePositions>({})
   const [results, setResults] = useState<RaceResult[] | null>(null)
+  const [earnings, setEarnings] = useState<RaceEarnings | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -144,6 +151,7 @@ export function useColyseus({
       }
       if (state.phase !== "finished") {
         setResults(null)
+        setEarnings(null)
       }
     })
 
@@ -157,6 +165,12 @@ export function useColyseus({
 
     room.onMessage("raceFinished", (order: RaceResult[]) => {
       setResults(order)
+    })
+
+    // Coins paid for this race (sent only to signed-in finishers).
+    room.onMessage("earnings", (payout: RaceEarnings) => {
+      setEarnings(payout)
+      notifyCoinsChanged()
     })
 
     room.onLeave((code) => {
@@ -406,6 +420,7 @@ export function useColyseus({
     roomState,
     positions,
     results,
+    earnings,
     countdown,
     connect,
     disconnect,

@@ -152,6 +152,9 @@ importers:
       '@tiral/avatars':
         specifier: workspace:*
         version: link:../avatars
+      '@tiral/game-core':
+        specifier: workspace:*
+        version: link:../game-core
       '@tiral/houses':
         specifier: workspace:*
         version: link:../houses
@@ -180,6 +183,9 @@ importers:
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)
 
   packages/houses:
     devDependencies:

@@ -1,4 +1,4 @@
-import { doublePrecision, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { doublePrecision, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 
@@ -89,3 +89,27 @@ export const billboardImpressions = pgTable("billboard_impressions", {
 
 export type BillboardSlot = typeof billboardSlots.$inferSelect
 export type BillboardCampaign = typeof billboardCampaigns.$inferSelect
+
+// Banange Coins ledger: append-only, balances are always SUM(delta).
+// (user_id, reason, ref_id) is unique so any one event can only pay once,
+// e.g. ("race_finish", <race id>) or ("first_win_of_day", "2026-10-14").
+export const coinLedger = pgTable(
+  "coin_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    delta: integer("delta").notNull(),
+    reason: text("reason").notNull(),
+    refId: text("ref_id").notNull(),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("coin_ledger_event_unique").on(table.userId, table.reason, table.refId),
+    index("coin_ledger_user_created_idx").on(table.userId, table.createdAt)
+  ]
+)
+
+export type CoinLedgerEntry = typeof coinLedger.$inferSelect
