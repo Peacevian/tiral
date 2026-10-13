@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic"
 import type { HouseLoadout } from "@tiral/houses"
 import type { AvatarLoadout } from "@tiral/avatars"
-import type { HouseView, RoomSpot } from "./HousePreviewScene"
+import type { HouseView, RoomSpot } from "./roomSpots"
 
 const PreviewScene = dynamic(
   () =>

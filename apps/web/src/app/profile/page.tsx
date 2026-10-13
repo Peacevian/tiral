@@ -10,7 +10,7 @@ import { HousePreview } from "@/components/house/HousePreview"
 import { HouseCustomizer } from "@/components/house/HouseCustomizer"
 import { HomeHud } from "@/components/house/HomeHud"
 import { HomeSheet, type HomeSheetTab } from "@/components/house/HomeSheet"
-import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/HousePreviewScene"
+import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
 
 type ProfileUser = {
   id: string
