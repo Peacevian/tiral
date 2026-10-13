@@ -26,7 +26,7 @@ export const PANTS_COLORS = [
   "#831843"
 ] as const
 
-export const HAT_STYLES = ["cap", "beanie", "safari", "none"] as const
+export const HAT_STYLES = ["cap", "beanie", "safari", "helmet", "headwrap", "none"] as const
 export type HatStyle = (typeof HAT_STYLES)[number]
 
 export const HAT_COLORS = [
@@ -61,6 +61,79 @@ export const SHOE_COLORS = [
 export const GLASSES_STYLES = ["none", "round", "square"] as const
 export type GlassesStyle = (typeof GLASSES_STYLES)[number]
 
+export const HAIR_STYLES = ["short", "fade", "afro", "locs", "braids", "bald"] as const
+export type HairStyle = (typeof HAIR_STYLES)[number]
+
+export const HAIR_COLORS = ["#1c1410", "#2b2118", "#4a2f1d", "#8a5a2b", "#d4a017", "#b91c1c"] as const
+
+// Outfits change the body shape, not just the colour. Most are tinted by the
+// shirt colour; "cranes" (Uganda kit) and "bodavest" carry fixed colours.
+export const OUTFITS = [
+  "shirt",
+  "jersey",
+  "tracksuit",
+  "hoodie",
+  "kitenge",
+  "bodavest",
+  "kanzu",
+  "gomesi",
+  "cranes"
+] as const
+export type Outfit = (typeof OUTFITS)[number]
+
+// Race-only effect left behind while running.
+export const TRAILS = ["none", "dust", "sparks", "fire", "flag"] as const
+export type Trail = (typeof TRAILS)[number]
+
+export const RARITIES = ["common", "rare", "epic", "legendary"] as const
+export type Rarity = (typeof RARITIES)[number]
+
+export const RARITY_COLORS: Record<Rarity, string> = {
+  common: "#94a3b8",
+  rare: "#38bdf8",
+  epic: "#c084fc",
+  legendary: "#fbbf24"
+}
+
+// Rarity per item, keyed "<slot>:<id>". Anything unlisted is common.
+// Everything is free today; rarity sets the glow and future BNG prices.
+export const ITEM_RARITY: Record<string, Rarity> = {
+  "outfit:jersey": "rare",
+  "outfit:tracksuit": "rare",
+  "outfit:hoodie": "rare",
+  "outfit:kitenge": "epic",
+  "outfit:bodavest": "rare",
+  "outfit:kanzu": "epic",
+  "outfit:gomesi": "epic",
+  "outfit:cranes": "legendary",
+  "hair:afro": "rare",
+  "hair:locs": "epic",
+  "hair:braids": "epic",
+  "hat:helmet": "rare",
+  "hat:headwrap": "rare",
+  "trail:dust": "rare",
+  "trail:sparks": "epic",
+  "trail:fire": "legendary",
+  "trail:flag": "legendary"
+}
+
+export function itemRarity(slot: "outfit" | "hair" | "hat" | "trail" | "glasses", id: string): Rarity {
+  return ITEM_RARITY[`${slot}:${id}`] ?? "common"
+}
+
+/** Highest rarity across everything equipped — drives the in-race glow. */
+export function loadoutRarity(loadout: AvatarLoadout): Rarity {
+  const resolved = resolveLoadout(loadout)
+  const ranks = [
+    itemRarity("outfit", resolved.outfit),
+    itemRarity("hair", resolved.hair),
+    itemRarity("hat", resolved.hat),
+    itemRarity("trail", resolved.trail),
+    itemRarity("glasses", resolved.glasses)
+  ].map((rarity) => RARITIES.indexOf(rarity))
+  return RARITIES[Math.max(...ranks)] ?? "common"
+}
+
 export type AvatarLoadout = {
   skin: string
   shirt: string
@@ -70,6 +143,10 @@ export type AvatarLoadout = {
   backpack: string
   shoes?: string
   glasses?: GlassesStyle
+  hair?: HairStyle
+  hairColor?: string
+  outfit?: Outfit
+  trail?: Trail
 }
 
 export const DEFAULT_LOADOUT: AvatarLoadout = {
@@ -80,7 +157,11 @@ export const DEFAULT_LOADOUT: AvatarLoadout = {
   hatColor: "#92400e",
   backpack: "#92400e",
   shoes: "#26211c",
-  glasses: "none"
+  glasses: "none",
+  hair: "short",
+  hairColor: "#2b2118",
+  outfit: "shirt",
+  trail: "none"
 }
 
 export function resolveLoadout(loadout: AvatarLoadout): Required<AvatarLoadout> {
@@ -88,7 +169,11 @@ export function resolveLoadout(loadout: AvatarLoadout): Required<AvatarLoadout> 
     ...DEFAULT_LOADOUT,
     ...loadout,
     shoes: loadout.shoes ?? DEFAULT_LOADOUT.shoes ?? "#26211c",
-    glasses: loadout.glasses ?? DEFAULT_LOADOUT.glasses ?? "none"
+    glasses: loadout.glasses ?? DEFAULT_LOADOUT.glasses ?? "none",
+    hair: loadout.hair ?? DEFAULT_LOADOUT.hair ?? "short",
+    hairColor: loadout.hairColor ?? DEFAULT_LOADOUT.hairColor ?? "#2b2118",
+    outfit: loadout.outfit ?? DEFAULT_LOADOUT.outfit ?? "shirt",
+    trail: loadout.trail ?? DEFAULT_LOADOUT.trail ?? "none"
   }
 }
 
@@ -120,7 +205,16 @@ export function isValidLoadout(value: unknown): value is AvatarLoadout {
   const glassesValid =
     loadout.glasses === undefined ||
     (GLASSES_STYLES as readonly string[]).includes(loadout.glasses as GlassesStyle)
-  return shoesValid && glassesValid
+  const optionalIn = (key: string, allowed: readonly string[]) =>
+    loadout[key] === undefined || allowed.includes(loadout[key] as string)
+  return (
+    shoesValid &&
+    glassesValid &&
+    optionalIn("hair", HAIR_STYLES) &&
+    optionalIn("hairColor", HAIR_COLORS) &&
+    optionalIn("outfit", OUTFITS) &&
+    optionalIn("trail", TRAILS)
+  )
 }
 
 export function sanitizeLoadout(value: unknown): AvatarLoadout {

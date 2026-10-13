@@ -74,11 +74,11 @@ const TreasureBeacon = dynamic(
 const fallbackStart = KAMPALA_ZONE.startPoints[0]!
 
 const REMOTE_COLORS = [
-  { color: "#38bdf8", accentColor: "#075985" },
-  { color: "#f472b6", accentColor: "#831843" },
-  { color: "#a78bfa", accentColor: "#4c1d95" },
-  { color: "#4ade80", accentColor: "#14532d" },
-  { color: "#fb7185", accentColor: "#7f1d1d" }
+  { color: "#38bdf8" },
+  { color: "#f472b6" },
+  { color: "#a78bfa" },
+  { color: "#4ade80" },
+  { color: "#fb7185" }
 ]
 
 export default function Home() {
@@ -171,10 +171,12 @@ export default function Home() {
           heading: getRoadHeading(graph, entry.roadPosition!),
           moving: entry.moving,
           loadout: entry.loadout ?? DEFAULT_LOADOUT,
+          name: roomState?.players[id]?.name ?? "Runner",
+          finishPosition: roomState?.players[id]?.finishPosition ?? null,
           ...palette
         }
       })
-  }, [graph, positions, sessionId])
+  }, [graph, positions, sessionId, roomState])
 
   const raceHud = useMemo(() => {
     if (phase !== "racing" || !revealedBounty || !movement.coordinate) return null
@@ -461,7 +463,8 @@ export default function Home() {
 
       {map && (
         <ThreeLayer map={map}>
-          <hemisphereLight args={["#fff4d6", "#293548", 1.6]} />
+          {/* Map world is z-up (three defaults to y-up): sky from above, ground below. */}
+          <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
           <directionalLight position={[4, 8, 10]} intensity={2.2} />
           {movement.coordinate && (
             <Avatar3D
@@ -469,8 +472,9 @@ export default function Home() {
               heading={movement.heading}
               moving={movement.moving}
               color="#f59e0b"
-              accentColor="#92400e"
               loadout={myLoadout}
+              isSelf
+              finishPosition={ownFinishPosition}
             />
           )}
           {remoteAvatars.map((avatar) => (
@@ -480,8 +484,9 @@ export default function Home() {
               heading={avatar.heading}
               moving={avatar.moving}
               color={avatar.color}
-              accentColor={avatar.accentColor}
               loadout={avatar.loadout}
+              name={avatar.name}
+              finishPosition={avatar.finishPosition}
               smooth
             />
           ))}

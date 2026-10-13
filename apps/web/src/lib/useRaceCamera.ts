@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { LatLng } from "@tiral/game-core"
 
-const RACE_ZOOM = 16
+// One step closer than the lobby so roads read wider than a runner's stride.
+const RACE_ZOOM = 17
 const RACE_PITCH = 48
 const START_FLIGHT_MS = 2000
 const FOLLOW_GLIDE_MS = 400
