@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import maplibregl from "maplibre-gl"
+import type maplibregl from "maplibre-gl"
 import { KAMPALA_ZONE, haversineDistanceMeters } from "@tiral/game-core"
 import { useColyseusContext } from "@/components/ColyseusProvider"
 import {
@@ -20,7 +20,6 @@ import { DEFAULT_LOADOUT } from "@tiral/avatars"
 import { LobbyList } from "@/components/LobbyList"
 import { TopBar } from "@/components/game/TopBar"
 import { ControlDeck } from "@/components/game/ControlDeck"
-import { StartPins } from "@/components/game/StartPins"
 import { BillboardLayer, type BillboardPin } from "@/components/BillboardLayer"
 import { BrandCard } from "@/components/BrandCard"
 
@@ -54,6 +53,11 @@ type BillboardCampaign = {
 }
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
+// Only mounts once the map exists; shares the maplibre chunk MapView already loaded.
+const StartPins = dynamic(
+  () => import("@/components/game/StartPins").then((module) => ({ default: module.StartPins })),
+  { ssr: false }
+)
 const ThreeLayer = dynamic(
   () => import("@/components/ThreeLayer").then((module) => ({ default: module.ThreeLayer })),
   { ssr: false }

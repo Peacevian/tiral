@@ -41,6 +41,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Map style, tiles, glyphs and sprites all come from here: open the
+            TLS connection while JS is still downloading. */}
+        <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />
+      </head>
       <body className="tiral-game w-screen min-h-screen overflow-x-hidden">
         <ColyseusProvider>{children}</ColyseusProvider>
         <MobileTabBar />

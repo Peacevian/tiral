@@ -11,16 +11,14 @@ import { Furniture3D } from "./Furniture3D"
 import { RealisticAvatar } from "../RealisticAvatar"
 import { makeMaterialTexture, materialSurface } from "./houseTextures"
 
-export type HouseView = "outside" | "inside"
+import { AVATAR_HOME, type HouseView, type RoomSpot } from "./roomSpots"
+
+export { AVATAR_HOME, type HouseView, type RoomSpot }
 
 const OUTSIDE_CAMERA: [number, number, number] = [7.5, 6.5, 8.5]
 const OUTSIDE_TARGET: [number, number, number] = [0, 0.8, 0]
 const INSIDE_CAMERA: [number, number, number] = [2.6, 2.1, 4.8]
 const INSIDE_TARGET: [number, number, number] = [0, 1.0, -0.5]
-// Open floor away from the default furniture layout.
-export const AVATAR_HOME: RoomSpot = { x: -1.6, z: 1.6 }
-
-export type RoomSpot = { x: number; z: number }
 
 function CameraRig({ view, follow }: { view: HouseView; follow: RoomSpot | null }) {
   const camera = useThree((state) => state.camera)
