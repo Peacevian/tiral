@@ -3,17 +3,86 @@
 import {
   BACKPACK_COLORS,
   GLASSES_STYLES,
+  HAIR_COLORS,
+  HAIR_STYLES,
   HAT_COLORS,
   HAT_STYLES,
+  OUTFITS,
   PANTS_COLORS,
+  RARITY_COLORS,
   SHIRT_COLORS,
   SHOE_COLORS,
   SKIN_TONES,
+  TRAILS,
+  itemRarity,
   resolveLoadout,
-  type AvatarLoadout,
-  type GlassesStyle,
-  type HatStyle
+  type AvatarLoadout
 } from "@tiral/avatars"
+
+type RaritySlot = Parameters<typeof itemRarity>[0]
+
+const OPTION_LABELS: Record<string, string> = {
+  bodavest: "Boda vest",
+  cranes: "Cranes kit",
+  headwrap: "Head wrap",
+  none: "None"
+}
+
+function optionLabel(id: string) {
+  return OPTION_LABELS[id] ?? id.charAt(0).toUpperCase() + id.slice(1)
+}
+
+function Options<T extends string>({
+  label,
+  slot,
+  options,
+  selected,
+  onSelect,
+  hint
+}: {
+  label: string
+  slot: RaritySlot
+  options: readonly T[]
+  selected: T
+  onSelect(option: T): void
+  hint?: string
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+        {label}
+        {hint && <span className="normal-case tracking-normal text-slate-500">{hint}</span>}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const rarity = itemRarity(slot, option)
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onSelect(option)}
+              title={`${optionLabel(option)} · ${rarity}`}
+              className={`flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-bold transition ${
+                selected === option
+                  ? "border-amber-300 bg-amber-300/20 text-amber-100"
+                  : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
+              }`}
+            >
+              {rarity !== "common" && (
+                <span
+                  aria-label={rarity}
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: RARITY_COLORS[rarity], boxShadow: `0 0 6px ${RARITY_COLORS[rarity]}` }}
+                />
+              )}
+              {optionLabel(option)}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function Swatches({
   label,
@@ -67,39 +136,47 @@ export function ProfileCustomizer({
         selected={loadout.skin}
         onSelect={(skin) => onChange({ ...loadout, skin })}
       />
+      <Options
+        label="Outfit"
+        slot="outfit"
+        options={OUTFITS}
+        selected={resolved.outfit}
+        onSelect={(outfit) => onChange({ ...loadout, outfit })}
+      />
       <Swatches
-        label="Shirt"
+        label={resolved.outfit === "cranes" || resolved.outfit === "bodavest" ? "Shirt (under / trim)" : resolved.outfit === "kanzu" ? "Embroidery" : "Outfit color"}
         colors={SHIRT_COLORS}
         selected={loadout.shirt}
         onSelect={(shirt) => onChange({ ...loadout, shirt })}
       />
+      <Options
+        label="Hair"
+        slot="hair"
+        options={HAIR_STYLES}
+        selected={resolved.hair}
+        onSelect={(hair) => onChange({ ...loadout, hair })}
+      />
+      {resolved.hair !== "bald" && (
+        <Swatches
+          label="Hair color"
+          colors={HAIR_COLORS}
+          selected={resolved.hairColor}
+          onSelect={(hairColor) => onChange({ ...loadout, hairColor })}
+        />
+      )}
       <Swatches
         label="Pants"
         colors={PANTS_COLORS}
         selected={loadout.pants}
         onSelect={(pants) => onChange({ ...loadout, pants })}
       />
-      <div>
-        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-          Hat
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {HAT_STYLES.map((style: HatStyle) => (
-            <button
-              key={style}
-              type="button"
-              onClick={() => onChange({ ...loadout, hat: style })}
-              className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
-                loadout.hat === style
-                  ? "border-amber-300 bg-amber-300/20 text-amber-100"
-                  : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
-              }`}
-            >
-              {style}
-            </button>
-          ))}
-        </div>
-      </div>
+      <Options
+        label="Hat"
+        slot="hat"
+        options={HAT_STYLES}
+        selected={loadout.hat}
+        onSelect={(hat) => onChange({ ...loadout, hat })}
+      />
       {loadout.hat !== "none" && (
         <Swatches
           label="Hat color"
@@ -114,32 +191,26 @@ export function ProfileCustomizer({
         selected={loadout.backpack}
         onSelect={(backpack) => onChange({ ...loadout, backpack })}
       />
-      <div>
-        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-          Glasses
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {GLASSES_STYLES.map((style: GlassesStyle) => (
-            <button
-              key={style}
-              type="button"
-              onClick={() => onChange({ ...loadout, glasses: style })}
-              className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
-                resolved.glasses === style
-                  ? "border-amber-300 bg-amber-300/20 text-amber-100"
-                  : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
-              }`}
-            >
-              {style}
-            </button>
-          ))}
-        </div>
-      </div>
+      <Options
+        label="Glasses"
+        slot="glasses"
+        options={GLASSES_STYLES}
+        selected={resolved.glasses}
+        onSelect={(glasses) => onChange({ ...loadout, glasses })}
+      />
       <Swatches
         label="Shoes"
         colors={SHOE_COLORS}
         selected={resolved.shoes}
         onSelect={(shoes) => onChange({ ...loadout, shoes })}
+      />
+      <Options
+        label="Running trail"
+        slot="trail"
+        options={TRAILS}
+        selected={resolved.trail}
+        onSelect={(trail) => onChange({ ...loadout, trail })}
+        hint="shows behind you in races"
       />
     </div>
   )
