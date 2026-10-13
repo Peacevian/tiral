@@ -34,6 +34,7 @@ function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
 }
 
 import { ROTATION_SECONDS, selectCurrentAd } from "@/lib/billboards"
+import { RaceEarningsSummary } from "@/components/game/RaceEarningsSummary"
 import type { RaceListing } from "@/lib/useColyseus"
 
 type BillboardSlot = {
@@ -94,6 +95,7 @@ export default function Home() {
     roomState,
     positions,
     results,
+    earnings,
     countdown,
     sendWalk,
     sendTurn,
@@ -575,6 +577,7 @@ export default function Home() {
                 ))}
               </ol>
             )}
+            <RaceEarningsSummary earnings={earnings} soloRace={playerCount < 2} />
             <button
               type="button"
               onClick={sendPlayAgain}

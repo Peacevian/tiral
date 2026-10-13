@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
+import { formatCoins, useWallet } from "@/lib/useCoins"
 
 type AuthUser = {
   id: string
@@ -47,6 +48,7 @@ export function TopBar({
   const [menuOpen, setMenuOpen] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [busy, setBusy] = useState(false)
+  const wallet = useWallet()
 
   useEffect(() => {
     let cancelled = false
@@ -66,13 +68,16 @@ export function TopBar({
     try {
       const response = await fetch("/api/auth/guest", { method: "POST" })
       const body = (await response.json()) as { user?: AuthUser }
-      if (body.user) setUser(body.user)
+      if (body.user) {
+        setUser(body.user)
+        void wallet.refresh()
+      }
     } catch {
       // stay signed out on failure
     } finally {
       setBusy(false)
     }
-  }, [])
+  }, [wallet.refresh])
 
   const logout = useCallback(async () => {
     setBusy(true)
@@ -82,10 +87,11 @@ export function TopBar({
       // cookie may already be gone; still clear local state
     } finally {
       setUser(null)
+      void wallet.refresh()
       setBusy(false)
       setMenuOpen(false)
     }
-  }, [])
+  }, [wallet.refresh])
 
   const statusLine = reconnecting
     ? "Reconnecting…"
@@ -124,6 +130,17 @@ export function TopBar({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {user && wallet.balance !== null && (
+            <Link
+              href="/profile?tab=wallet"
+              aria-label={`${formatCoins(wallet.balance)} Banange Coins`}
+              title="Banange Coins (BNG)"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-amber-300/40 bg-amber-300/10 px-2.5 font-mono text-xs font-black text-amber-200"
+            >
+              <span aria-hidden>🪙</span>
+              {formatCoins(wallet.balance)}
+            </Link>
+          )}
           {showRecenter && (
             <button
               type="button"

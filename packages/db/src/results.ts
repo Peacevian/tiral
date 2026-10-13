@@ -18,8 +18,8 @@ export async function recordRaceResults(
     placements: RecordedPlacement[]
   },
   db: Database = getDatabase()
-): Promise<void> {
-  await db.transaction(async (tx) => {
+): Promise<string> {
+  return db.transaction(async (tx) => {
     const created = await tx
       .insert(races)
       .values({
@@ -42,6 +42,7 @@ export async function recordRaceResults(
         }))
       )
     }
+    return race.id
   })
 }
 

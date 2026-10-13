@@ -2,12 +2,13 @@
 
 import type { ReactNode } from "react"
 
-export type HomeSheetTab = "avatar" | "house" | "room"
+export type HomeSheetTab = "avatar" | "house" | "room" | "wallet"
 
 const TABS: { id: HomeSheetTab; label: string }[] = [
   { id: "avatar", label: "🧍 Avatar" },
   { id: "house", label: "🏠 House" },
-  { id: "room", label: "📋 Room" }
+  { id: "room", label: "📋 Room" },
+  { id: "wallet", label: "🪙 Wallet" }
 ]
 
 // Collapsible bottom sheet ordinaria: tab row is always visible (tap selects
@@ -19,7 +20,8 @@ export function HomeSheet({
   onToggle,
   avatar,
   house,
-  room
+  room,
+  wallet
 }: {
   tab: HomeSheetTab
   onTab(tab: HomeSheetTab): void
@@ -28,6 +30,7 @@ export function HomeSheet({
   avatar: ReactNode
   house: ReactNode
   room: ReactNode
+  wallet: ReactNode
 }) {
   return (
     <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] md:inset-y-0 md:left-auto md:right-0 md:w-[22rem] md:px-2 md:py-2 md:pb-2">
@@ -66,7 +69,7 @@ export function HomeSheet({
             open ? "" : "hidden md:block"
           }`}
         >
-          {tab === "avatar" ? avatar : tab === "house" ? house : room}
+          {tab === "avatar" ? avatar : tab === "house" ? house : tab === "wallet" ? wallet : room}
         </div>
       </div>
     </div>

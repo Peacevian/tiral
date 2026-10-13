@@ -13,7 +13,7 @@ import {
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
-import { recordRaceResults } from "@tiral/db"
+import { awardRaceEarnings, recordRaceResults } from "@tiral/db"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_INTENT_TIMEOUT_MS = 3000
@@ -423,26 +423,42 @@ export class RaceRoom extends Room {
         position: index + 1
       }))
     )
-    void this.persistResults(finishedAt)
+    // Everyone who actually raced (had a start), finished or not.
+    const fieldSize = Object.values(this.players).filter((player) => player.roadPosition).length
+    void this.persistResults(finishedAt, fieldSize)
   }
 
-  private async persistResults(finishedAt: Date) {
+  private async persistResults(finishedAt: Date, fieldSize: number) {
     if (!this.destinationId || !this.startedAt) return
+    const placements = this.finishOrder.map((sessionId, index) => ({
+      sessionId,
+      userId: this.players[sessionId]?.userId ?? null,
+      position: index + 1
+    }))
+    let raceId: string
     try {
-      await recordRaceResults({
+      raceId = await recordRaceResults({
         roomCode: this.roomCode,
         destinationId: this.destinationId,
         startedAt: new Date(this.startedAt),
         finishedAt,
         playerCount: Object.keys(this.players).length,
-        placements: this.finishOrder.map((sessionId, index) => ({
-          userId: this.players[sessionId]?.userId ?? null,
-          position: index + 1,
-          finishedAt
-        }))
+        placements: placements.map(({ userId, position }) => ({ userId, position, finishedAt }))
       })
     } catch (error) {
       console.error("Failed to persist race results:", error)
+      return
+    }
+    // Coins are paid separately so a ledger problem never loses the results.
+    try {
+      const payouts = await awardRaceEarnings({ raceId, finishedAt, fieldSize, placements })
+      for (const payout of payouts) {
+        const sessionId = placements.find((placement) => placement.userId === payout.userId)?.sessionId
+        const client = this.clients.find((candidate) => candidate.sessionId === sessionId)
+        client?.send("earnings", { earnings: payout.earnings, position: payout.position })
+      }
+    } catch (error) {
+      console.error("Failed to award race earnings:", error)
     }
   }
 
