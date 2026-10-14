@@ -218,8 +218,8 @@ export function bodaFare(meters: number, rush: boolean): number {
   return Math.round((base * (rush ? 1.5 : 1)) / 100) * 100
 }
 
-export function bodaFuelCost(metersRidden: number): number {
-  return Math.round(metersRidden * BODA_FUEL_PER_METER)
+export function bodaFuelCost(metersRidden: number, perMeter = BODA_FUEL_PER_METER): number {
+  return Math.round(metersRidden * perMeter)
 }
 
 /** Seconds a quick rider needs (straight line at bike speed, plus a margin for streets). */
@@ -228,21 +228,23 @@ export function bodaExpectedSeconds(meters: number): number {
 }
 
 /** Full fare up to this; half fare after; the passenger gets off at `bodaGiveUpSeconds`. */
-export function bodaFullFareSeconds(meters: number): number {
-  return Math.round(bodaExpectedSeconds(meters) * 1.8 + 10)
+/** `patience` > 1 on comfier bikes (passengers wait longer). */
+export function bodaFullFareSeconds(meters: number, patience = 1): number {
+  return Math.round((bodaExpectedSeconds(meters) * 1.8 + 10) * patience)
 }
 
-export function bodaGiveUpSeconds(meters: number): number {
-  return Math.round(bodaExpectedSeconds(meters) * 3 + 20)
+export function bodaGiveUpSeconds(meters: number, patience = 1): number {
+  return Math.round((bodaExpectedSeconds(meters) * 3 + 20) * patience)
 }
 
 /** Tip share for a ride that took `seconds`: up to 20% when quick, nothing when slow. */
-export function bodaTipShare(meters: number, seconds: number): number {
+export function bodaTipShare(meters: number, seconds: number, tipFactor = 1): number {
   const expected = bodaExpectedSeconds(meters)
   const ratio = seconds / expected
-  if (ratio <= 1) return BODA_TIP_MAX
+  const max = BODA_TIP_MAX * tipFactor
+  if (ratio <= 1) return Math.round(max * 100) / 100
   if (ratio >= 2) return 0
-  return Math.round(BODA_TIP_MAX * (2 - ratio) * 100) / 100
+  return Math.round(max * (2 - ratio) * 100) / 100
 }
 
 export function bodaEnergyCost(meters: number): number {
@@ -255,11 +257,20 @@ export type BodaPayout = { fare: number; tip: number; fuel: number; late: boolea
  * What a finished ride pays. Fuel since the last payout comes off the fare;
  * if the fare can't cover it, the shortfall is simply absorbed (agreed for now).
  */
-export function bodaPayout(input: { fare: number; meters: number; seconds: number; fuelMeters: number }): BodaPayout {
-  const late = input.seconds > bodaFullFareSeconds(input.meters)
+export function bodaPayout(input: {
+  fare: number
+  meters: number
+  seconds: number
+  fuelMeters: number
+  /** From the bike's stats (defaults: the stage rental). */
+  fuelPerMeter?: number
+  patience?: number
+  tipFactor?: number
+}): BodaPayout {
+  const late = input.seconds > bodaFullFareSeconds(input.meters, input.patience)
   const fare = late ? Math.round(input.fare / 2 / 100) * 100 : input.fare
-  const tip = late ? 0 : Math.round((fare * bodaTipShare(input.meters, input.seconds)) / 100) * 100
-  const fuel = bodaFuelCost(input.fuelMeters)
+  const tip = late ? 0 : Math.round((fare * bodaTipShare(input.meters, input.seconds, input.tipFactor)) / 100) * 100
+  const fuel = bodaFuelCost(input.fuelMeters, input.fuelPerMeter)
   return { fare, tip, fuel, late, net: Math.max(0, fare + tip - fuel) }
 }
 

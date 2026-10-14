@@ -30,7 +30,12 @@ export const REASON_LABELS: Record<string, string> = {
   hustle_porter: "Kikuubo porter",
   hustle_boda: "Boda ride",
   bike_rent: "Bike rent (today)",
-  fuel: "Fuel"
+  fuel: "Fuel",
+  bike_buy: "Bought a bike",
+  bike_lease_deposit: "Bike lease deposit",
+  bike_lease: "Bike lease payment",
+  bike_service: "Bike service",
+  bike_repair: "Roadside repair"
 }
 
 export function formatCoins(amount: number): string {

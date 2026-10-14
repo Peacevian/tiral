@@ -1,4 +1,4 @@
-import { doublePrecision, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { boolean, doublePrecision, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 
@@ -146,3 +146,32 @@ export const lifeEvents = pgTable(
 )
 
 export type LifeEventRow = typeof lifeEvents.$inferSelect
+
+// Bikes a player owns or is leasing (the stage rental has no row).
+// status: owned | leasing | repossessed. One active bike is the one you ride.
+export const bikes = pgTable(
+  "bikes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    status: text("status").notNull(),
+    active: boolean("active").default(false).notNull(),
+    /** Decorations (BikeLook from @tiral/game-core). */
+    look: jsonb("look").$type<Record<string, unknown>>(),
+    /** 0–100: raises breakdown odds; a service resets it. */
+    wear: doublePrecision("wear").default(0).notNull(),
+    leaseWeekly: integer("lease_weekly"),
+    leaseWeeksTotal: integer("lease_weeks_total"),
+    leaseWeeksPaid: integer("lease_weeks_paid").default(0).notNull(),
+    leaseDueAt: timestamp("lease_due_at", { withTimezone: true }),
+    /** Set when a lease payment was missed; repossessed after the grace period. */
+    leaseMissedAt: timestamp("lease_missed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [index("bikes_user_idx").on(table.userId)]
+)
+
+export type BikeRow = typeof bikes.$inferSelect

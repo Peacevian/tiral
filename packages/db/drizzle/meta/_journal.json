@@ -64,6 +64,13 @@
       "when": 1791960040762,
       "tag": "0008_wooden_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791982765197,
+      "tag": "0009_acoustic_tigra",
+      "breakpoints": true
     }
   ]
 }

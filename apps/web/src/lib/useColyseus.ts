@@ -5,6 +5,7 @@ import { Client } from "@colyseus/sdk"
 import type { Room } from "@colyseus/sdk"
 import type { RoadDirection } from "@tiral/road-graph"
 import type { AvatarLoadout } from "@tiral/avatars"
+import type { BikeLook } from "@tiral/game-core"
 import { notifyCoinsChanged } from "./useCoins"
 
 type RoomPlayer = {
@@ -68,7 +69,13 @@ export type HustleState = {
     fullFareDeadline: number | null
   } | null
   shift: { jobs: number; earned: number; failed: number }
-  boda: { bikeReady: boolean; rent: number; rush: boolean; fuel: number } | null
+  boda: {
+    bikeReady: boolean
+    rent: number
+    rush: boolean
+    fuel: number
+    bike: { own: boolean; name: string; look: BikeLook; wear: number; speedFactor: number; patience: number }
+  } | null
 }
 
 export type HustleReceipt =
@@ -86,8 +93,9 @@ export type HustleReceipt =
 /** Latest thing to tell the player during a shift (receipt, failure, notice). */
 export type HustleEvent =
   | { kind: "receipt"; receipt: HustleReceipt; at: number }
-  | { kind: "failed"; reason: "abandoned" | "late" | "no_show" | "gave_up"; at: number }
+  | { kind: "failed"; reason: "abandoned" | "late" | "no_show" | "gave_up" | "broke_down"; at: number }
   | { kind: "rented"; amount: number; at: number }
+  | { kind: "breakdown"; charged: number; at: number }
   | { kind: "notice"; text: string; at: number }
 
 export type RemotePositions = Record<
@@ -274,7 +282,11 @@ export function useColyseus({
       setHustleEvent({ kind: "rented", amount: rent.amount, at: Date.now() })
       notifyCoinsChanged()
     })
-    room.onMessage("jobFailed", (failure: { reason: "abandoned" | "late" | "no_show" | "gave_up" }) => {
+    room.onMessage("breakdown", (repair: { charged: number }) => {
+      setHustleEvent({ kind: "breakdown", charged: repair.charged, at: Date.now() })
+      notifyCoinsChanged()
+    })
+    room.onMessage("jobFailed", (failure: { reason: "abandoned" | "late" | "no_show" | "gave_up" | "broke_down" }) => {
       setHustleEvent({ kind: "failed", reason: failure.reason, at: Date.now() })
     })
     room.onMessage("notice", (text: string) => {

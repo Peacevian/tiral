@@ -2,13 +2,14 @@
 
 import type { ReactNode } from "react"
 
-export type HomeSheetTab = "avatar" | "house" | "room" | "body" | "wallet"
+export type HomeSheetTab = "avatar" | "house" | "room" | "body" | "bike" | "wallet"
 
 const TABS: { id: HomeSheetTab; label: string }[] = [
   { id: "avatar", label: "🧍 Avatar" },
   { id: "house", label: "🏠 House" },
   { id: "room", label: "📋 Me" },
   { id: "body", label: "⚡ Body" },
+  { id: "bike", label: "🛵 Bike" },
   { id: "wallet", label: "🪙 Wallet" }
 ]
 
@@ -23,6 +24,7 @@ export function HomeSheet({
   house,
   room,
   body,
+  bike,
   wallet,
   badges
 }: {
@@ -34,6 +36,7 @@ export function HomeSheet({
   house: ReactNode
   room: ReactNode
   body: ReactNode
+  bike: ReactNode
   wallet: ReactNode
   /** Small count shown on a tab (e.g. unanswered messages). */
   badges?: Partial<Record<HomeSheetTab, number>>
@@ -86,6 +89,8 @@ export function HomeSheet({
               ? house
               : tab === "body"
                 ? body
+                : tab === "bike"
+                  ? bike
                 : tab === "wallet"
                   ? wallet
                   : room}
