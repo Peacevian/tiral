@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { buyBike, getGarage, leaseBike, serviceBike, setActiveBike } from "@tiral/db"
+import { buyBike, customizeBike, getGarage, leaseBike, serviceBike, setActiveBike } from "@tiral/db"
+import type { BikeLook } from "@tiral/game-core"
 import { readSessionCookie, verifySession } from "@/lib/session"
 
 async function userIdFrom(request: NextRequest) {
@@ -23,8 +24,37 @@ export async function GET(request: NextRequest) {
 const MESSAGES = {
   insufficient: "Not enough BNG",
   not_allowed: "That bike isn't available that way",
-  not_found: "That bike isn't yours"
+  not_found: "That bike isn't yours",
+  invalid: "Some of those parts aren't in the shop"
 } as const
+
+/** Shape-check a look from the client (the shop catalogue is checked in the db). */
+function parseLook(value: unknown): BikeLook | null {
+  if (!value || typeof value !== "object") return null
+  const look = value as Record<string, unknown>
+  const str = (key: string) => (typeof look[key] === "string" && (look[key] as string).length <= 32 ? (look[key] as string) : null)
+  const bool = (key: string) => look[key] === true
+  const paint = str("paint")
+  const seat = str("seat")
+  const grips = str("grips")
+  const model = str("model")
+  if (!paint || !seat || !grips || !model) return null
+  const slogan = look.slogan === null ? null : Number.isInteger(look.slogan) ? (look.slogan as number) : NaN
+  if (Number.isNaN(slogan)) return null
+  const underglow = look.underglow === null ? null : str("underglow")
+  if (look.underglow !== null && !underglow) return null
+  return {
+    model: model as BikeLook["model"],
+    paint,
+    seat,
+    slogan,
+    grips,
+    tassels: bool("tassels"),
+    rack: bool("rack"),
+    crashBars: bool("crashBars"),
+    underglow
+  }
+}
 
 // Buy, lease, service, or choose which bike to ride.
 export async function POST(request: NextRequest) {
@@ -46,6 +76,11 @@ export async function POST(request: NextRequest) {
     else if (action === "lease" && purchaseId) result = await leaseBike({ userId, model, purchaseId })
     else if (action === "service" && bikeId && purchaseId) result = await serviceBike({ userId, bikeId, purchaseId })
     else if (action === "ride") result = await setActiveBike({ userId, bikeId })
+    else if (action === "customize" && bikeId && purchaseId) {
+      const look = parseLook((body as { look?: unknown }).look)
+      if (!look) return NextResponse.json({ error: "Bad request" }, { status: 400 })
+      result = await customizeBike({ userId, bikeId, look, purchaseId })
+    }
     else return NextResponse.json({ error: "Bad request" }, { status: 400 })
     if (!result.ok) return NextResponse.json({ error: MESSAGES[result.reason] }, { status: 400 })
     return NextResponse.json(await getGarage(userId))

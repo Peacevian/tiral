@@ -230,7 +230,12 @@ export function Bike3D({
     }
   })
 
-  const paintMaterial = { color: paint, metalness: look.paint === "chrome" ? 0.9 : 0.35, roughness: look.paint === "matte" ? 0.8 : 0.3 }
+  // Chrome: a fully metallic surface needs reflections to look bright, and the
+  // map and showroom have none, so it's a light, half-metallic, glossy silver.
+  const paintMaterial =
+    look.paint === "chrome"
+      ? { color: "#f1f5f9", metalness: 0.5, roughness: 0.12 }
+      : { color: paint, metalness: 0.35, roughness: look.paint === "matte" ? 0.8 : 0.3 }
   const trimMaterial = { color: build.trim, metalness: 0.4, roughness: 0.5 }
   const headY = 0.92
   const headZ = 0.47

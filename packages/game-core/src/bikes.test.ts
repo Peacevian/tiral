@@ -45,3 +45,20 @@ describe("bikes", () => {
     }
   })
 })
+
+describe("bike shop", () => {
+  it("prices a look by the items you don't own yet", async () => {
+    const { lookCost, plainBikeLook, isValidBikeLook } = await import("./bikes.js")
+    const look = { ...plainBikeLook("boxa100"), paint: "chrome", seat: "leopard", slogan: 3, underglow: "#22d3ee" }
+    expect(isValidBikeLook(look)).toBe(true)
+    expect(lookCost(look, new Set()).total).toBe(40_000 + 12_000 + 3_000 + 25_000)
+    expect(lookCost(look, new Set(["paint:chrome", "underglow:#22d3ee"])).total).toBe(15_000)
+    expect(lookCost(plainBikeLook("boxa100"), new Set()).total).toBe(0)
+  })
+
+  it("rejects looks that use items not in the shop", async () => {
+    const { isValidBikeLook, plainBikeLook } = await import("./bikes.js")
+    expect(isValidBikeLook({ ...plainBikeLook("boxa100"), underglow: "#123456" })).toBe(false)
+    expect(isValidBikeLook({ ...plainBikeLook("boxa100"), slogan: 99 })).toBe(false)
+  })
+})

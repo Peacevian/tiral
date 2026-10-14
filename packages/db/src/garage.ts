@@ -11,11 +11,16 @@ import {
   findBikeModel,
   leaseTerms,
   serviceCost,
-  type BikeLook
+  isValidBikeLook,
+  lookCost,
+  lookItemIds,
+  plainBikeLook,
+  type BikeLook,
+  type BikeModelId
 } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf, insertEntry, lockUser, type Tx } from "./ledger.js"
-import { bikes, coinLedger, lifeEvents, type BikeRow } from "./schema.js"
+import { bikeItems, bikes, coinLedger, lifeEvents, type BikeRow } from "./schema.js"
 
 export type BikeView = {
   id: string
@@ -120,7 +125,7 @@ export async function settleLeases(tx: Tx, userId: string, now = new Date()) {
   }
 }
 
-export type Garage = { bikes: BikeView[]; activeBikeId: string | null }
+export type Garage = { bikes: BikeView[]; activeBikeId: string | null; items: string[] }
 
 /** The player's bikes (repossessed ones too, so they know what happened). */
 export async function getGarage(userId: string, db: Database = getDatabase()): Promise<Garage> {
@@ -129,7 +134,8 @@ export async function getGarage(userId: string, db: Database = getDatabase()): P
     await settleLeases(tx, userId)
     const rows = await tx.select().from(bikes).where(eq(bikes.userId, userId)).orderBy(desc(bikes.createdAt))
     const active = rows.find((row) => row.active && row.status !== "repossessed")
-    return { bikes: rows.map(viewBike), activeBikeId: active?.id ?? null }
+    const owned = await tx.select({ itemId: bikeItems.itemId }).from(bikeItems).where(eq(bikeItems.userId, userId))
+    return { bikes: rows.map(viewBike), activeBikeId: active?.id ?? null, items: owned.map((row) => row.itemId) }
   })
 }
 
@@ -174,7 +180,7 @@ export async function buyBike(input: { userId: string; model: string; purchaseId
       meta: { model: input.model }
     })
     if (!charged) return { ok: true }
-    await addBike(tx, input.userId, { model: input.model, status: "owned", look: { ...RENTAL_BIKE_LOOK, model: input.model } })
+    await addBike(tx, input.userId, { model: input.model, status: "owned", look: plainBikeLook(input.model as BikeModelId) })
     return { ok: true }
   })
 }
@@ -197,7 +203,7 @@ export async function leaseBike(input: { userId: string; model: string; purchase
     await addBike(tx, input.userId, {
       model: input.model,
       status: "leasing",
-      look: { ...RENTAL_BIKE_LOOK, model: input.model },
+      look: plainBikeLook(input.model as BikeModelId),
       leaseWeekly: terms.weekly,
       leaseWeeksTotal: terms.weeks,
       leaseWeeksPaid: 0,
@@ -282,5 +288,54 @@ export async function chargeBreakdown(input: { userId: string; refId: string; mo
     }
     await notice(tx, input.userId, "breakdown", { name: findBikeModel(input.model).name, charged: charge }, charge)
     return charge
+  })
+}
+
+export type CustomizeResult =
+  | { ok: true; charged: number }
+  | { ok: false; reason: "insufficient" | "not_found" | "invalid" }
+
+/**
+ * Put a new look on one of your bikes. Items you don't own yet are bought (once,
+ * then usable on any bike); items already on this bike count as owned.
+ */
+export async function customizeBike(
+  input: { userId: string; bikeId: string; look: BikeLook; purchaseId: string },
+  db: Database = getDatabase()
+): Promise<CustomizeResult> {
+  return db.transaction(async (tx) => {
+    await lockUser(tx, input.userId)
+    const [bike] = await tx
+      .select()
+      .from(bikes)
+      .where(and(eq(bikes.id, input.bikeId), eq(bikes.userId, input.userId), ne(bikes.status, "repossessed")))
+      .limit(1)
+    if (!bike) return { ok: false, reason: "not_found" }
+    const look: BikeLook = { ...input.look, model: bike.model as BikeModelId }
+    if (!isValidBikeLook(look)) return { ok: false, reason: "invalid" }
+    if (await alreadyDone(tx, input.userId, "bike_items", input.purchaseId)) return { ok: true, charged: 0 }
+    const ownedRows = await tx.select({ itemId: bikeItems.itemId }).from(bikeItems).where(eq(bikeItems.userId, input.userId))
+    const owned = new Set([...ownedRows.map((row) => row.itemId), ...lookItemIds(lookOf(bike))])
+    const { items, total } = lookCost(look, owned)
+    if (total > 0) {
+      if ((await balanceOf(tx, input.userId)) < total) return { ok: false, reason: "insufficient" }
+      await insertEntry(tx, {
+        userId: input.userId,
+        delta: -total,
+        reason: "bike_items",
+        refId: input.purchaseId,
+        meta: { items: items.map((item) => item.id) }
+      })
+    }
+    // Remember everything this look uses (incl. items grandfathered from the bike) as owned.
+    const toRecord = lookItemIds(look).filter((id) => !ownedRows.some((row) => row.itemId === id))
+    if (toRecord.length > 0) {
+      await tx
+        .insert(bikeItems)
+        .values(toRecord.map((itemId) => ({ userId: input.userId, itemId })))
+        .onConflictDoNothing()
+    }
+    await tx.update(bikes).set({ look }).where(eq(bikes.id, bike.id))
+    return { ok: true, charged: total }
   })
 }

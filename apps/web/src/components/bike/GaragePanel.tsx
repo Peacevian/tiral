@@ -9,12 +9,15 @@ import {
   canLease,
   findBikeModel,
   leaseTerms,
+  lookCost,
+  lookItemIds,
   type BikeLook,
   type BikeStats
 } from "@tiral/game-core"
 import { formatCoins, notifyCoinsChanged } from "@/lib/useCoins"
 import { usePlayer } from "@/lib/player"
 import { ActionButton, SectionLabel, Skeleton, StatMeter, untilText } from "@/components/ui"
+import { BikeCustomizer } from "./BikeCustomizer"
 
 type BikeView = {
   id: string
@@ -28,7 +31,7 @@ type BikeView = {
   lease: { weekly: number; weeksPaid: number; weeksTotal: number; dueAt: string | null; missedAt: string | null } | null
 }
 
-type Garage = { bikes: BikeView[]; activeBikeId: string | null }
+type Garage = { bikes: BikeView[]; activeBikeId: string | null; items: string[] }
 
 /** What's selected in the garage: one of your bikes, the rental, or a showroom model. */
 export type GarageSelection = { kind: "bike"; id: string } | { kind: "rental" } | { kind: "model"; model: string }
@@ -112,6 +115,8 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
   const [notice, setNotice] = useState<string | null>(null)
   // Two-tap confirm for spending money.
   const [confirm, setConfirm] = useState<string | null>(null)
+  // Customising one of your bikes: the draft look (shown live, bought on apply).
+  const [customizing, setCustomizing] = useState<{ bikeId: string; draft: BikeLook } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -130,10 +135,11 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
     if (garage && !selection) setSelection(garage.activeBikeId ? { kind: "bike", id: garage.activeBikeId } : { kind: "rental" })
   }, [garage, selection])
 
-  // Keep the big scene on the selected bike.
+  // Keep the big scene on the selected bike (or the look being designed).
   useEffect(() => {
-    if (garage && selection) onShow(selectionLook(selection, garage.bikes))
-  }, [garage, selection, onShow])
+    if (customizing) onShow(customizing.draft)
+    else if (garage && selection) onShow(selectionLook(selection, garage.bikes))
+  }, [garage, selection, customizing, onShow])
 
   const select = (next: GarageSelection) => {
     setSelection(next)
@@ -176,6 +182,65 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
   const model = findBikeModel(selection.kind === "model" ? selection.model : selectedBike?.model ?? "rental")
   const riding = selection.kind === "rental" ? ridingId === null : selectedBike?.id === ridingId
   const newestOf = (json: Garage) => json.bikes.find((bike) => bike.active) ?? null
+
+  if (customizing) {
+    const bike = owned.find((candidate) => candidate.id === customizing.bikeId)
+    // Parts already on this bike count as yours.
+    const ownedItems = new Set([...garage.items, ...(bike ? lookItemIds(bike.look) : [])])
+    const cost = lookCost(customizing.draft, ownedItems)
+    return (
+      <div className="flex min-h-full flex-col gap-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-black text-white">Customising your {bike?.name}</span>
+          <span className="font-mono text-[11px] text-amber-200">🪙 {formatCoins(balance)}</span>
+        </div>
+        <BikeCustomizer
+          look={customizing.draft}
+          owned={ownedItems}
+          onChange={(draft) => {
+            setCustomizing({ ...customizing, draft })
+            setConfirm(null)
+          }}
+        />
+        <div className="sticky bottom-[-0.75rem] -mx-3 -mb-3 mt-auto border-t border-white/10 bg-slate-950 px-3 pb-3 pt-3 md:bottom-[-1rem] md:-mb-4 md:pb-4">
+          <div className="mb-2 flex items-baseline justify-between text-xs">
+            <span className="text-slate-300">
+              {cost.items.length === 0 ? "Nothing new to buy" : `${cost.items.length} new part${cost.items.length === 1 ? "" : "s"}`}
+            </span>
+            <span className={`font-mono font-black ${balance < cost.total ? "text-rose-300" : "text-amber-200"}`}>
+              {formatCoins(cost.total)} BNG
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <ActionButton variant="ghost" className="flex-1 text-xs" disabled={busy !== null} onClick={() => setCustomizing(null)}>
+              Cancel
+            </ActionButton>
+            <ActionButton
+              variant={confirm === "apply" || cost.total === 0 ? "primary" : "secondary"}
+              className="flex-[2] text-xs"
+              disabled={busy !== null || balance < cost.total}
+              onClick={() => {
+                if (cost.total > 0 && confirm !== "apply") return setConfirm("apply")
+                void act("apply", { action: "customize", bikeId: customizing.bikeId, look: customizing.draft }, () => {
+                  setCustomizing(null)
+                  return { kind: "bike", id: customizing.bikeId }
+                })
+              }}
+            >
+              {busy === "apply"
+                ? "…"
+                : cost.total === 0
+                  ? "Apply look"
+                  : confirm === "apply"
+                    ? `Confirm: pay ${formatCoins(cost.total)}`
+                    : `Apply · ${formatCoins(cost.total)}`}
+            </ActionButton>
+          </div>
+          {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-full flex-col gap-4">
@@ -306,6 +371,16 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
               >
                 {riding ? "You ride this" : busy === "ride" ? "…" : "Ride this"}
               </ActionButton>
+              {selectedBike && (
+                <ActionButton
+                  variant="ghost"
+                  className="flex-1 text-xs"
+                  disabled={busy !== null}
+                  onClick={() => setCustomizing({ bikeId: selectedBike.id, draft: selectedBike.look })}
+                >
+                  🎨 Customise
+                </ActionButton>
+              )}
               {selectedBike && (
                 <ActionButton
                   variant={selectedBike.wear >= 40 ? "primary" : "ghost"}

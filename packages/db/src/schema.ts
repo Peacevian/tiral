@@ -175,3 +175,17 @@ export const bikes = pgTable(
 )
 
 export type BikeRow = typeof bikes.$inferSelect
+
+// Bike decorations a player has bought (usable on any of their bikes).
+export const bikeItems = pgTable(
+  "bike_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    itemId: text("item_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [uniqueIndex("bike_items_user_item_idx").on(table.userId, table.itemId)]
+)
