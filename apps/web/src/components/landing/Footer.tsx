@@ -3,7 +3,7 @@ import Link from "next/link"
 const LINKS: { label: string; href: string }[] = [
   { label: "Play", href: "/play" },
   { label: "Leaderboard", href: "/leaderboard" },
-  { label: "Profile", href: "/profile" },
+  { label: "Home", href: "/home" },
   { label: "Advertise", href: "/advertise" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" }

@@ -15,7 +15,8 @@ export async function POST() {
 }
 
 function failure(request: NextRequest, reason: string): NextResponse {
-  const url = new URL("/", request.url)
+  // Back to the sign-in screen, which explains what went wrong.
+  const url = new URL("/play", request.url)
   url.searchParams.set("auth_error", reason)
   return NextResponse.redirect(url)
 }

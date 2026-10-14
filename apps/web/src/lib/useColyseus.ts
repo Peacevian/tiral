@@ -90,6 +90,9 @@ const RECONNECT_STORAGE_KEY = "tiral:reconnect-token"
 
 export function toFriendlyJoinError(err: unknown): Error {
   const message = err instanceof Error ? err.message : String(err)
+  if (/sign in/i.test(message)) {
+    return new Error("Sign in to race")
+  }
   if (/locked/i.test(message)) {
     return new Error("That race already started — pick another one")
   }
@@ -319,7 +322,7 @@ export function useColyseus({
       attachRoom(room)
     } catch (err) {
       console.error("Quick play failed:", err)
-      throw err
+      throw toFriendlyJoinError(err)
     }
   }, [getClient, attachRoom, authorize])
 
@@ -332,7 +335,7 @@ export function useColyseus({
       attachRoom(room)
     } catch (err) {
       console.error("Create race failed:", err)
-      throw err
+      throw toFriendlyJoinError(err)
     }
   }, [getClient, attachRoom, authorize])
 
@@ -346,7 +349,7 @@ export function useColyseus({
       attachRoom(room)
     } catch (err) {
       console.error("Start gig failed:", err)
-      throw err
+      throw toFriendlyJoinError(err)
     }
   }, [getClient, attachRoom, authorize])
 

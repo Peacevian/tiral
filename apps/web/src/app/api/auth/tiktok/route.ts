@@ -15,6 +15,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(buildAuthorizeUrl(config, state))
   } catch (error) {
     console.error("TikTok login start failed:", error)
-    return NextResponse.json({ error: "TikTok login is not available" }, { status: 503 })
+    return NextResponse.redirect(new URL("/play?auth_error=tiktok_unavailable", request.url))
   }
 }

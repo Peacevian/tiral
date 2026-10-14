@@ -1,0 +1,84 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { usePlayer } from "@/lib/player"
+import { PlayerAvatar } from "@/components/shell/PlayerBar"
+
+// The avatar button: who you are, keeping a guest account, logging out.
+export function AccountMenu({ showName = false }: { showName?: boolean }) {
+  const { player, busy, logout } = usePlayer()
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("pointerdown", onPointer)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onPointer)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  if (!player) return null
+  const { user } = player
+  return (
+    <div ref={root} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-label="Account"
+        aria-expanded={open}
+        className="flex min-h-[44px] items-center gap-2 rounded-full p-1 transition hover:bg-white/5 md:pl-3"
+      >
+        {showName && <span className="hidden max-w-[9rem] truncate text-sm font-bold text-white md:inline">{user.displayName}</span>}
+        <PlayerAvatar name={user.displayName} url={user.avatarUrl} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1.5 flex w-64 max-w-[calc(100vw-1rem)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-md">
+          <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2">
+            <PlayerAvatar name={user.displayName} url={user.avatarUrl} size={32} />
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold text-white">{user.displayName}</div>
+              <div className="text-[11px] text-slate-400">{user.tiktokLinked ? "TikTok connected" : "Guest account"}</div>
+            </div>
+          </div>
+          {!user.tiktokLinked && (
+            <a
+              href="/api/auth/tiktok"
+              className="rounded-xl bg-white px-3 py-2.5 text-center text-sm font-black text-slate-950"
+            >
+              Connect TikTok
+              <span className="block text-[11px] font-semibold text-slate-600">Keep your progress for good</span>
+            </a>
+          )}
+          <Link
+            href="/home?tab=avatar"
+            onClick={() => setOpen(false)}
+            className="flex min-h-[44px] items-center rounded-xl px-3 text-sm font-bold text-slate-100 hover:bg-white/5"
+          >
+            Edit my look
+          </Link>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => {
+              setOpen(false)
+              void logout()
+            }}
+            className="flex min-h-[44px] items-center rounded-xl px-3 text-left text-sm font-bold text-slate-300 hover:bg-white/5 disabled:opacity-40"
+          >
+            Log out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

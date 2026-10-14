@@ -17,7 +17,11 @@ import { useStartPlacement } from "@/lib/useStartPlacement"
 import { useMyLoadout } from "@/lib/useMyLoadout"
 import { useRaceCamera } from "@/lib/useRaceCamera"
 import { DEFAULT_LOADOUT } from "@tiral/avatars"
-import { LobbyList } from "@/components/LobbyList"
+import { SignInGate } from "@/components/SignInGate"
+import { Hub } from "@/components/hub/Hub"
+import { FirstRunIntro, useFirstRun } from "@/components/hub/FirstRunIntro"
+import { AdaptivePanel } from "@/components/ui/AdaptivePanel"
+import { usePlayer } from "@/lib/player"
 import { TopBar } from "@/components/game/TopBar"
 import { ControlDeck } from "@/components/game/ControlDeck"
 import { BillboardLayer, type BillboardPin } from "@/components/BillboardLayer"
@@ -116,9 +120,25 @@ export default function Home() {
     createRace,
     joinRace,
     joinByCode,
-    quickPlay,
-    startGig
+    quickPlay
   } = useColyseusContext()
+  const { ready: authReady, player, busy: authBusy, error: authFailure, playAsGuest } = usePlayer()
+  const firstRun = useFirstRun(player?.user.id ?? null)
+  // TikTok sign-in failures come back as ?auth_error=…; read once, then tidy the URL.
+  const [authError, setAuthError] = useState<string | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const reason = params.get("auth_error")
+    if (!reason) return
+    setAuthError(reason)
+    params.delete("auth_error")
+    const query = params.toString()
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`)
+  }, [])
+  // Signing out mid-race leaves the room: only signed-in players race.
+  useEffect(() => {
+    if (authReady && !player && connected) leaveRoom()
+  }, [authReady, player, connected, leaveRoom])
   const [races, setRaces] = useState<RaceListing[]>([])
   const [lobbyLoading, setLobbyLoading] = useState(false)
   const [lobbyError, setLobbyError] = useState<string | null>(null)
@@ -269,10 +289,10 @@ export default function Home() {
   }, [listRaces])
 
   useEffect(() => {
-    if (!connected && !reconnecting) {
+    if (!connected && !reconnecting && player) {
       void refreshRaces()
     }
-  }, [connected, reconnecting, refreshRaces])
+  }, [connected, reconnecting, refreshRaces, player !== null])
 
   const runJoin = useCallback(
     async (action: () => Promise<void>) => {
@@ -301,9 +321,11 @@ export default function Home() {
 
   const onMapReady = useCallback((readyMap: maplibregl.Map) => {
     setMap(readyMap)
+    // Keep the zone clear of the hub: side panel on wide screens, sheet on phones.
+    const wide = window.innerWidth >= 768
     readyMap.fitBounds(
       [[32.574, 0.309], [32.588, 0.321]],
-      { padding: { top: 70, right: 45, bottom: 170, left: 45 }, maxZoom: 16 }
+      { padding: { top: 70, right: wide ? 440 : 45, bottom: wide ? 45 : 240, left: 45 }, maxZoom: 16 }
     )
   }, [])
 
@@ -426,26 +448,18 @@ export default function Home() {
 
   const showPicker = connected && (phase === "lobby" || phase === "countdown")
 
-  const [lobbyOpen, setLobbyOpen] = useState(false)
-
   if (!connected && !reconnecting) {
-    const joinHandlers = {
-      onRefresh: () => void refreshRaces(),
-      onJoin: (roomId: string) => void runJoin(() => joinRace(roomId, myLoadout)),
-      onJoinCode: handleJoinCode,
-      onCreate: () => void runJoin(() => createRace(myLoadout)),
-      onQuickPlay: () => void runJoin(() => quickPlay(myLoadout)),
-      onGig: () => void runJoin(() => startGig(myLoadout))
-    }
     return (
       <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950">
-        <MapView
-          center={fallbackStart.position}
-          zoom={15}
-          pitch={48}
-          bearing={-18}
-          onMapReady={onMapReady}
-        />
+        <div className="absolute inset-x-0 bottom-0 top-[var(--shell-top)]">
+          <MapView
+            center={fallbackStart.position}
+            zoom={15}
+            pitch={48}
+            bearing={-18}
+            onMapReady={onMapReady}
+          />
+        </div>
         {map && <BillboardLayer map={map} pins={billboardPins} onPinClick={setBrandCardPin} />}
         {brandCardPin && (
           <BrandCard
@@ -457,64 +471,46 @@ export default function Home() {
             }}
           />
         )}
-        <Link
-          href="/"
-          className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl bg-slate-950/80 px-3 py-2 text-sm font-black text-white shadow-xl backdrop-blur-md"
-        >
-          Tiral
-        </Link>
-        <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
-          <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-md">
-            <button
-              type="button"
-              onClick={() => setLobbyOpen((open) => !open)}
-              aria-expanded={lobbyOpen}
-              className="flex min-h-[44px] w-full items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-300"
+        {player ? (
+          <>
+            <AdaptivePanel label="Race hub">
+              <Hub
+                races={races}
+                loadingRaces={lobbyLoading}
+                joining={joining}
+                error={lobbyError}
+                onRefresh={() => void refreshRaces()}
+                onQuickRace={() => {
+                  firstRun.markRaced()
+                  void runJoin(() => quickPlay(myLoadout))
+                }}
+                onCreate={() => void runJoin(() => createRace(myLoadout))}
+                onJoin={(roomId) => void runJoin(() => joinRace(roomId, myLoadout))}
+                onJoinCode={handleJoinCode}
+                highlightQuickRace={firstRun.highlight}
+              />
+            </AdaptivePanel>
+            {firstRun.showIntro && <FirstRunIntro onDone={firstRun.finishIntro} />}
+          </>
+        ) : (
+          <>
+            <Link
+              href="/"
+              className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl bg-slate-950/80 px-3 py-2 text-sm font-black text-white shadow-xl backdrop-blur-md"
             >
-              <span aria-hidden>{lobbyOpen ? "▾" : "▴"}</span>
-              {lobbyOpen ? "Hide races" : "Find a race"}
-            </button>
-            {lobbyOpen ? (
-              <div className="max-h-[64dvh] overflow-y-auto px-3 pb-3">
-                <LobbyList
-                  races={races}
-                  loading={lobbyLoading || joining}
-                  error={lobbyError}
-                  joining={joining}
-                  {...joinHandlers}
-                />
+              Tiral
+            </Link>
+            <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+              <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 pt-3 shadow-2xl backdrop-blur-md">
+                {authReady ? (
+                  <SignInGate busy={authBusy === "guest"} error={authFailure} authError={authError} onGuest={playAsGuest} />
+                ) : (
+                  <p className="px-4 pb-5 pt-2 text-center text-sm text-slate-400">Checking who you are…</p>
+                )}
               </div>
-            ) : (
-              <div className="flex gap-2 px-3 pb-3">
-                <button
-                  type="button"
-                  disabled={joining}
-                  onClick={joinHandlers.onCreate}
-                  className="min-h-[48px] flex-1 rounded-xl bg-amber-400 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-300 disabled:opacity-50"
-                >
-                  Create race
-                </button>
-                <button
-                  type="button"
-                  disabled={joining}
-                  onClick={joinHandlers.onQuickPlay}
-                  className="min-h-[48px] flex-1 rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50"
-                >
-                  Quick play
-                </button>
-                <button
-                  type="button"
-                  disabled={joining}
-                  onClick={joinHandlers.onGig}
-                  title="Deliver a package across town for BNG"
-                  className="min-h-[48px] rounded-xl border border-emerald-300/50 px-3 py-2 text-sm font-black text-emerald-200 transition hover:bg-emerald-400/10 disabled:opacity-50"
-                >
-                  🛵 Boda gig
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </main>
     )
   }
@@ -655,7 +651,7 @@ export default function Home() {
               onClick={leaveRoom}
               className="mt-2 block w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
             >
-              Park the bike
+              Back to base
             </button>
           </div>
         </div>
@@ -694,19 +690,29 @@ export default function Home() {
               </ol>
             )}
             <RaceEarningsSummary earnings={earnings} soloRace={playerCount < 2} />
+            {earnings && player && !player.user.tiktokLinked && (
+              <a
+                href="/api/auth/tiktok"
+                className="mt-3 block rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs leading-snug text-slate-200"
+              >
+                <span className="font-bold text-white">Connect TikTok</span> so you never lose these coins. Guest
+                accounts live on this device only. →
+              </a>
+            )}
             <button
               type="button"
               onClick={sendPlayAgain}
-              className="mt-4 w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+              className="mt-4 min-h-[48px] w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
             >
-              Play again
+              Race again
             </button>
-            <Link
-              href="/leaderboard"
-              className="mt-2 block w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
+            <button
+              type="button"
+              onClick={leaveRoom}
+              className="mt-2 min-h-[48px] w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
             >
-              See leaderboard
-            </Link>
+              Back to base
+            </button>
             <ActiveSponsors campaigns={billboardCampaigns} />
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
+import { usePlayer } from "@/lib/player"
 
 type LeaderboardEntry = {
   userId: string
@@ -16,6 +17,7 @@ type LeaderboardEntry = {
 type Period = "week" | "all"
 
 export default function LeaderboardPage() {
+  const { ready, player } = usePlayer()
   const [period, setPeriod] = useState<Period>("all")
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,7 +43,7 @@ export default function LeaderboardPage() {
   }, [load, period])
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-24 pt-8 text-white md:pb-8">
+    <main className="mx-auto h-dvh w-full max-w-xl overflow-y-auto bg-slate-950 px-4 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+1.25rem)] text-white">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
@@ -49,9 +51,12 @@ export default function LeaderboardPage() {
           </div>
           <h1 className="text-2xl font-black">Leaderboard</h1>
         </div>
-        <Link href="/play" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
-          ← Race
-        </Link>
+        {/* Signed-in players have the app navigation; visitors from the landing page get a way in. */}
+        {ready && !player && (
+          <Link href="/play" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
+            Play →
+          </Link>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
