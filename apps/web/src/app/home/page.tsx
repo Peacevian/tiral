@@ -49,7 +49,7 @@ function bountyName(destinationId: string): string {
 }
 
 export default function HomePage() {
-  const { refresh: refreshPlayer } = usePlayer()
+  const { refresh: refreshPlayer, player } = usePlayer()
   const [user, setUser] = useState<ProfileUser | null>(null)
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [recentRaces, setRecentRaces] = useState<RecentRace[]>([])
@@ -58,8 +58,21 @@ export default function HomePage() {
   const [draftHouse, setDraftHouse] = useState<HouseLoadout>(DEFAULT_HOUSE)
   const [showRoof, setShowRoof] = useState(true)
   const [homeView, setHomeView] = useState<HouseView>("outside")
-  const [sheetTab, setSheetTab] = useState<HomeSheetTab>("avatar")
-  const [sheetOpen, setSheetOpen] = useState(false)
+  // Open section of the home panel, or null for the menu of tiles.
+  const [section, setSection] = useState<HomeSheetTab | null>(null)
+  // The Bike tile shows which bike you ride.
+  const [bikeStatus, setBikeStatus] = useState<string | null>(null)
+  useEffect(() => {
+    if (!player) return
+    fetch("/api/garage")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((garage: { bikes: Array<{ id: string; name: string; wear: number }>; activeBikeId: string | null } | null) => {
+        if (!garage) return
+        const active = garage.bikes.find((bike) => bike.id === garage.activeBikeId)
+        setBikeStatus(active ? `${active.name} · wear ${Math.round(active.wear)}%` : "Stage rental")
+      })
+      .catch(() => {})
+  }, [player, section])
   const [avatarSpot, setAvatarSpot] = useState<RoomSpot>(AVATAR_HOME)
   const [selection, setSelection] = useState<RoomSpot | null>(null)
   const [loading, setLoading] = useState(true)
@@ -71,8 +84,7 @@ export default function HomePage() {
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get("tab")
     if (tab === "wallet" || tab === "body" || tab === "avatar" || tab === "house" || tab === "room" || tab === "bike") {
-      setSheetTab(tab)
-      setSheetOpen(true)
+      setSection(tab)
     }
   }, [])
 
@@ -182,7 +194,7 @@ export default function HomePage() {
           stays in view; docks left of the side panel on tablet/desktop. */}
       <div
         className={`absolute inset-x-0 top-[var(--shell-top)] transition-[bottom] duration-200 md:bottom-0 md:right-[23rem] ${
-          sheetOpen ? "bottom-[calc(var(--shell-bottom)+40dvh)] sm:bottom-[calc(var(--shell-bottom)+44dvh)]" : "bottom-[calc(var(--shell-bottom)+7rem)]"
+          section ? "bottom-[calc(var(--shell-bottom)+40dvh+4rem)] sm:bottom-[calc(var(--shell-bottom)+44dvh+4rem)]" : "bottom-[calc(var(--shell-bottom)+16.5rem)]"
         }`}
       >
         <HousePreview
@@ -199,13 +211,11 @@ export default function HomePage() {
           }}
           onSelectAvatar={() => {
             setSelection(null)
-            setSheetTab("avatar")
-            setSheetOpen(true)
+            setSection("avatar")
           }}
           onSelectSurface={() => {
             setSelection(null)
-            setSheetTab("house")
-            setSheetOpen(true)
+            setSection("house")
           }}
         />
         <HomeHud
@@ -241,10 +251,15 @@ export default function HomePage() {
         </div>
       </div>
       <HomeSheet
-        tab={sheetTab}
-        onTab={setSheetTab}
-        open={sheetOpen}
-        onToggle={() => setSheetOpen((open) => !open)}
+        section={section}
+        onSection={setSection}
+        status={{
+          avatar: dirty ? "Unsaved changes" : "Your look",
+          body: player ? `⚡${Math.round(player.needs.energy)} ❤${Math.round(player.needs.health)}` : undefined,
+          bike: bikeStatus ?? undefined,
+          wallet: player ? `${player.balance.toLocaleString("en-US")} BNG` : undefined,
+          room: stats ? `${stats.wins} wins · ${stats.races} races` : undefined
+        }}
         avatar={
           <ProfileCustomizer
             loadout={draftLoadout}
