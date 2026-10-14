@@ -50,7 +50,8 @@ const FAILURE_TEXT = {
   abandoned: "Job dropped. No pay, and they won't forget it.",
   late: "Too late. The customer found another porter.",
   no_show: "You never made it to the pickup. The job went to someone else.",
-  gave_up: "Your passenger gave up and got off. No fare."
+  gave_up: "Your passenger gave up and got off. No fare.",
+  broke_down: "Banange! The bike broke down. Your passenger walked off."
 } as const
 
 const GIGS = {
@@ -159,7 +160,8 @@ export default function HustlePage() {
     }
   }, [setSprint])
   const onBike = hustle?.hustle === "boda"
-  speedRef.current = collapsed ? 0 : (onBike ? BODA_SPEED_FACTOR : 1) * (sprinting ? SPRINT_MULTIPLIER : 1)
+  speedRef.current =
+    collapsed ? 0 : (onBike ? hustle?.boda?.bike.speedFactor ?? BODA_SPEED_FACTOR : 1) * (sprinting ? SPRINT_MULTIPLIER : 1)
 
   const movement = useRoadMovement(graph, inShift ? hustle.startAt : null, handleRoadInput, !inShift, speedRef)
   // Keep the predicted runner honest: the server decides pickups and drop-offs.
@@ -275,7 +277,7 @@ export default function HustlePage() {
               bike={
                 onBike
                   ? {
-                      look: RENTAL_BIKE_LOOK,
+                      look: hustle?.boda?.bike.look ?? RENTAL_BIKE_LOOK,
                       // A dummy passenger rides along once they're on board.
                       passenger: hustle?.job?.stage === "carrying",
                       passengerSeed: hustle?.job?.offer.id,
@@ -452,6 +454,10 @@ export default function HustlePage() {
                 )
               ) : toast.kind === "failed" ? (
                 <div className="text-sm font-bold text-rose-100">{FAILURE_TEXT[toast.reason]}</div>
+              ) : toast.kind === "breakdown" ? (
+                <div className="text-sm font-bold text-rose-100">
+                  🔧 Roadside repair: −{formatCoins(toast.charged)} BNG. Service your bike at Home → Bike.
+                </div>
               ) : toast.kind === "rented" ? (
                 <div className="text-sm font-bold text-amber-100">🛵 Bike rented for today: −{formatCoins(toast.amount)} BNG</div>
               ) : (

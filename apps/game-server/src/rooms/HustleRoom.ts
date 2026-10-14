@@ -4,7 +4,6 @@ import {
   BODA_DAILY_TRIPS,
   BODA_OFFER_COUNT,
   BODA_PICKUP_SECONDS,
-  BODA_SPEED_FACTOR,
   BODA_SPRINT_DRAIN,
   BODA_STAGES,
   HUSTLE_ARRIVAL_METERS,
@@ -15,7 +14,16 @@ import {
   PORTER_OFFER_COUNT,
   PORTER_PICKUP_SECONDS,
   PORTER_SPRINT_DRAIN,
+  RENTAL_BIKE_LOOK,
+  RENTAL_WEAR,
+  bikeFuelPerMeter,
+  bikePatienceFactor,
+  bikeSpeedFactor,
+  bikeTipFactor,
+  bikeWearPerKm,
   bodaFuelCost,
+  breakdownChancePerKm,
+  findBikeModel,
   bodaFullFareSeconds,
   bodaGiveUpSeconds,
   bodaPayout,
@@ -24,11 +32,13 @@ import {
   isRushHour,
   makeBodaOffer,
   makePorterOffer,
+  type BikeLook,
+  type BikeStats,
   type HustleOffer
 } from "@tiral/game-core"
 import type { RoadDirection, RoadGraph } from "@tiral/road-graph"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
-import { chargeFuel, payHustle, rentBikeToday } from "@tiral/db"
+import { addBikeWear, chargeBreakdown, chargeFuel, getRideBike, payHustle, rentBikeToday, type BikeView } from "@tiral/db"
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import {
@@ -85,8 +95,14 @@ export class HustleRoom extends Room {
   private job: ActiveJob | null = null
   private shift: Shift = { jobs: 0, earned: 0, failed: 0 }
   private offerSeq = 0
-  /** Boda: today's bike rent is paid (checked on the first ride). */
+  /** Boda: today's bike rent is paid (checked on the first ride), or you ride your own. */
   private bikeReady = false
+  /** Boda: your own bike (null = the stage rental). */
+  private ownBike: BikeView | null = null
+  private bikeLoaded = false
+  /** Boda: km ridden on your own bike not yet written as wear. */
+  private wearKm = 0
+  private breakdowns = 0
   private accepting = false
   /** Boda: metres ridden since fuel was last paid for. */
   private fuelMeters = 0
@@ -169,7 +185,33 @@ export class HustleRoom extends Room {
     this.worker = worker
     if (this.graph) this.place(worker)
     void this.body.load(worker, () => this.worker === worker)
+    if (this.gig === "boda" && worker.userId) void this.loadBike(worker.userId)
     this.sendState()
+  }
+
+  /** Your own bike if you have one active; otherwise the stage rental. */
+  private async loadBike(userId: string) {
+    try {
+      this.ownBike = await getRideBike(userId)
+      if (this.ownBike) this.bikeReady = true
+    } catch (error) {
+      console.error("Failed to load bike:", error)
+    } finally {
+      this.bikeLoaded = true
+      this.sendState()
+    }
+  }
+
+  private get bikeStats(): BikeStats {
+    return findBikeModel(this.ownBike?.model ?? "rental").stats
+  }
+
+  private get bikeLook(): BikeLook {
+    return this.ownBike?.look ?? RENTAL_BIKE_LOOK
+  }
+
+  private get bikeWear() {
+    return this.ownBike ? this.ownBike.wear : RENTAL_WEAR
   }
 
   async onDrop(client: Client) {
@@ -232,6 +274,9 @@ export class HustleRoom extends Room {
     if (worker.energy < offer.energy) {
       return client.send("notice", "You're too tired for this job. Eat something or rest first.")
     }
+    if (this.gig === "boda" && !this.bikeLoaded) {
+      return client.send("notice", "Getting your bike ready…")
+    }
     if (this.gig === "boda" && !this.bikeReady) {
       // Today's bike rent comes due with the first passenger of the day.
       if (!worker.userId) return
@@ -278,13 +323,20 @@ export class HustleRoom extends Room {
           : 1
     const step = stepRunner(this.graph, worker, now, deltaSeconds, {
       sprintDrainFactor,
-      speedFactor: this.gig === "boda" ? BODA_SPEED_FACTOR : 1
+      speedFactor: this.gig === "boda" ? bikeSpeedFactor(this.bikeStats) : 1
     })
     if (step.collapsedNow) this.body.send(worker, now)
-    // Fuel: every metre the bike actually moves.
+    // Fuel and wear: every metre the bike actually moves. With a passenger on,
+    // a worn bike can break down.
     if (this.gig === "boda" && worker.coordinate) {
-      if (this.lastCoordinate) this.fuelMeters += haversineDistanceMeters(this.lastCoordinate, worker.coordinate)
+      const moved = this.lastCoordinate ? haversineDistanceMeters(this.lastCoordinate, worker.coordinate) : 0
       this.lastCoordinate = { ...worker.coordinate }
+      this.fuelMeters += moved
+      if (this.ownBike) this.wearKm += moved / 1000
+      if (moved > 0 && carrying && Math.random() < breakdownChancePerKm(this.bikeStats, this.bikeWear) * (moved / 1000)) {
+        void this.breakDown()
+        return
+      }
     }
     // Moving: every change. Standing still: a heartbeat so the client can settle.
     if (step.changed || now - this.positionSentAt >= 1000) this.sendPosition(worker)
@@ -297,7 +349,7 @@ export class HustleRoom extends Room {
       if (there && stage === "to_pickup") {
         const deadline =
           offer.kind === "boda"
-            ? now + bodaGiveUpSeconds(offer.meters) * 1000
+            ? now + bodaGiveUpSeconds(offer.meters, bikePatienceFactor(this.bikeStats)) * 1000
             : now + offer.timeLimitSeconds * 1000
         this.job = { offer, stage: "carrying", deadline, pickedUpAt: now }
         this.sendState()
@@ -329,13 +381,23 @@ export class HustleRoom extends Room {
     let dailyLimit: number | undefined
     if (offer.kind === "boda") {
       const seconds = (now - (job.pickedUpAt ?? now)) / 1000
-      const payout = bodaPayout({ fare: offer.fare, meters: offer.meters, seconds, fuelMeters: this.fuelMeters })
+      const stats = this.bikeStats
+      const payout = bodaPayout({
+        fare: offer.fare,
+        meters: offer.meters,
+        seconds,
+        fuelMeters: this.fuelMeters,
+        fuelPerMeter: bikeFuelPerMeter(stats),
+        patience: bikePatienceFactor(stats),
+        tipFactor: bikeTipFactor(stats)
+      })
       this.fuelMeters = 0
+      void this.saveWear()
       title = `Dropped ${offer.passenger} at ${findPlace(offer.dropoffId)?.name ?? "their stop"}`
       lines = [
         { label: payout.late ? "Fare (late: half)" : offer.rush ? "Fare (rush hour)" : "Fare", amount: payout.fare },
         ...(payout.tip > 0 ? [{ label: "Tip", amount: payout.tip }] : []),
-        { label: "Fuel", amount: -payout.fuel }
+        { label: findBikeModel(this.ownBike?.model ?? "rental").build.electric ? "Battery" : "Fuel", amount: -payout.fuel }
       ]
       net = payout.net
       meta = { passenger: offer.passenger, from: offer.pickupId, to: offer.dropoffId, meters: offer.meters, ...payout, seconds: Math.round(seconds) }
@@ -373,7 +435,44 @@ export class HustleRoom extends Room {
     void this.body.flush([worker])
   }
 
-  private failJob(reason: "abandoned" | "late" | "no_show" | "gave_up") {
+  /** Your bike gave out mid-ride: the passenger gets off, and the roadside repair costs you. */
+  private async breakDown() {
+    const worker = this.worker
+    if (!worker || !this.job) return
+    this.failJob("broke_down")
+    if (this.ownBike) {
+      // Patched up enough to keep riding, but well worn.
+      this.ownBike = { ...this.ownBike, wear: Math.max(this.ownBike.wear, 60) }
+    }
+    if (!worker.userId) return
+    try {
+      const charged = await chargeBreakdown({
+        userId: worker.userId,
+        refId: `${this.roomId}:breakdown:${++this.breakdowns}`,
+        model: this.ownBike?.model ?? "rental"
+      })
+      this.clients.find((candidate) => candidate.sessionId === worker.id)?.send("breakdown", { charged })
+    } catch (error) {
+      console.error("Failed to charge breakdown:", error)
+    }
+    this.sendState()
+  }
+
+  private async saveWear() {
+    const bike = this.ownBike
+    const km = this.wearKm
+    if (!bike || km <= 0) return
+    this.wearKm = 0
+    try {
+      const wear = await addBikeWear({ bikeId: bike.id, km })
+      if (this.ownBike?.id === bike.id) this.ownBike = { ...this.ownBike, wear: Math.max(this.ownBike.wear, wear) }
+    } catch (error) {
+      this.wearKm += km
+      console.error("Failed to save bike wear:", error)
+    }
+  }
+
+  private failJob(reason: "abandoned" | "late" | "no_show" | "gave_up" | "broke_down") {
     const worker = this.worker
     const job = this.job
     if (!worker || !job) return
@@ -391,8 +490,9 @@ export class HustleRoom extends Room {
     const worker = this.worker
     if (!worker) return
     void this.body.flush([worker])
+    void this.saveWear()
     // Fuel burned after the last paid ride still has to be paid for.
-    const fuel = bodaFuelCost(this.fuelMeters)
+    const fuel = bodaFuelCost(this.fuelMeters, bikeFuelPerMeter(this.bikeStats))
     this.fuelMeters = 0
     if (fuel > 0 && worker.userId) {
       try {
@@ -431,14 +531,28 @@ export class HustleRoom extends Room {
             // Boda: time left for the full fare (after that, half).
             fullFareMs:
               job.offer.kind === "boda" && job.pickedUpAt !== null
-                ? Math.max(0, job.pickedUpAt + bodaFullFareSeconds(job.offer.meters) * 1000 - now)
+                ? Math.max(0, job.pickedUpAt + bodaFullFareSeconds(job.offer.meters, bikePatienceFactor(this.bikeStats)) * 1000 - now)
                 : null
           }
         : null,
       shift: this.shift,
       boda:
         this.gig === "boda"
-          ? { bikeReady: this.bikeReady, rent: BODA_BIKE_RENT, rush: isRushHour(new Date(now)), fuel: bodaFuelCost(this.fuelMeters) }
+          ? {
+              bikeReady: this.bikeReady,
+              rent: BODA_BIKE_RENT,
+              rush: isRushHour(new Date(now)),
+              fuel: bodaFuelCost(this.fuelMeters, bikeFuelPerMeter(this.bikeStats)),
+              // Which bike you're on (the client mirrors its speed).
+              bike: {
+                own: this.ownBike !== null,
+                name: findBikeModel(this.ownBike?.model ?? "rental").name,
+                look: this.bikeLook,
+                wear: Math.min(100, Math.round(this.bikeWear + (this.ownBike ? this.wearKm * bikeWearPerKm(this.bikeStats) : 0))),
+                speedFactor: bikeSpeedFactor(this.bikeStats),
+                patience: bikePatienceFactor(this.bikeStats)
+              }
+            }
           : null
     })
   }

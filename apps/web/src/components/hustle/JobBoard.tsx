@@ -89,11 +89,13 @@ function JobCard({
   job,
   now,
   distanceToTarget,
+  patienceFactor,
   onAbandon
 }: {
   job: NonNullable<HustleState["job"]>
   now: number
   distanceToTarget: number | null
+  patienceFactor: number
   onAbandon(): void
 }) {
   const { offer, stage } = job
@@ -102,7 +104,9 @@ function JobCard({
   const fullFareLeft = job.fullFareDeadline === null ? null : job.fullFareDeadline - now
   // Share of the passenger's patience left (they give up at the deadline).
   const patience =
-    boda && carrying ? Math.max(0, Math.min(1, (job.deadline - now) / (bodaGiveUpSeconds(offer.meters) * 1000))) : null
+    boda && carrying
+      ? Math.max(0, Math.min(1, (job.deadline - now) / (bodaGiveUpSeconds(offer.meters, patienceFactor) * 1000)))
+      : null
   return (
     <div className={`rounded-2xl border p-3 ${carrying ? "border-emerald-300/40 bg-emerald-400/10" : "border-amber-300/40 bg-amber-300/10"}`}>
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
@@ -210,13 +214,19 @@ export function JobBoard({
         {boda && (
           <div className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
             <span className="text-slate-300">
-              {boda.bikeReady ? "🛵 Bike rented for today" : `🛵 Bike rent ${formatCoins(boda.rent)} with your first ride today`}
+              {boda.bike.own
+                ? `🛵 Your ${boda.bike.name} · wear ${boda.bike.wear}%`
+                : boda.bikeReady
+                  ? "🛵 Stage bike, rented for today"
+                  : `🛵 Stage bike: ${formatCoins(boda.rent)} rent with your first ride`}
             </span>
-            <span className="font-mono text-slate-400">fuel {formatCoins(boda.fuel)}</span>
+            <span className="font-mono text-slate-400">
+              {boda.bike.look.model === "zemboE" ? "battery" : "fuel"} {formatCoins(boda.fuel)}
+            </span>
           </div>
         )}
         {job ? (
-          <JobCard job={job} now={now} distanceToTarget={distanceToTarget} onAbandon={onAbandon} />
+          <JobCard job={job} now={now} distanceToTarget={distanceToTarget} patienceFactor={boda?.bike.patience ?? 1} onAbandon={onAbandon} />
         ) : (
           <>
             <SectionLabel>{boda ? "Passengers waiting" : "Jobs on offer"}</SectionLabel>

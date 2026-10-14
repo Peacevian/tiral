@@ -19,6 +19,7 @@ import {
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf, insertEntry, lockUser, type Tx } from "./ledger.js"
 import { coinLedger, lifeEvents, users } from "./schema.js"
+import { settleLeases } from "./garage.js"
 
 export type LifeEventView = {
   id: string
@@ -53,6 +54,26 @@ const RENT_NOTICE_TEXT: Record<string, (meta: Record<string, unknown>) => { from
   rent_grace: (meta) => ({
     from: "Landlord",
     text: `Rent of ${Number(meta.amount ?? 0).toLocaleString("en-US")} missed. "Just this once," he said.`
+  }),
+  lease_paid: (meta) => ({
+    from: "Bike lessor",
+    text: `Lease payment for your ${String(meta.name)}: week ${Number(meta.week)} of ${Number(meta.of)} paid.`
+  }),
+  lease_done: (meta) => ({
+    from: "Bike lessor",
+    text: `Last lease payment made. The ${String(meta.name)} is yours now!`
+  }),
+  lease_missed: (meta) => ({
+    from: "Bike lessor",
+    text: `You missed this week's ${Number(meta.weekly ?? 0).toLocaleString("en-US")} for the ${String(meta.name)}. Pay within 2 days or we take the bike back.`
+  }),
+  bike_repossessed: (meta) => ({
+    from: "Bike lessor",
+    text: `We took the ${String(meta.name)} back. ${Number(meta.paid)} of ${Number(meta.of)} payments made, and they're gone.`
+  }),
+  breakdown: (meta) => ({
+    from: "Mechanic",
+    text: `Your ${String(meta.name)} broke down mid-ride. Roadside repair: ${Number(meta.charged ?? 0).toLocaleString("en-US")}.`
   })
 }
 
@@ -153,6 +174,10 @@ export async function syncLife(userId: string, db: Database = getDatabase()): Pr
     }
     balance -= settlement.charged
     stress = addStress(stress, settlement.stressDelta)
+
+    // Lease payments on a bike come due the same way.
+    await settleLeases(tx, userId, now)
+    balance = await balanceOf(tx, userId)
 
     // 3. New requests and shocks.
     const owed = eventsDue(row.lastEventAt, now, stillPending)

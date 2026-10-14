@@ -176,3 +176,74 @@ export function bikePaintColor(look: BikeLook): string {
 export function findSeatCover(id: string) {
   return SEAT_COVERS.find((seat) => seat.id === id) ?? SEAT_COVERS[0]
 }
+
+// ---------------------------------------------------------------------------
+// Ownership, stats in play, wear (H2a).
+
+/** Lease-to-own terms per bike (Zembo E is lease-only, like real e-boda schemes). */
+export const LEASE_TERMS: Partial<Record<BikeModelId, { deposit: number; weekly: number; weeks: number }>> = {
+  boxa100: { deposit: 50_000, weekly: 70_000, weeks: 6 },
+  star125: { deposit: 60_000, weekly: 85_000, weeks: 6 },
+  zemboE: { deposit: 80_000, weekly: 90_000, weeks: 8 }
+}
+
+export function leaseTerms(model: string) {
+  return LEASE_TERMS[model as BikeModelId] ?? null
+}
+
+/** A missed lease payment has this long (one game week, in hours) before repossession. */
+export const LEASE_GRACE_HOURS = 48
+
+export function canBuy(model: string) {
+  const bike = findBikeModel(model)
+  return bike.acquire === "buy" || bike.acquire === "buy_or_lease"
+}
+
+export function canLease(model: string) {
+  const bike = findBikeModel(model)
+  return (bike.acquire === "lease" || bike.acquire === "buy_or_lease") && leaseTerms(model) !== null
+}
+
+/** Bike speed vs walking. The scruffy rental (speed 2) is 2×; a Dragon (4) 2.3×. */
+export function bikeSpeedFactor(stats: BikeStats) {
+  return 1.7 + 0.15 * stats.speed
+}
+
+/** Fuel (or battery) cost per metre. Rental 0.6; Boxa 0.42; Zembo 0.33. */
+export function bikeFuelPerMeter(stats: BikeStats) {
+  return Math.round(0.6 * (1.3 - 0.15 * stats.economy) * 1000) / 1000
+}
+
+/** Passengers stay patient longer on a comfier bike. */
+export function bikePatienceFactor(stats: BikeStats) {
+  return 0.85 + 0.1 * stats.comfort
+}
+
+/** And tip a little more. */
+export function bikeTipFactor(stats: BikeStats) {
+  return 0.8 + 0.1 * stats.comfort
+}
+
+/** Wear added per km ridden (tougher bikes wear slower). */
+export function bikeWearPerKm(stats: BikeStats) {
+  return Math.round((1.4 - 0.2 * stats.durability) * 100) / 100
+}
+
+/** Rentals are always half worn out. */
+export const RENTAL_WEAR = 50
+
+/** Chance of a breakdown per km ridden with a passenger. */
+export function breakdownChancePerKm(stats: BikeStats, wear: number) {
+  const worn = Math.max(0, Math.min(100, wear)) / 100
+  return 0.003 + 0.05 * worn * worn * (1.4 - 0.2 * stats.durability)
+}
+
+/** Cost of a garage service (wear back to 0). */
+export function serviceCost(model: string) {
+  const bike = findBikeModel(model)
+  if (bike.build.electric) return 6_000
+  return bike.stats.speed >= 4 ? 15_000 : bike.stats.comfort >= 3 ? 10_000 : 7_000
+}
+
+/** Roadside repair after a breakdown. */
+export const BREAKDOWN_REPAIR = 8_000

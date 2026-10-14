@@ -11,6 +11,7 @@ import { HouseCustomizer } from "@/components/house/HouseCustomizer"
 import { HomeHud } from "@/components/house/HomeHud"
 import { HomeSheet, type HomeSheetTab } from "@/components/house/HomeSheet"
 import { WalletPanel } from "@/components/WalletPanel"
+import { GaragePanel } from "@/components/bike/GaragePanel"
 import { NeedsPanel } from "@/components/NeedsPanel"
 import { usePlayer } from "@/lib/player"
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
@@ -69,7 +70,7 @@ export default function HomePage() {
   // The player bar links straight to a tab: /home?tab=wallet, ?tab=body, …
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get("tab")
-    if (tab === "wallet" || tab === "body" || tab === "avatar" || tab === "house" || tab === "room") {
+    if (tab === "wallet" || tab === "body" || tab === "avatar" || tab === "house" || tab === "room" || tab === "bike") {
       setSheetTab(tab)
       setSheetOpen(true)
     }
@@ -254,6 +255,7 @@ export default function HomePage() {
           />
         }
         body={<NeedsPanel />}
+        bike={<GaragePanel />}
         wallet={<WalletPanel />}
         house={
           <div className="flex flex-col gap-3">
