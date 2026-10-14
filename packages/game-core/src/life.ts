@@ -199,7 +199,9 @@ export function pickLifeEvent(roll: number, exclude: readonly string[] = []) {
 export function eventsDue(lastEventAt: Date | null, now: Date, pendingRequests: number): number {
   const room = Math.max(0, MAX_PENDING_REQUESTS - pendingRequests)
   if (room === 0) return 0
-  if (!lastEventAt) return 1
+  // A brand-new player gets a grace period: the clock starts on their first
+  // visit and the first event arrives an interval later, never on arrival.
+  if (!lastEventAt) return 0
   const intervals = Math.floor((now.getTime() - lastEventAt.getTime()) / (EVENT_INTERVAL_HOURS * HOUR_MS))
   return Math.min(room, Math.max(0, intervals))
 }
