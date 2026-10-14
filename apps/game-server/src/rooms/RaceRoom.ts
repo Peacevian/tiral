@@ -20,7 +20,7 @@ import {
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
-import { awardRaceEarnings, loadNeeds, recordRaceResults, saveNeeds } from "@tiral/db"
+import { applyNeedsDeltas, awardRaceEarnings, loadNeeds, recordRaceResults } from "@tiral/db"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_INTENT_TIMEOUT_MS = 3000
@@ -30,6 +30,8 @@ const ARRIVAL_RADIUS_METERS = Number(process.env.RACE_ARRIVAL_RADIUS ?? 25)
 const FINISH_WINDOW_MS = 30_000
 /** How often each racer is told their own energy/health. */
 const NEEDS_SYNC_MS = 500
+/** How often changed energy/health is written to the DB (one query per room). */
+const NEEDS_FLUSH_MS = 10_000
 
 type PlayerInfo = {
   id: string
@@ -51,6 +53,9 @@ type PlayerInfo = {
   collapsedUntil: number | null
   needsLoaded: boolean
   needsSentAt: number
+  /** Energy/health change since the last DB write (written as a delta). */
+  pendingEnergy: number
+  pendingHealth: number
 }
 
 const RECONNECT_SECONDS = 30
@@ -88,6 +93,7 @@ export class RaceRoom extends Room {
   private countdownSeconds = COUNTDOWN_SECONDS
   private countdownInterval: ReturnType<typeof setInterval> | null = null
   private tickInterval: ReturnType<typeof setInterval> | null = null
+  private needsFlushInterval: ReturnType<typeof setInterval> | null = null
   private players: Record<string, PlayerInfo> = {}
   private startedAt: number | null = null
   private destinationId: string | null = null
@@ -210,6 +216,13 @@ export class RaceRoom extends Room {
       })
 
     this.tickInterval = setInterval(() => this.tickMovement(), TICK_MS)
+    this.needsFlushInterval = setInterval(() => void this.flushNeeds(Object.values(this.players)), NEEDS_FLUSH_MS)
+
+    // Food bought on the profile while still connected: pull fresh values now.
+    this.onMessage("refreshNeeds", (client) => {
+      const player = this.players[client.sessionId]
+      if (player) void this.flushNeeds([player], true)
+    })
   }
 
   onJoin(client: Client, options: any, auth?: JoinIdentity) {
@@ -244,7 +257,9 @@ export class RaceRoom extends Room {
         sprinting: false,
         collapsedUntil: null,
         needsLoaded: false,
-        needsSentAt: 0
+        needsSentAt: 0,
+        pendingEnergy: 0,
+        pendingHealth: 0
       }
       void this.loadPlayerNeeds(client.sessionId)
     }
@@ -274,7 +289,7 @@ export class RaceRoom extends Room {
       }
     } catch {
       const gone = this.players[client.sessionId]
-      if (gone) void this.savePlayerNeeds(gone)
+      if (gone) void this.flushNeeds([gone])
       delete this.players[client.sessionId]
       this.broadcast("roomState", this.getRoomState())
       this.syncMetadata()
@@ -283,7 +298,7 @@ export class RaceRoom extends Room {
 
   onLeave(client: Client) {
     const leaving = this.players[client.sessionId]
-    if (leaving) void this.savePlayerNeeds(leaving)
+    if (leaving) void this.flushNeeds([leaving])
     delete this.players[client.sessionId]
     const remaining = Object.keys(this.players).length
     if (remaining === 0) {
@@ -304,6 +319,11 @@ export class RaceRoom extends Room {
       clearInterval(this.tickInterval)
       this.tickInterval = null
     }
+    if (this.needsFlushInterval) {
+      clearInterval(this.needsFlushInterval)
+      this.needsFlushInterval = null
+    }
+    void this.flushNeeds(Object.values(this.players))
   }
 
   private syncMetadata() {
@@ -372,6 +392,8 @@ export class RaceRoom extends Room {
       const sprinting = player.sprinting
       if (sprinting) {
         const tick = applySprint(player, deltaSeconds)
+        player.pendingEnergy += tick.energy - player.energy
+        player.pendingHealth += tick.health - player.health
         player.energy = tick.energy
         player.health = tick.health
         if (tick.collapsed) {
@@ -473,8 +495,8 @@ export class RaceRoom extends Room {
       player.sprinting = false
       player.collapsedUntil = null
       this.sendNeeds(player, Date.now())
-      void this.savePlayerNeeds(player)
     }
+    void this.flushNeeds(Object.values(this.players))
     const finishedAt = new Date()
     this.broadcast("roomState", this.getRoomState())
     this.broadcast(
@@ -561,18 +583,47 @@ export class RaceRoom extends Room {
       current.health = needs.health
       current.needsLoaded = true
       this.sendNeeds(current, Date.now())
+      // Racing wakes you: a zero-change write clears resting_since.
+      if (needs.resting) void this.flushNeeds([current], true)
     } catch (error) {
       console.error("Failed to load needs:", error)
     }
   }
 
-  private async savePlayerNeeds(player: PlayerInfo) {
-    // Only persist what we actually loaded, so a DB hiccup can't reset someone to full.
-    if (!player.userId || !player.needsLoaded) return
+  /**
+   * Write energy/health changes as deltas, one query for the whole batch, and
+   * adopt the DB's answer (which includes regen and any food bought mid-race).
+   * Only players whose needs changed are written unless `force` is set.
+   */
+  private async flushNeeds(players: PlayerInfo[], force = false) {
+    // Only persist what we actually loaded, so a DB hiccup can't reset anyone.
+    const batch = players.filter(
+      (player) => player.userId && player.needsLoaded && (force || player.pendingEnergy !== 0 || player.pendingHealth !== 0)
+    )
+    if (batch.length === 0) return
+    const sent = batch.map((player) => {
+      const delta = { userId: player.userId!, energy: player.pendingEnergy, health: player.pendingHealth }
+      player.pendingEnergy = 0
+      player.pendingHealth = 0
+      return { player, delta }
+    })
     try {
-      await saveNeeds(player.userId, { energy: player.energy, health: player.health })
+      const fresh = await applyNeedsDeltas(sent.map((entry) => entry.delta))
+      const now = Date.now()
+      for (const { player } of sent) {
+        const next = fresh.get(player.userId!)
+        if (!next) continue
+        // Keep whatever changed while the query was in flight.
+        player.energy = Math.max(0, Math.min(NEED_MAX, next.energy + player.pendingEnergy))
+        player.health = Math.max(0, Math.min(NEED_MAX, next.health + player.pendingHealth))
+        this.sendNeeds(player, now)
+      }
     } catch (error) {
-      console.error("Failed to save needs:", error)
+      for (const { player, delta } of sent) {
+        player.pendingEnergy += delta.energy
+        player.pendingHealth += delta.health
+      }
+      console.error("Failed to flush needs:", error)
     }
   }
 
