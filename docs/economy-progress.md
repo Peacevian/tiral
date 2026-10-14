@@ -940,6 +940,88 @@ starts (races stay on foot).
 passengers → H2a garage & ownership (lease/buy, stats, wear, service,
 breakdowns, Zembo E) → H2b customisation shop → H2c app delivery.
 
+### 16.11 Status (15 Oct 2026)
+| Step | State |
+|---|---|
+| H1a Kikuubo porter | shipped (20 paid jobs/day cap added: cheap food made energy alone no limit) |
+| H1b Boda passengers + 3D bike | shipped |
+| H2a Own a bike (buy/lease, wear, service, breakdowns) | shipped |
+| H2b Customisation shop | shipped |
+| **H2c App delivery** | **parked** — spec in §16.12, ready to build |
+| H3 Rolex stand + car wash | in progress — design in §16.13 |
+| H4 Mobile money booth + renting out your bike | next |
+
+### 16.12 H2c — App delivery ("TiralEats", parked)
+Agreed 15 Oct 2026; **no rider rating for now** (keep it simple).
+- **Entry:** hub Hustles → 📦 App delivery. Needs a bike (yours, or the
+  stage rental, 10,000/day charged with the first job of the day).
+- **Board:** a steady stream of orders: restaurant/shop → customer area,
+  pay after commission, distance, delivery window.
+- **Places:** ~10 restaurants/shops on real central Kampala streets with
+  made-up names ("Mama's Rolex Corner", "Kampala Road Pizza", "Nakasero
+  Fresh Juice"…), snapped to roads; drop-offs = boda destinations + a few
+  homes/offices.
+- **Pay:** 1,800 base + 1,500/km, **minus 15% app commission**, minus fuel
+  → ~3,000–7,000 net per order. Rush hour (07–09, 17–20): more orders and
+  ×1.3 pay.
+- **Window:** fixed time from distance. On time = full pay + tip up to 10%;
+  late = half pay; very late or dropped = no pay, stress +3.
+- **Cap:** 12 paid orders per Kampala day.
+- **Bike stats apply** like boda (speed, fuel, wear, breakdowns); comfort
+  doesn't (no passenger).
+- **Map:** a delivery box on the back of the bike once the order is collected.
+- **Build:** no migration (ledger reasons `hustle_delivery`); reuse the
+  HustleRoom boda engine (bike, rent, fuel, wear, breakdowns), job board,
+  pins, receipts; new: places list, order/pay rules + tests, delivery-box
+  mesh, hub card.
+
+### 16.13 H3 — Rolex stand and car wash (design, 15 Oct 2026)
+Mini-game gigs: no map driving, a stall screen instead. The server issues
+customers/cars and scores timing; the client only sends taps.
+
+**Rolex stand (you can lose money)**
+- **Spot:** choose at the start: Kikuubo Lane (busy, KCCA risk 12%), Old Taxi
+  Park (busiest, risk 18%), Nakivubo (quieter, risk 6%). Busier = more
+  customers per minute.
+- **Stock first:** buy ingredient packs before the shift — 5 rolexes 6,000 or
+  10 rolexes 12,000 (1,200 each). Leftover stock **spoils** at the end of the
+  shift (money lost).
+- **Customers** queue with patience bars; each wants 1–2 rolexes at 2,000.
+- **Cooking (timing):** tap a customer to start; the egg cooks for ~3–4.5 s;
+  tap **Flip** inside the green window. Perfect (middle of the window) = +500
+  tip; early = raw, half price; late = **burnt**, ingredients wasted, cook
+  again. Server timestamps the start and the flip.
+- **KCCA raid** (chance per shift by spot): "KCCA! Pack up!" — tap **Run**
+  within 3 s to escape (no fine, but the shift ends and unsold stock spoils)
+  or the stall is confiscated: a 20,000 fine (whatever you have) and
+  stress +10.
+- **Limits:** 2 shifts per Kampala day; cooking costs ~1.5 energy per rolex.
+- **Money:** a 10-pack sold fully ≈ 20,000 + tips for 12,000 → ~8–10k profit;
+  unsold or burnt stock and raids can make a shift a loss (−5k…+25k).
+
+**Car wash**
+- **Where:** a washing bay by the Nakivubo channel. No upfront cost; soap
+  500 per car comes off the pay.
+- **Cars** arrive one at a time: saloon 8,000, SUV 12,000, taxi (matatu)
+  15,000, each with dirty patches.
+- **3D washing bay:** the car (saloon, SUV or matatu) rolls into a 3D bay
+  with your avatar beside it; ↺ ↻ walk around it. The body is split into
+  panels (saloon 12, SUV 16, taxi 20: sides, roof, bonnet, boot, front,
+  back). Drag on a panel with a tool: **Soap** (foam), **Scrub** (takes mud
+  off, 0.2 per action on soapy paint, 0.04 dry), **Rinse** (washes foam off;
+  the panel is clean once foam is gone and mud ≤ 15%). The client sends one
+  `wash {zone, tool}` per panel and tool about every 95 ms; the server
+  rate-limits each to 80 ms and owns the mud and foam numbers. A HUD line
+  shows the last panel worked, its mud, and what it needs next.
+- **Timer:** saloon 3 min, SUV 4 min, taxi 5 min (raised from 60/80/100 s after playtesting: too short to clean even a saloon). "Done, call the driver"
+  finishes early. Fully clean = full pay (+ 10% tip if done in the first
+  half); ≥70% = pay by share; less = the driver refuses to pay.
+- **Limits:** 4 paid cars per Kampala day; ~12 energy per car.
+
+**Build:** a new `StallRoom` (Colyseus, solo) for mini-game gigs; ledger
+reasons `rolex_stock`, `hustle_rolex`, `kcca_fine`, `hustle_carwash`; no
+migration. The /hustle page shows a stall screen for these gigs.
+
 ---
 
 ## 15. Revision log
@@ -967,3 +1049,10 @@ breakdowns, Zembo E) → H2b customisation shop → H2c app delivery.
   stand, car wash, mobile money); bike rent → lease → own; pay table; engine,
   DB and UI design; build steps H1a–H4. Decisions: start with porter + boda;
   tap mini-games for rolex/car wash.
+- **15 Oct 2026** — Hustles status table (§16.11). H2c app delivery parked
+  with a full spec (§16.12, no rider rating for now). H3 design written
+  (§16.13): rolex stand with stock, spoilage, timing mini-game and KCCA
+  raids; car wash scrubbing mini-game. Order: H3, then H4.
+- **15 Oct 2026** — H3 built. Car wash rebuilt as a real 3D washing bay
+  (soap, scrub, rinse per panel; see §16.13). Rolex stand gets the same 3D
+  treatment next, then H4.

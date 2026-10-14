@@ -71,6 +71,10 @@ const RENT_NOTICE_TEXT: Record<string, (meta: Record<string, unknown>) => { from
     from: "Bike lessor",
     text: `We took the ${String(meta.name)} back. ${Number(meta.paid)} of ${Number(meta.of)} payments made, and they're gone.`
   }),
+  kcca_raid: (meta) => ({
+    from: "KCCA",
+    text: `KCCA raided your rolex stand and took it. Fine: ${Number(meta.charged ?? 0).toLocaleString("en-US")}.`
+  }),
   breakdown: (meta) => ({
     from: "Mechanic",
     text: `Your ${String(meta.name)} broke down mid-ride. Roadside repair: ${Number(meta.charged ?? 0).toLocaleString("en-US")}.`

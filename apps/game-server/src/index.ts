@@ -4,6 +4,7 @@ import express from "express"
 import cors from "cors"
 import { RaceRoom } from "./rooms/RaceRoom.js"
 import { HustleRoom } from "./rooms/HustleRoom.js"
+import { StallRoom } from "./rooms/StallRoom.js"
 
 const port = Number(process.env.PORT) || 2567
 const apiPort = Number(process.env.API_PORT) || 2568
@@ -15,6 +16,8 @@ const gameServer = new Server({
 gameServer.define("race", RaceRoom).filterBy(["phase"])
 // Solo hustle shifts (simulated jobs); private, so never in the race list.
 gameServer.define("hustle", HustleRoom)
+// Mini-game hustles at a stall (rolex stand, car wash); private, solo.
+gameServer.define("stall", StallRoom)
 
 gameServer.listen(port)
 console.log(`game-server listening on ws://localhost:${port}`)

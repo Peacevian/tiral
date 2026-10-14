@@ -90,6 +90,29 @@ export type HustleReceipt =
     }
   | { jobId: string; paid: false; title: string; reason: string; meters: number }
 
+/** A stall shift (rolex stand / car wash) as the server last described it. */
+export type StallState = {
+  stall: "rolex" | "carwash"
+  phase: "setup" | "open" | "raid" | "closed"
+  spot: string
+  stock: number
+  customers: Array<{ id: string; wants: number; served: number; earned: number; leavesInMs: number }>
+  cooking: { customerId: string; elapsedMs: number } | null
+  lastFlip: { result: "perfect" | "good" | "raw" | "burnt"; agoMs: number } | null
+  raidInMs: number | null
+  car: { id: string; type: string; name: string; zones: Array<{ id: number; soap: number; dirt: number; clean: boolean }>; leftMs: number } | null
+  carsDone: number
+  summary: { spent: number; earned: number; served: number; spoiled: number; fined: number; outcome: string }
+  /** Local Date.now() when this state arrived (turn the *Ms fields into local times). */
+  receivedAt: number
+}
+
+export type StallEvent =
+  | { kind: "sale"; amount: number; rolexes: number; mood: string; at: number }
+  | { kind: "customer_left"; mood: string; at: number }
+  | { kind: "car_done"; car: string; pay: number; tip: number; soap: number; net: number; cleanShare: number; paid: boolean; limit: boolean; at: number }
+  | { kind: "notice"; text: string; at: number }
+
 /** Latest thing to tell the player during a shift (receipt, failure, notice). */
 export type HustleEvent =
   | { kind: "receipt"; receipt: HustleReceipt; at: number }
@@ -192,6 +215,8 @@ export function useColyseus({
     moving: boolean
   } | null>(null)
   const [hustleEvent, setHustleEvent] = useState<HustleEvent | null>(null)
+  const [stall, setStall] = useState<StallState | null>(null)
+  const [stallEvent, setStallEvent] = useState<StallEvent | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -291,7 +316,16 @@ export function useColyseus({
     })
     room.onMessage("notice", (text: string) => {
       setHustleEvent({ kind: "notice", text, at: Date.now() })
+      setStallEvent({ kind: "notice", text, at: Date.now() })
     })
+    // Stall shifts (rolex stand, car wash).
+    room.onMessage("stall", (next: Omit<StallState, "receivedAt">) => setStall({ ...next, receivedAt: Date.now() }))
+    room.onMessage("stallEvent", (event: Omit<StallEvent, "at">) => {
+      setStallEvent({ ...event, at: Date.now() } as StallEvent)
+      if (event.kind === "sale" || event.kind === "car_done") notifyCoinsChanged()
+    })
+    room.onMessage("stockBought", () => notifyCoinsChanged())
+
     // The server's own position for the worker; the client predicts locally
     // and reconciles against this.
     room.onMessage("position", (next: { roadPosition: RemotePositions[string]["roadPosition"]; moving: boolean }) => {
@@ -305,6 +339,9 @@ export function useColyseus({
     })
 
     room.onLeave((code) => {
+      // A room we already moved on from (left it, then joined another): its
+      // late "left" event must not reconnect to it or wipe the new room's state.
+      if (roomRef.current && roomRef.current !== room) return
       const token =
         (room as unknown as { reconnectionToken?: string }).reconnectionToken ??
         loadReconnectToken()
@@ -322,6 +359,8 @@ export function useColyseus({
         setCountdown(null)
         setHustle(null)
         setHustleEvent(null)
+        setStall(null)
+        setStallEvent(null)
         return
       }
       void attemptReconnect(code, token)
@@ -364,6 +403,8 @@ export function useColyseus({
     setCountdown(null)
     setHustle(null)
     setHustleEvent(null)
+    setStall(null)
+    setStallEvent(null)
   }, [attachRoom])
 
   const leaveRoom = useCallback(() => {
@@ -382,6 +423,8 @@ export function useColyseus({
     setCountdown(null)
     setHustle(null)
     setHustleEvent(null)
+    setStall(null)
+    setStallEvent(null)
   }, [])
 
   const authorize = useCallback(async () => {
@@ -448,6 +491,25 @@ export function useColyseus({
       throw toFriendlyJoinError(err)
     }
   }, [getClient, attachRoom, authorize])
+
+  /** Start a stall shift (rolex stand or car wash). */
+  const startStall = useCallback(async (kind: "rolex" | "carwash") => {
+    if (roomRef.current) return
+    manualLeaveRef.current = false
+    try {
+      await authorize()
+      const room = await getClient().create("stall", { stall: kind })
+      attachRoom(room)
+    } catch (err) {
+      console.error("Start stall failed:", err)
+      throw toFriendlyJoinError(err)
+    }
+  }, [getClient, attachRoom, authorize])
+
+  /** Any stall action: buyStock, cook, flip, run, scrub, rinse, close. */
+  const sendStall = useCallback((type: string, payload?: unknown) => {
+    roomRef.current?.send(type, payload)
+  }, [])
 
   const sendAcceptJob = useCallback((offerId: string) => {
     roomRef.current?.send("accept", offerId)
@@ -592,6 +654,8 @@ export function useColyseus({
     needs,
     hustle,
     hustleEvent,
+    stall,
+    stallEvent,
     selfPosition,
     countdown,
     connect,
@@ -600,6 +664,8 @@ export function useColyseus({
     quickPlay,
     createRace,
     startHustle,
+    startStall,
+    sendStall,
     sendAcceptJob,
     sendAbandonJob,
     joinRace,
