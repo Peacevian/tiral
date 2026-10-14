@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from "react"
 import maplibregl from "maplibre-gl"
-// Marker positioning (absolute, top-left anchored) comes from MapLibre's stylesheet.
-import "maplibre-gl/dist/maplibre-gl.css"
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
 
@@ -89,10 +87,11 @@ export function BillsMap({
     })
   }, [shown])
 
-  // MapLibre's CSS makes the container position:relative, so position a
-  // wrapper and let the map fill it.
+  // No global maplibre-gl.css here: it outlives this page on client-side
+  // navigation and collapses the game map. The one rule markers need lives in
+  // globals.css, scoped to .tiral-bills.
   return (
-    <div className="absolute inset-0">
+    <div className="tiral-bills absolute inset-0">
       <div ref={containerRef} className="h-full w-full" />
     </div>
   )

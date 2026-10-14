@@ -242,6 +242,12 @@ body {
 }
 
 /* Landing hero: bill pop-ups pinned on the map (BillsMap, plain DOM markers) */
+.tiral-bills .maplibregl-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
 .tiral-bill {
   pointer-events: none;
 }
