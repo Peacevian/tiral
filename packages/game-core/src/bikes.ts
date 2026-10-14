@@ -247,3 +247,120 @@ export function serviceCost(model: string) {
 
 /** Roadside repair after a breakdown. */
 export const BREAKDOWN_REPAIR = 8_000
+
+// ---------------------------------------------------------------------------
+// Decoration shop (H2b). Buy an item once, then use it on any of your bikes.
+// Cosmetic only. Item ids: "paint:red", "seat:leopard", "slogan:3",
+// "grips:#dc2626", "extra:tassels", "underglow:#22d3ee".
+
+export type BikeItemRarity = "common" | "rare" | "epic"
+export type BikeItemKind = "paint" | "seat" | "slogan" | "grips" | "extra" | "underglow"
+
+export type BikeItem = {
+  id: string
+  kind: BikeItemKind
+  name: string
+  price: number
+  rarity: BikeItemRarity
+}
+
+const PAINT_PRICES: Record<string, [number, BikeItemRarity]> = {
+  red: [15_000, "common"],
+  black: [15_000, "common"],
+  blue: [15_000, "common"],
+  yellow: [20_000, "rare"],
+  green: [20_000, "rare"],
+  matte: [25_000, "rare"],
+  chrome: [40_000, "epic"]
+}
+
+const SEAT_PRICES: Record<string, [number, BikeItemRarity]> = {
+  fluffy: [8_000, "common"],
+  "fluffy-pink": [10_000, "common"],
+  tartan: [10_000, "common"],
+  leopard: [12_000, "rare"],
+  "team-red": [15_000, "rare"],
+  "team-blue": [15_000, "rare"]
+}
+
+export const UNDERGLOW_COLORS = [
+  { color: "#22d3ee", name: "Cyan" },
+  { color: "#ec4899", name: "Pink" },
+  { color: "#22c55e", name: "Green" },
+  { color: "#f59e0b", name: "Amber" }
+] as const
+
+export const BIKE_ITEMS: BikeItem[] = [
+  ...BIKE_PAINTS.filter((paint) => paint.color !== null).map((paint) => {
+    const [price, rarity] = PAINT_PRICES[paint.id] ?? [15_000, "common" as const]
+    return { id: `paint:${paint.id}`, kind: "paint" as const, name: paint.name, price, rarity }
+  }),
+  ...SEAT_COVERS.filter((seat) => seat.id !== "plain").map((seat) => {
+    const [price, rarity] = SEAT_PRICES[seat.id] ?? [8_000, "common" as const]
+    return { id: `seat:${seat.id}`, kind: "seat" as const, name: seat.name, price, rarity }
+  }),
+  ...MUDFLAP_SLOGANS.map((slogan, index) => ({
+    id: `slogan:${index}`,
+    kind: "slogan" as const,
+    name: slogan,
+    price: 3_000,
+    rarity: "common" as const
+  })),
+  ...GRIP_COLORS.filter((color) => color !== "#111827").map((color) => ({
+    id: `grips:${color}`,
+    kind: "grips" as const,
+    name: "Coloured grips",
+    price: 2_000,
+    rarity: "common" as const
+  })),
+  { id: "extra:tassels", kind: "extra", name: "Tassels", price: 4_000, rarity: "common" },
+  { id: "extra:rack", kind: "extra", name: "Carrier rack", price: 6_000, rarity: "common" },
+  { id: "extra:crashBars", kind: "extra", name: "Crash bars", price: 12_000, rarity: "rare" },
+  ...UNDERGLOW_COLORS.map((glow) => ({
+    id: `underglow:${glow.color}`,
+    kind: "underglow" as const,
+    name: `${glow.name} underglow`,
+    price: 25_000,
+    rarity: "epic" as const
+  }))
+]
+
+export function findBikeItem(id: string) {
+  return BIKE_ITEMS.find((item) => item.id === id) ?? null
+}
+
+/** The shop items a look uses (free defaults — factory paint, plain seat, black grips, plain flap — need none). */
+export function lookItemIds(look: BikeLook): string[] {
+  const ids: string[] = []
+  if (look.paint !== "factory") ids.push(`paint:${look.paint}`)
+  if (look.seat !== "plain") ids.push(`seat:${look.seat}`)
+  if (look.slogan !== null) ids.push(`slogan:${look.slogan}`)
+  if (look.grips !== "#111827") ids.push(`grips:${look.grips}`)
+  if (look.tassels) ids.push("extra:tassels")
+  if (look.rack) ids.push("extra:rack")
+  if (look.crashBars) ids.push("extra:crashBars")
+  if (look.underglow) ids.push(`underglow:${look.underglow}`)
+  return ids
+}
+
+/** A look is valid if every item it uses exists in the shop. */
+export function isValidBikeLook(look: BikeLook): boolean {
+  return lookItemIds(look).every((id) => findBikeItem(id) !== null)
+}
+
+/** What a look costs given the items you already own. */
+export function lookCost(look: BikeLook, owned: ReadonlySet<string>): { items: BikeItem[]; total: number } {
+  const items = lookItemIds(look)
+    .filter((id) => !owned.has(id))
+    .map((id) => findBikeItem(id))
+    .filter((item): item is BikeItem => item !== null)
+  return { items, total: items.reduce((sum, item) => sum + item.price, 0) }
+}
+
+/**
+ * A fresh bike's look: plain everything. (The stage rental's rack and slogan
+ * belong to the stage owner, not to bikes you buy.)
+ */
+export function plainBikeLook(model: BikeModelId): BikeLook {
+  return { model, paint: "factory", seat: "plain", slogan: null, grips: "#111827", tassels: false, rack: false, crashBars: false, underglow: null }
+}
