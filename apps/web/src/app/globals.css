@@ -257,6 +257,16 @@ body.has-shell {
   font-size: 13px;
 }
 
+/* Map pins (maplibre DOM markers). We don't load maplibre's own stylesheet
+   globally (it broke /play on client navigation), so markers need this to
+   sit on the map instead of in normal page flow. */
+.maplibregl-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
 /* Landing hero: bill pop-ups pinned on the map (BillsMap, plain DOM markers) */
 .tiral-bills .maplibregl-marker {
   position: absolute;

@@ -38,22 +38,45 @@ type RoomState = {
   destinationId: string | null
   startedAt: number | null
   roomCode: string | null
-  mode?: "race" | "gig"
-  gigRemainingMs?: number | null
-  gigMeters?: number | null
   players: Record<string, RoomPlayer>
 }
 
-/** How a boda delivery went (sent only to the courier). */
-export type GigResult = {
-  delivered: boolean
-  paid: boolean
-  reason?: "guest" | "daily_limit" | "duplicate" | "error" | "late"
-  gross?: number
-  cut?: number
-  net?: number
+export type HustleOffer = {
+  id: string
+  pickupId: string
+  dropoffId: string
+  loadId: string
+  heavy: boolean
   meters: number
+  pay: number
+  energy: number
+  timeLimitSeconds: number
+  /** Local Date.now() time the offer disappears from the board. */
+  expiresAt: number
 }
+
+export type HustleState = {
+  hustle: string
+  startAt: { lat: number; lng: number } | null
+  offers: HustleOffer[]
+  job: {
+    offer: HustleOffer
+    stage: "to_pickup" | "carrying"
+    /** Local Date.now() time this stage must be done by. */
+    deadline: number
+  } | null
+  shift: { jobs: number; earned: number; failed: number }
+}
+
+export type HustleReceipt =
+  | { jobId: string; paid: true; pay: number; load: string; meters: number; balance: number }
+  | { jobId: string; paid: false; reason: string; load: string; meters: number }
+
+/** Latest thing to tell the player during a shift (receipt, failure, notice). */
+export type HustleEvent =
+  | { kind: "receipt"; receipt: HustleReceipt; at: number }
+  | { kind: "failed"; reason: "abandoned" | "late" | "no_show"; at: number }
+  | { kind: "notice"; text: string; at: number }
 
 export type RemotePositions = Record<
   string,
@@ -142,9 +165,13 @@ export function useColyseus({
   const [results, setResults] = useState<RaceResult[] | null>(null)
   const [earnings, setEarnings] = useState<RaceEarnings | null>(null)
   const [needs, setNeeds] = useState<RaceNeeds | null>(null)
-  const [gigResult, setGigResult] = useState<GigResult | null>(null)
-  /** Local Date.now() time the current delivery is due. */
-  const [gigDeadline, setGigDeadline] = useState<number | null>(null)
+  const [hustle, setHustle] = useState<HustleState | null>(null)
+  /** Server-side position of your own runner in a hustle (races use `positions`). */
+  const [selfPosition, setSelfPosition] = useState<{
+    roadPosition: NonNullable<RemotePositions[string]["roadPosition"]>
+    moving: boolean
+  } | null>(null)
+  const [hustleEvent, setHustleEvent] = useState<HustleEvent | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -178,9 +205,7 @@ export function useColyseus({
       if (state.phase !== "finished") {
         setResults(null)
         setEarnings(null)
-        setGigResult(null)
       }
-      setGigDeadline(state.gigRemainingMs != null ? Date.now() + state.gigRemainingMs : null)
     })
 
     room.onMessage("countdownTick", (remaining: number) => {
@@ -203,9 +228,38 @@ export function useColyseus({
       })
     })
 
-    room.onMessage("gigResult", (result: GigResult) => {
-      setGigResult(result)
-      if (result.paid) notifyCoinsChanged()
+    // Hustle shifts (solo simulated jobs). Times arrive as "remaining ms" and
+    // are turned into local deadlines so client clocks don't matter.
+    room.onMessage(
+      "hustle",
+      (next: Omit<HustleState, "offers" | "job"> & {
+        offers: Array<Omit<HustleOffer, "expiresAt"> & { expiresInMs: number }>
+        job: { offer: HustleOffer; stage: "to_pickup" | "carrying"; remainingMs: number } | null
+      }) => {
+        const now = Date.now()
+        setHustle({
+          hustle: next.hustle,
+          startAt: next.startAt,
+          offers: next.offers.map(({ expiresInMs, ...offer }) => ({ ...offer, expiresAt: now + expiresInMs })),
+          job: next.job ? { offer: next.job.offer, stage: next.job.stage, deadline: now + next.job.remainingMs } : null,
+          shift: next.shift
+        })
+      }
+    )
+    room.onMessage("receipt", (receipt: HustleReceipt) => {
+      setHustleEvent({ kind: "receipt", receipt, at: Date.now() })
+      if (receipt.paid) notifyCoinsChanged()
+    })
+    room.onMessage("jobFailed", (failure: { reason: "abandoned" | "late" | "no_show" }) => {
+      setHustleEvent({ kind: "failed", reason: failure.reason, at: Date.now() })
+    })
+    room.onMessage("notice", (text: string) => {
+      setHustleEvent({ kind: "notice", text, at: Date.now() })
+    })
+    // The server's own position for the worker; the client predicts locally
+    // and reconciles against this.
+    room.onMessage("position", (next: { roadPosition: RemotePositions[string]["roadPosition"]; moving: boolean }) => {
+      setSelfPosition(next.roadPosition ? { roadPosition: next.roadPosition, moving: next.moving } : null)
     })
 
     // Coins paid for this race (sent only to signed-in finishers).
@@ -230,6 +284,8 @@ export function useColyseus({
         setPositions({})
         setResults(null)
         setCountdown(null)
+        setHustle(null)
+        setHustleEvent(null)
         return
       }
       void attemptReconnect(code, token)
@@ -270,6 +326,8 @@ export function useColyseus({
     setPositions({})
     setResults(null)
     setCountdown(null)
+    setHustle(null)
+    setHustleEvent(null)
   }, [attachRoom])
 
   const leaveRoom = useCallback(() => {
@@ -286,6 +344,8 @@ export function useColyseus({
     setPositions({})
     setResults(null)
     setCountdown(null)
+    setHustle(null)
+    setHustleEvent(null)
   }, [])
 
   const authorize = useCallback(async () => {
@@ -339,19 +399,27 @@ export function useColyseus({
     }
   }, [getClient, attachRoom, authorize])
 
-  /** Take a boda delivery: a solo room with a timed drop-off. */
-  const startGig = useCallback(async (loadout?: AvatarLoadout) => {
+  /** Start a solo hustle shift (simulated jobs; no other players needed). */
+  const startHustle = useCallback(async (hustleId: string, loadout?: AvatarLoadout) => {
     if (roomRef.current) return
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().create("gig", loadout ? { loadout } : undefined)
+      const room = await getClient().create("hustle", { hustle: hustleId, ...(loadout ? { loadout } : {}) })
       attachRoom(room)
     } catch (err) {
-      console.error("Start gig failed:", err)
+      console.error("Start hustle failed:", err)
       throw toFriendlyJoinError(err)
     }
   }, [getClient, attachRoom, authorize])
+
+  const sendAcceptJob = useCallback((offerId: string) => {
+    roomRef.current?.send("accept", offerId)
+  }, [])
+
+  const sendAbandonJob = useCallback(() => {
+    roomRef.current?.send("abandon")
+  }, [])
 
   const joinRace = useCallback(async (id: string, loadout?: AvatarLoadout) => {
     if (roomRef.current) return
@@ -486,15 +554,18 @@ export function useColyseus({
     results,
     earnings,
     needs,
-    gigResult,
-    gigDeadline,
+    hustle,
+    hustleEvent,
+    selfPosition,
     countdown,
     connect,
     disconnect,
     leaveRoom,
     quickPlay,
     createRace,
-    startGig,
+    startHustle,
+    sendAcceptJob,
+    sendAbandonJob,
     joinRace,
     joinByCode,
     listRaces,

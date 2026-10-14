@@ -3,6 +3,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport"
 import express from "express"
 import cors from "cors"
 import { RaceRoom } from "./rooms/RaceRoom.js"
+import { HustleRoom } from "./rooms/HustleRoom.js"
 
 const port = Number(process.env.PORT) || 2567
 const apiPort = Number(process.env.API_PORT) || 2568
@@ -12,8 +13,8 @@ const gameServer = new Server({
 })
 
 gameServer.define("race", RaceRoom).filterBy(["phase"])
-// Solo boda deliveries share the race engine; they never show up in the race list.
-gameServer.define("gig", RaceRoom, { mode: "gig" })
+// Solo hustle shifts (simulated jobs); private, so never in the race list.
+gameServer.define("hustle", HustleRoom)
 
 gameServer.listen(port)
 console.log(`game-server listening on ws://localhost:${port}`)

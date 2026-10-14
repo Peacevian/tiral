@@ -3,10 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import type { RaceListing } from "@/lib/useColyseus"
+import { HUSTLES } from "@tiral/game-core"
 import { usePlayer } from "@/lib/player"
 import { FoodGrid } from "@/components/NeedsPanel"
 import { HomeStatusCard, MessageList } from "@/components/LifePanel"
-import { ActionButton, Card, SectionLabel, Skeleton } from "@/components/ui"
+import { ActionButton, SectionLabel, Skeleton } from "@/components/ui"
 
 export type HubActions = {
   races: RaceListing[]
@@ -162,10 +163,42 @@ export function Hub(actions: HubActions) {
       {/* 4. Hustles */}
       <div>
         <SectionLabel>Hustles</SectionLabel>
-        <Card className="text-xs leading-snug text-slate-300">
-          <span className="font-bold text-white">More ways to earn are coming.</span> For now, race people to fill your
-          pockets.
-        </Card>
+        <p className="mb-2 text-[11px] leading-snug text-slate-400">Work on your own time. No other players needed.</p>
+        <ul className="flex flex-col gap-1.5">
+          {HUSTLES.map((hustle) =>
+            hustle.available ? (
+              <li key={hustle.id}>
+                <Link
+                  href="/hustle"
+                  className="flex min-h-[56px] items-center gap-3 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 transition hover:bg-emerald-400/15"
+                >
+                  <span aria-hidden className="text-2xl">
+                    {hustle.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-black text-white">{hustle.name}</span>
+                    <span className="block text-[11px] leading-snug text-slate-300">{hustle.blurb}</span>
+                  </span>
+                  <span className="text-xs font-black text-emerald-300">Work →</span>
+                </Link>
+              </li>
+            ) : (
+              <li
+                key={hustle.id}
+                className="flex min-h-[56px] items-center gap-3 rounded-xl border border-dashed border-white/15 px-3 py-2 opacity-70"
+              >
+                <span aria-hidden className="text-2xl grayscale">
+                  {hustle.icon}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black text-white">{hustle.name}</span>
+                  <span className="block text-[11px] leading-snug text-slate-400">{hustle.blurb}</span>
+                </span>
+                <span className="text-[11px] font-bold text-slate-400">Soon</span>
+              </li>
+            )
+          )}
+        </ul>
       </div>
 
       {/* 5. Quick food */}

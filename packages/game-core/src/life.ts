@@ -1,4 +1,4 @@
-// Kampala Hustle, phase 3: rent, stress, family requests & shocks, boda gigs.
+// Kampala Hustle, phase 3: rent, stress, family requests & shocks.
 // Pure rules; @tiral/db applies them lazily whenever the player shows up.
 // See docs/economy-progress.md §13–14.
 
@@ -42,9 +42,7 @@ export const STRESS = {
   requestPaid: -4,
   shockUncovered: 15,
   raceWin: -10,
-  collapse: 8,
-  gigDelivered: -3,
-  gigFailed: 5
+  collapse: 8
 } as const
 
 const clampStress = (value: number) => Math.min(STRESS_MAX, Math.max(0, value))
@@ -204,19 +202,4 @@ export function eventsDue(lastEventAt: Date | null, now: Date, pendingRequests: 
   if (!lastEventAt) return 0
   const intervals = Math.floor((now.getTime() - lastEventAt.getTime()) / (EVENT_INTERVAL_HOURS * HOUR_MS))
   return Math.min(room, Math.max(0, intervals))
-}
-
-// ---------------------------------------------------------------------------
-// Boda courier gigs: carry a package across town against the clock.
-export const GIG_TIME_LIMIT_SECONDS = 180
-export const GIG_MIN_METERS = 700
-export const GIG_MAX_METERS = 1_500
-export const GIG_DAILY_LIMIT = 5
-/** What the bike owner takes off every delivery. */
-export const GIG_OWNER_CUT = 5_000
-
-export function gigPay(distanceMeters: number) {
-  const gross = Math.round((12_000 + distanceMeters * 15) / 100) * 100
-  const cut = GIG_OWNER_CUT
-  return { gross, cut, net: Math.max(0, gross - cut) }
 }

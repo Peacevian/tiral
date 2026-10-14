@@ -6,7 +6,6 @@ import {
   STRESS,
   currentStress,
   eventsDue,
-  gigPay,
   pickLifeEvent,
   settleRent
 } from "./life.js"
@@ -74,12 +73,5 @@ describe("events", () => {
     expect(pickLifeEvent(0).id).toBe(LIFE_EVENTS[0].id)
     expect(pickLifeEvent(0.999).id).toBe(LIFE_EVENTS[LIFE_EVENTS.length - 1]!.id)
     expect(pickLifeEvent(0, ["maama_hospital"]).id).not.toBe("maama_hospital")
-  })
-})
-
-describe("gigPay", () => {
-  it("pays by distance, minus the bike owner's cut", () => {
-    expect(gigPay(1000)).toEqual({ gross: 27_000, cut: 5_000, net: 22_000 })
-    expect(gigPay(700).net).toBeGreaterThan(15_000)
   })
 })
