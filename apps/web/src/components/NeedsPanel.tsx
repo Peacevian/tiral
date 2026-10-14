@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { FOODS } from "@tiral/game-core"
 import { formatCoins, notifyCoinsChanged, useWallet } from "@/lib/useCoins"
+import { useColyseusContext } from "@/components/ColyseusProvider"
 
 type Needs = { energy: number; health: number; resting: boolean }
 
@@ -34,6 +35,8 @@ function Meter({ label, icon, value, color }: { label: string; icon: string; val
 // health only drops if you sprint on empty.
 export function NeedsPanel() {
   const { balance } = useWallet()
+  // In a race, the race server holds the live numbers; show those.
+  const race = useColyseusContext()
   const [needs, setNeeds] = useState<Needs | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -70,6 +73,7 @@ export function NeedsPanel() {
       }
       setNeeds(body.needs)
       notifyCoinsChanged()
+      if (race.connected) race.sendRefreshNeeds()
     } catch {
       setNotice("Couldn't reach the shop")
     } finally {
@@ -93,12 +97,16 @@ export function NeedsPanel() {
   }
 
   if (!needs) return <p className="text-sm text-slate-400">Loading your body…</p>
+  const live = race.connected && race.needs ? race.needs : null
+  const energy = live ? live.energy : needs.energy
+  const health = live ? live.health : needs.health
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-3">
-        <Meter label="Energy" icon="⚡" value={needs.energy} color="#fbbf24" />
-        <Meter label="Health" icon="❤" value={needs.health} color="#f87171" />
+        <Meter label="Energy" icon="⚡" value={energy} color="#fbbf24" />
+        <Meter label="Health" icon="❤" value={health} color="#f87171" />
+        {live && <p className="text-[11px] font-bold text-emerald-300">● Live from your current race</p>}
         <p className="text-[11px] leading-snug text-slate-400">
           Energy fuels Sprint and refills on its own (full in about 4 hours). Sprinting on empty burns health, and at
           zero you collapse.

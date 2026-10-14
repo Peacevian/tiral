@@ -1,5 +1,15 @@
-import { eq } from "drizzle-orm"
-import { NEED_MAX, currentNeeds, eat, findFood, type Needs } from "@tiral/game-core"
+import { eq, sql } from "drizzle-orm"
+import {
+  ENERGY_REGEN_PER_HOUR,
+  HEALTH_REGEN_PER_HOUR,
+  NEED_MAX,
+  RESTING_ENERGY_REGEN_PER_HOUR,
+  RESTING_HEALTH_REGEN_PER_HOUR,
+  currentNeeds,
+  eat,
+  findFood,
+  type Needs
+} from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf, insertEntry, lockUser, type Tx } from "./ledger.js"
 import { users } from "./schema.js"
@@ -33,6 +43,46 @@ export async function saveNeeds(userId: string, needs: Needs, db: Database = get
     .update(users)
     .set({ energy: needs.energy, health: needs.health, needsAt: new Date(), restingSince: null })
     .where(eq(users.id, userId))
+}
+
+export type NeedsDelta = { userId: string; energy: number; health: number }
+
+/**
+ * Apply energy/health *changes* (e.g. "-12 energy from sprinting") for many
+ * players in one UPDATE, on top of whatever is stored plus time-based regen.
+ * Writing deltas rather than totals means food bought mid-race and natural
+ * refill are never overwritten. Racing wakes you. Returns each player's new
+ * values. Same maths as currentNeeds(), done in SQL.
+ */
+export async function applyNeedsDeltas(
+  deltas: NeedsDelta[],
+  db: Database = getDatabase()
+): Promise<Map<string, Needs>> {
+  const result = new Map<string, Needs>()
+  if (deltas.length === 0) return result
+  const rows = sql.join(
+    deltas.map((d) => sql`(${d.userId}::uuid, ${d.energy}::float8, ${d.health}::float8)`),
+    sql`, `
+  )
+  // Numeric parameters are cast explicitly: Postgres can't infer them inside least()/greatest().
+  const max = sql`${NEED_MAX}::float8`
+  const hours = sql`greatest(0::float8, extract(epoch from (now() - u.needs_at))::float8 / 3600.0)`
+  const regen = (stored: ReturnType<typeof sql>, awake: number, resting: number) =>
+    sql`least(${max}, ${stored} + ${hours} * (case when u.resting_since is null then ${awake}::float8 else ${resting}::float8 end))`
+  const updated = await db.execute<{ id: string; energy: number; health: number }>(sql`
+    update users as u set
+      energy = least(${max}, greatest(0::float8, ${regen(sql`u.energy`, ENERGY_REGEN_PER_HOUR, RESTING_ENERGY_REGEN_PER_HOUR)} + d.energy)),
+      health = least(${max}, greatest(0::float8, ${regen(sql`u.health`, HEALTH_REGEN_PER_HOUR, RESTING_HEALTH_REGEN_PER_HOUR)} + d.health)),
+      needs_at = now(),
+      resting_since = null
+    from (values ${rows}) as d(id, energy, health)
+    where u.id = d.id
+    returning u.id, u.energy, u.health
+  `)
+  for (const row of updated) {
+    result.set(row.id, { energy: Number(row.energy), health: Number(row.health) })
+  }
+  return result
 }
 
 /** Lie down in your bed at home (fast healing) or get up again. */

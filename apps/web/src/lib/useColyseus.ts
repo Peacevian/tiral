@@ -381,6 +381,11 @@ export function useColyseus({
     roomRef.current?.send("sprint", on)
   }, [])
 
+  /** Ask the race server to re-read energy/health (e.g. after eating on the profile). */
+  const sendRefreshNeeds = useCallback(() => {
+    roomRef.current?.send("refreshNeeds")
+  }, [])
+
   const sendTurn = useCallback((direction: RoadDirection) => {
     roomRef.current?.send("turn", direction)
   }, [])
@@ -451,6 +456,7 @@ export function useColyseus({
     listRaces,
     sendWalk,
     sendSprint,
+    sendRefreshNeeds,
     sendTurn,
     sendTurnAround,
     sendSelectStart,
