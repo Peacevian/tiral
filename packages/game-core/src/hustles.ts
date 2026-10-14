@@ -18,8 +18,28 @@ export const HUSTLES = [
     icon: "🛵",
     blurb: "Rent a bike for the day and carry passengers from the stage.",
     available: true
+  },
+  {
+    id: "rolex",
+    name: "Rolex stand",
+    icon: "🍳",
+    blurb: "Buy stock, cook rolexes to order, watch out for KCCA.",
+    available: true
+  },
+  {
+    id: "carwash",
+    name: "Car wash",
+    icon: "🚗",
+    blurb: "Scrub cars clean at the Nakivubo washing bay.",
+    available: true
   }
 ] as const
+
+/** Gigs played at a stall (mini-games) rather than on the map. */
+export const STALL_GIGS = ["rolex", "carwash"] as const
+export function isStallGig(id: string): id is (typeof STALL_GIGS)[number] {
+  return (STALL_GIGS as readonly string[]).includes(id)
+}
 
 export type HustleId = (typeof HUSTLES)[number]["id"]
 

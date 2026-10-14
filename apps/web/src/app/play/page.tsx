@@ -106,6 +106,7 @@ export default function Home() {
     earnings,
     needs,
     hustle,
+    stall,
     countdown,
     sendWalk,
     sendSprint,
@@ -147,8 +148,10 @@ export default function Home() {
   // In a hustle shift, not a race: that has its own screen.
   const router = useRouter()
   useEffect(() => {
-    if (connected && hustle) router.replace("/hustle")
-  }, [connected, hustle, router])
+    if (connected && (hustle || (stall && stall.phase !== "closed"))) router.replace("/hustle")
+    // A finished stall shift has nothing to show here: disconnect it.
+    else if (connected && stall?.phase === "closed") leaveRoom()
+  }, [connected, hustle, stall, router, leaveRoom])
   const ownFinishPosition =
     sessionId ? roomState?.players[sessionId]?.finishPosition ?? null : null
   const locked = (connected && phase !== "racing") || ownFinishPosition !== null

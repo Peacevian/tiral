@@ -13,6 +13,7 @@ import {
   SPRINT_MULTIPLIER,
   findHustle,
   findPlace,
+  isStallGig,
   haversineDistanceMeters
 } from "@tiral/game-core"
 import { buildRoadGraph, type OverpassResponse, type RoadGraph } from "@tiral/road-graph"
@@ -26,6 +27,7 @@ import { ControlDeck } from "@/components/game/ControlDeck"
 import { NeedsHud } from "@/components/game/NeedsHud"
 import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
+import { StallScreen } from "@/components/hustle/StallScreen"
 import { JobBoard, clock, offerTitle, spotName, useNow } from "@/components/hustle/JobBoard"
 import type { HustlePin } from "@/components/hustle/HustlePins"
 import { ActionButton, Card } from "@/components/ui"
@@ -69,7 +71,21 @@ const GIGS = {
 
 // A hustle shift: simulated jobs on the real Kikuubo streets, no other
 // players needed. Same movement, sprint and body as races.
+// /hustle?gig=… — map gigs (porter, boda) or stall mini-games (rolex, car wash).
 export default function HustlePage() {
+  const { stall } = useColyseusContext()
+  const [gigParam, setGigParam] = useState<string | null>(null)
+  useEffect(() => {
+    setGigParam(new URLSearchParams(window.location.search).get("gig") ?? "porter")
+  }, [])
+  // A shift in progress wins; a finished one only shows on its own page.
+  if (stall && stall.phase !== "closed") return <StallScreen gig={stall.stall} />
+  if (gigParam === null) return <main className="h-dvh w-screen bg-slate-950" />
+  if (isStallGig(gigParam)) return <StallScreen gig={gigParam} />
+  return <MapHustle />
+}
+
+function MapHustle() {
   const router = useRouter()
   const {
     connected,
