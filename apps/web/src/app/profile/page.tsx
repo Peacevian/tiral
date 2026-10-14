@@ -12,6 +12,8 @@ import { HomeHud } from "@/components/house/HomeHud"
 import { HomeSheet, type HomeSheetTab } from "@/components/house/HomeSheet"
 import { WalletPanel } from "@/components/WalletPanel"
 import { NeedsPanel } from "@/components/NeedsPanel"
+import { LifePanel } from "@/components/LifePanel"
+import { useLife } from "@/lib/useLife"
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
 
 type ProfileUser = {
@@ -56,6 +58,7 @@ export default function ProfilePage() {
   const [showRoof, setShowRoof] = useState(true)
   const [homeView, setHomeView] = useState<HouseView>("outside")
   const [sheetTab, setSheetTab] = useState<HomeSheetTab>("avatar")
+  const { life, refresh: refreshLife } = useLife()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [avatarSpot, setAvatarSpot] = useState<RoomSpot>(AVATAR_HOME)
   const [selection, setSelection] = useState<RoomSpot | null>(null)
@@ -251,6 +254,8 @@ export default function ProfilePage() {
           />
         }
         body={<NeedsPanel />}
+        life={<LifePanel life={life} onChange={refreshLife} />}
+        badges={{ life: life?.pending ?? 0 }}
         wallet={<WalletPanel />}
         house={
           <div className="flex flex-col gap-3">

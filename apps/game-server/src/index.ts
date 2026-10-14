@@ -12,6 +12,8 @@ const gameServer = new Server({
 })
 
 gameServer.define("race", RaceRoom).filterBy(["phase"])
+// Solo boda deliveries share the race engine; they never show up in the race list.
+gameServer.define("gig", RaceRoom, { mode: "gig" })
 
 gameServer.listen(port)
 console.log(`game-server listening on ws://localhost:${port}`)

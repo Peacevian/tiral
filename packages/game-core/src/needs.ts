@@ -2,6 +2,8 @@
 // applies them during races and @tiral/db stores them between races.
 // See docs/economy-progress.md §13.5 and §14 (phase 2).
 
+import { STRESSED_ENERGY_REGEN_FACTOR, STRESSED_THRESHOLD } from "./life.js"
+
 export const NEED_MAX = 100
 
 /** Sprint speed vs walking — the only speed edge there is. */
@@ -30,6 +32,8 @@ export type StoredNeeds = Needs & {
   at: Date
   /** Set while the player sleeps at home. */
   restingSince: Date | null
+  /** Stress as stored; at/above STRESSED_THRESHOLD energy refills slower. */
+  stress?: number
 }
 
 const clamp = (value: number) => Math.min(NEED_MAX, Math.max(0, value))
@@ -38,8 +42,11 @@ const clamp = (value: number) => Math.min(NEED_MAX, Math.max(0, value))
 export function currentNeeds(stored: StoredNeeds, now: Date): Needs {
   const hours = Math.max(0, now.getTime() - stored.at.getTime()) / 3_600_000
   const resting = stored.restingSince !== null
+  const stressed = (stored.stress ?? 0) >= STRESSED_THRESHOLD ? STRESSED_ENERGY_REGEN_FACTOR : 1
   return {
-    energy: clamp(stored.energy + hours * (resting ? RESTING_ENERGY_REGEN_PER_HOUR : ENERGY_REGEN_PER_HOUR)),
+    energy: clamp(
+      stored.energy + hours * stressed * (resting ? RESTING_ENERGY_REGEN_PER_HOUR : ENERGY_REGEN_PER_HOUR)
+    ),
     health: clamp(stored.health + hours * (resting ? RESTING_HEALTH_REGEN_PER_HOUR : HEALTH_REGEN_PER_HOUR))
   }
 }

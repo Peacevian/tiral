@@ -14,6 +14,12 @@ export const users = pgTable("users", {
   health: doublePrecision("health").default(100).notNull(),
   needsAt: timestamp("needs_at", { withTimezone: true }).defaultNow().notNull(),
   restingSince: timestamp("resting_since", { withTimezone: true }),
+  // Kampala Hustle life: where you live, when rent is due, how stressed you are.
+  houseTier: text("house_tier").default("kisenyi").notNull(),
+  rentDueAt: timestamp("rent_due_at", { withTimezone: true }),
+  stress: doublePrecision("stress").default(20).notNull(),
+  stressAt: timestamp("stress_at", { withTimezone: true }).defaultNow().notNull(),
+  lastEventAt: timestamp("last_event_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull()
 })
@@ -119,3 +125,24 @@ export const coinLedger = pgTable(
 )
 
 export type CoinLedgerEntry = typeof coinLedger.$inferSelect
+
+// Family requests, shocks and rent notices shown in the player's inbox.
+// status: pending (request awaiting a choice) | paid | refused | expired | info
+export const lifeEvents = pgTable(
+  "life_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    amount: integer("amount").default(0).notNull(),
+    status: text("status").notNull(),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true })
+  },
+  (table) => [index("life_events_user_created_idx").on(table.userId, table.createdAt)]
+)
+
+export type LifeEventRow = typeof lifeEvents.$inferSelect

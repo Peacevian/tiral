@@ -2,13 +2,14 @@
 
 import type { ReactNode } from "react"
 
-export type HomeSheetTab = "avatar" | "house" | "room" | "body" | "wallet"
+export type HomeSheetTab = "avatar" | "house" | "room" | "body" | "life" | "wallet"
 
 const TABS: { id: HomeSheetTab; label: string }[] = [
   { id: "avatar", label: "🧍 Avatar" },
   { id: "house", label: "🏠 House" },
   { id: "room", label: "📋 Room" },
   { id: "body", label: "⚡ Body" },
+  { id: "life", label: "📨 Life" },
   { id: "wallet", label: "🪙 Wallet" }
 ]
 
@@ -23,7 +24,9 @@ export function HomeSheet({
   house,
   room,
   body,
-  wallet
+  life,
+  wallet,
+  badges
 }: {
   tab: HomeSheetTab
   onTab(tab: HomeSheetTab): void
@@ -33,7 +36,10 @@ export function HomeSheet({
   house: ReactNode
   room: ReactNode
   body: ReactNode
+  life: ReactNode
   wallet: ReactNode
+  /** Small count shown on a tab (e.g. unanswered messages). */
+  badges?: Partial<Record<HomeSheetTab, number>>
 }) {
   return (
     <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] md:inset-y-0 md:left-auto md:right-0 md:w-[22rem] md:px-2 md:py-2 md:pb-2">
@@ -57,13 +63,18 @@ export function HomeSheet({
                 else onTab(entry.id)
               }}
               aria-pressed={open && tab === entry.id}
-              className={`min-h-[44px] flex-1 rounded-xl text-[11px] font-black transition sm:text-xs ${
+              className={`relative min-h-[44px] flex-1 rounded-xl text-[11px] font-black transition sm:text-xs ${
                 open && tab === entry.id
                   ? "bg-amber-400 text-slate-950"
                   : "bg-white/5 text-slate-200"
               }`}
             >
               {entry.label}
+              {(badges?.[entry.id] ?? 0) > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white">
+                  {badges?.[entry.id]}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -78,6 +89,8 @@ export function HomeSheet({
               ? house
               : tab === "body"
                 ? body
+                : tab === "life"
+                  ? life
                 : tab === "wallet"
                   ? wallet
                   : room}

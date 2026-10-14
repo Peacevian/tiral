@@ -54,7 +54,11 @@ export const REASON_LABELS: Record<string, string> = {
   race_podium: "Podium bonus",
   first_win_of_day: "First win today",
   race_streak: "Daily streak",
-  food: "Food"
+  food: "Food",
+  rent: "Rent",
+  family: "Sent to family",
+  shock: "Bad luck",
+  gig_pay: "Boda delivery"
 }
 
 export function formatCoins(amount: number): string {
