@@ -68,7 +68,7 @@ export function ControlDeck({
   return (
     <>
       {deckOpen ? (
-      <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
+      <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-slate-950/80 shadow-2xl backdrop-blur-md">
           <button
             type="button"
@@ -137,7 +137,7 @@ export function ControlDeck({
         </div>
       </div>
       ) : (
-      <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] max-md:pb-[calc(4rem+env(safe-area-inset-bottom))]">
+      <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           onClick={() => setDeckOpen(true)}
@@ -153,7 +153,7 @@ export function ControlDeck({
           className={`absolute left-[max(0.5rem,env(safe-area-inset-left))] z-30 touch-none ${
             sticksHigh
               ? "bottom-[max(13rem,calc(env(safe-area-inset-bottom)+12rem))]"
-              : "bottom-[max(5rem,calc(env(safe-area-inset-bottom)+4rem))]"
+              : "bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+3rem))]"
           }`}
         >
           <ThumbStick
@@ -169,7 +169,7 @@ export function ControlDeck({
           className={`absolute right-[max(0.5rem,env(safe-area-inset-right))] z-30 touch-none ${
             sticksHigh
               ? "bottom-[max(13rem,calc(env(safe-area-inset-bottom)+12rem))]"
-              : "bottom-[max(5rem,calc(env(safe-area-inset-bottom)+4rem))]"
+              : "bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+3rem))]"
           }`}
         >
           <ThumbStick

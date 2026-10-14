@@ -1,4 +1,4 @@
-import { Room, Client } from "@colyseus/core"
+import { Room, Client, ServerError } from "@colyseus/core"
 import {
   COLLAPSE_SECONDS,
   GIG_MAX_METERS,
@@ -119,8 +119,12 @@ export class RaceRoom extends Room {
   private gigDeadline: number | null = null
   private gigMeters = 0
 
+  // Only signed-in players (TikTok or guest account) race; the web app asks
+  // first, and this stops anyone skipping that step.
   static async onAuth(token: unknown) {
-    return verifyJoinToken(token)
+    const identity = await verifyJoinToken(token)
+    if (identity.guest) throw new ServerError(401, "Sign in to race")
+    return identity
   }
 
   onCreate(options: any) {

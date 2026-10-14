@@ -1,14 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import Link from "next/link"
-import { formatCoins, useWallet } from "@/lib/useCoins"
-
-type AuthUser = {
-  id: string
-  displayName: string
-  avatarUrl: string | null
-}
+import { useState } from "react"
 
 type TopBarProps = {
   roomCode: string | null
@@ -29,8 +21,8 @@ function formatCountdown(totalSeconds: number): string {
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`
 }
 
-// Slim full-width HUD: status on the left, actions on the right.
-// Everything secondary lives behind the ⋯ menu so the map stays visible.
+// Slim race HUD: status on the left, recenter and leave on the right. The
+// app shell (coins, profile, navigation) is hidden during races; this is all.
 export function TopBar({
   roomCode,
   racerCount,
@@ -46,52 +38,6 @@ export function TopBar({
   onLeave
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [busy, setBusy] = useState(false)
-  const wallet = useWallet()
-
-  useEffect(() => {
-    let cancelled = false
-    fetch("/api/auth/me")
-      .then((response) => response.json())
-      .then((body: { user: AuthUser | null }) => {
-        if (!cancelled) setUser(body.user)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const playAsGuest = useCallback(async () => {
-    setBusy(true)
-    try {
-      const response = await fetch("/api/auth/guest", { method: "POST" })
-      const body = (await response.json()) as { user?: AuthUser }
-      if (body.user) {
-        setUser(body.user)
-        void wallet.refresh()
-      }
-    } catch {
-      // stay signed out on failure
-    } finally {
-      setBusy(false)
-    }
-  }, [wallet.refresh])
-
-  const logout = useCallback(async () => {
-    setBusy(true)
-    try {
-      await fetch("/api/auth/logout", { method: "POST" })
-    } catch {
-      // cookie may already be gone; still clear local state
-    } finally {
-      setUser(null)
-      void wallet.refresh()
-      setBusy(false)
-      setMenuOpen(false)
-    }
-  }, [wallet.refresh])
 
   const statusLine = reconnecting
     ? "Reconnecting…"
@@ -130,17 +76,6 @@ export function TopBar({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {user && wallet.balance !== null && (
-            <Link
-              href="/profile?tab=wallet"
-              aria-label={`${formatCoins(wallet.balance)} Banange Coins`}
-              title="Banange Coins (BNG)"
-              className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-amber-300/40 bg-amber-300/10 px-2.5 font-mono text-xs font-black text-amber-200"
-            >
-              <span aria-hidden>🪙</span>
-              {formatCoins(wallet.balance)}
-            </Link>
-          )}
           {showRecenter && (
             <button
               type="button"
@@ -169,58 +104,9 @@ export function TopBar({
       </div>
       {menuOpen && (
         <div className="ml-auto mt-1.5 flex w-[min(72vw,240px)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-md">
-          <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-400 text-sm font-black text-slate-950">
-              {user ? user.displayName.charAt(0).toUpperCase() : "?"}
-            </div>
-            <div className="min-w-0 truncate text-sm font-bold text-slate-100">
-              {user ? user.displayName : "Signed out"}
-            </div>
-          </div>
-          {!user && (
-            <>
-              <a
-                href="/api/auth/tiktok"
-                className="block rounded-xl bg-white px-3 py-2.5 text-center text-sm font-black text-slate-950"
-              >
-                Continue with TikTok
-              </a>
-              <button
-                type="button"
-                onClick={playAsGuest}
-                disabled={busy}
-                className="rounded-xl bg-white/10 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-              >
-                {busy ? "…" : "Play as guest"}
-              </button>
-            </>
-          )}
-          {user && (
-            <Link
-              href="/profile"
-              onClick={() => setMenuOpen(false)}
-              className="block rounded-xl bg-white/5 px-3 py-2.5 text-center text-sm font-bold text-slate-100"
-            >
-              Profile
-            </Link>
-          )}
-          <Link
-            href="/leaderboard"
-            onClick={() => setMenuOpen(false)}
-            className="block rounded-xl bg-white/5 px-3 py-2.5 text-center text-sm font-bold text-slate-100"
-          >
-            Leaderboard
-          </Link>
-          {user && (
-            <button
-              type="button"
-              onClick={logout}
-              disabled={busy}
-              className="rounded-xl bg-white/5 px-3 py-2.5 text-sm font-bold text-slate-300 disabled:opacity-40"
-            >
-              Log out
-            </button>
-          )}
+          <p className="px-2 py-1 text-[11px] leading-snug text-slate-400">
+            {phase === "racing" ? "Leaving now means no pay for this race." : "Back to the hub."}
+          </p>
           <button
             type="button"
             onClick={() => {

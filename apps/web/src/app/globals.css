@@ -21,6 +21,22 @@ body {
   background-color: #020617;
 }
 
+/* App shell: pages place their own panels between the fixed top bar and
+   (phones only) the bottom tab bar. Zero when the shell is hidden. */
+:root {
+  --shell-top: 0px;
+  --shell-bottom: 0px;
+}
+body.has-shell {
+  --shell-top: calc(3.5rem + env(safe-area-inset-top));
+  --shell-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  body.has-shell {
+    --shell-bottom: 0px;
+  }
+}
+
 /* Game surfaces: no callouts, highlights, or text selection on touch */
 .tiral-game,
 .tiral-game button {

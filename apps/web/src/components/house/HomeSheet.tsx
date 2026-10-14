@@ -2,14 +2,13 @@
 
 import type { ReactNode } from "react"
 
-export type HomeSheetTab = "avatar" | "house" | "room" | "body" | "life" | "wallet"
+export type HomeSheetTab = "avatar" | "house" | "room" | "body" | "wallet"
 
 const TABS: { id: HomeSheetTab; label: string }[] = [
   { id: "avatar", label: "🧍 Avatar" },
   { id: "house", label: "🏠 House" },
-  { id: "room", label: "📋 Room" },
+  { id: "room", label: "📋 Me" },
   { id: "body", label: "⚡ Body" },
-  { id: "life", label: "📨 Life" },
   { id: "wallet", label: "🪙 Wallet" }
 ]
 
@@ -24,7 +23,6 @@ export function HomeSheet({
   house,
   room,
   body,
-  life,
   wallet,
   badges
 }: {
@@ -36,13 +34,12 @@ export function HomeSheet({
   house: ReactNode
   room: ReactNode
   body: ReactNode
-  life: ReactNode
   wallet: ReactNode
   /** Small count shown on a tab (e.g. unanswered messages). */
   badges?: Partial<Record<HomeSheetTab, number>>
 }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] md:inset-y-0 md:left-auto md:right-0 md:w-[22rem] md:px-2 md:py-2 md:pb-2">
+    <div className="absolute inset-x-0 bottom-[var(--shell-bottom)] z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-2 md:bottom-0 md:left-auto md:right-0 md:top-[var(--shell-top)] md:w-[23rem] md:px-2 md:py-2">
       <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-md md:mx-0 md:flex md:h-full md:max-w-none md:flex-col md:rounded-2xl">
         <button
           type="button"
@@ -89,8 +86,6 @@ export function HomeSheet({
               ? house
               : tab === "body"
                 ? body
-                : tab === "life"
-                  ? life
                 : tab === "wallet"
                   ? wallet
                   : room}

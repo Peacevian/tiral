@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { ColyseusProvider } from "@/components/ColyseusProvider"
-import { MobileTabBar } from "@/components/MobileTabBar"
+import { PlayerProvider } from "@/lib/player"
+import { AppNav } from "@/components/shell/AppNav"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://playtiral.com"
 
@@ -47,8 +48,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />
       </head>
       <body className="tiral-game w-screen min-h-screen overflow-x-hidden">
-        <ColyseusProvider>{children}</ColyseusProvider>
-        <MobileTabBar />
+        <PlayerProvider>
+          <ColyseusProvider>
+            {children}
+            <AppNav />
+          </ColyseusProvider>
+        </PlayerProvider>
       </body>
     </html>
   )
