@@ -8,6 +8,12 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   avatarLoadout: jsonb("avatar_loadout").$type<AvatarLoadout>().default(DEFAULT_LOADOUT).notNull(),
   houseLoadout: jsonb("house_loadout").$type<HouseLoadout>().default(DEFAULT_HOUSE).notNull(),
+  // Energy/health as last written; current values add time-based regen
+  // (see currentNeeds in @tiral/game-core). resting_since is set while asleep at home.
+  energy: doublePrecision("energy").default(100).notNull(),
+  health: doublePrecision("health").default(100).notNull(),
+  needsAt: timestamp("needs_at", { withTimezone: true }).defaultNow().notNull(),
+  restingSince: timestamp("resting_since", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull()
 })

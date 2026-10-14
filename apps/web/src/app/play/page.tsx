@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import type maplibregl from "maplibre-gl"
-import { KAMPALA_ZONE, haversineDistanceMeters } from "@tiral/game-core"
+import { KAMPALA_ZONE, SPRINT_MULTIPLIER, haversineDistanceMeters } from "@tiral/game-core"
 import { useColyseusContext } from "@/components/ColyseusProvider"
 import {
   buildRoadGraph,
@@ -35,6 +35,9 @@ function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
 
 import { ROTATION_SECONDS, selectCurrentAd } from "@/lib/billboards"
 import { RaceEarningsSummary } from "@/components/game/RaceEarningsSummary"
+import { NeedsHud } from "@/components/game/NeedsHud"
+import { SprintButton } from "@/components/game/SprintButton"
+import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
 import type { RaceListing } from "@/lib/useColyseus"
 
 type BillboardSlot = {
@@ -96,8 +99,10 @@ export default function Home() {
     positions,
     results,
     earnings,
+    needs,
     countdown,
     sendWalk,
+    sendSprint,
     sendTurn,
     sendTurnAround,
     sendPlaceStart,
@@ -157,7 +162,40 @@ export default function Home() {
     [connected, sendWalk, sendTurn, sendTurnAround]
   )
 
-  const movement = useRoadMovement(graph, assignedStart, handleRoadInput, locked)
+  // Sprint: hold the button or Shift. The server owns energy/health and tells
+  // us when we collapse; local movement mirrors its speed via speedRef.
+  const [sprinting, setSprinting] = useState(false)
+  const speedRef = useRef(1)
+  const collapsed = needs?.collapsedUntil != null && needs.collapsedUntil > Date.now()
+  const canSprint = connected && phase === "racing" && !locked
+  const setSprint = useCallback(
+    (on: boolean) => {
+      const next = on && canSprint
+      setSprinting(next)
+      sendSprint(next)
+    },
+    [canSprint, sendSprint]
+  )
+  useEffect(() => {
+    if (!canSprint && sprinting) setSprint(false)
+  }, [canSprint, sprinting, setSprint])
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key === "Shift" && !event.repeat) setSprint(true)
+    }
+    const up = (event: KeyboardEvent) => {
+      if (event.key === "Shift") setSprint(false)
+    }
+    window.addEventListener("keydown", down)
+    window.addEventListener("keyup", up)
+    return () => {
+      window.removeEventListener("keydown", down)
+      window.removeEventListener("keyup", up)
+    }
+  }, [setSprint])
+  speedRef.current = collapsed ? 0 : sprinting ? SPRINT_MULTIPLIER : 1
+
+  const movement = useRoadMovement(graph, assignedStart, handleRoadInput, locked, speedRef)
   const myLoadout = useMyLoadout()
   const { recenter, followSuspended } = useRaceCamera(map, phase, movement.coordinate, movement.heading)
 
@@ -172,6 +210,7 @@ export default function Home() {
           coordinate: entry.coordinate!,
           heading: getRoadHeading(graph, entry.roadPosition!),
           moving: entry.moving,
+          collapsed: entry.collapsed === true,
           loadout: entry.loadout ?? DEFAULT_LOADOUT,
           name: roomState?.players[id]?.name ?? "Runner",
           finishPosition: roomState?.players[id]?.finishPosition ?? null,
@@ -477,6 +516,7 @@ export default function Home() {
               loadout={myLoadout}
               isSelf
               finishPosition={ownFinishPosition}
+              collapsed={collapsed}
             />
           )}
           {remoteAvatars.map((avatar) => (
@@ -489,6 +529,7 @@ export default function Home() {
               loadout={avatar.loadout}
               name={avatar.name}
               finishPosition={avatar.finishPosition}
+              collapsed={avatar.collapsed}
               smooth
             />
           ))}
@@ -534,6 +575,24 @@ export default function Home() {
           onLeave={leaveRoom}
         />
       )}
+
+      {connected && needs && (
+        <div className="absolute left-[max(0.5rem,env(safe-area-inset-left))] top-[calc(max(0.5rem,env(safe-area-inset-top))+3.75rem)] z-20">
+          <NeedsHud energy={needs.energy} health={needs.health} sprinting={sprinting && movement.moving} />
+        </div>
+      )}
+      {canSprint && (
+        <div className="absolute bottom-[max(12.5rem,calc(env(safe-area-inset-bottom)+12rem))] right-[max(0.75rem,env(safe-area-inset-right))] z-30 md:bottom-[7.5rem]">
+          <SprintButton
+            active={sprinting}
+            disabled={collapsed}
+            empty={(needs?.energy ?? 100) <= 0}
+            onChange={setSprint}
+          />
+        </div>
+      )}
+      {canSprint && <PreloadCollapseFont />}
+      {connected && collapsed && needs?.collapsedUntil && <CollapseOverlay until={needs.collapsedUntil} />}
 
       {connected && phase === "racing" && ownFinishPosition !== null && (
         <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl backdrop-blur-md">

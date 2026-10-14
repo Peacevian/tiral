@@ -75,7 +75,7 @@ Open `http://localhost:3000` in two browsers, join in both, pick different start
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `2567` | WebSocket port |
-| `RACE_COUNTDOWN_SECONDS` | `300` | Lobby countdown (use `8` for testing) |
+| `RACE_COUNTDOWN_SECONDS` | `20` | Lobby countdown in seconds |
 | `RACE_ARRIVAL_RADIUS` | `25` | Finish radius in meters |
 
 ## Controls

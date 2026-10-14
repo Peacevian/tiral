@@ -1,5 +1,12 @@
 import { Room, Client } from "@colyseus/core"
-import { KAMPALA_ZONE, haversineDistanceMeters } from "@tiral/game-core"
+import {
+  COLLAPSE_SECONDS,
+  KAMPALA_ZONE,
+  NEED_MAX,
+  applySprint,
+  haversineDistanceMeters,
+  speedMultiplier
+} from "@tiral/game-core"
 import {
   chooseBestEdge,
   classifyConnectedEdges,
@@ -13,14 +20,16 @@ import {
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
-import { awardRaceEarnings, recordRaceResults } from "@tiral/db"
+import { awardRaceEarnings, loadNeeds, recordRaceResults, saveNeeds } from "@tiral/db"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_INTENT_TIMEOUT_MS = 3000
 const TICK_MS = 100
-const COUNTDOWN_SECONDS = Number(process.env.RACE_COUNTDOWN_SECONDS ?? 300)
+const COUNTDOWN_SECONDS = Number(process.env.RACE_COUNTDOWN_SECONDS ?? 20)
 const ARRIVAL_RADIUS_METERS = Number(process.env.RACE_ARRIVAL_RADIUS ?? 25)
 const FINISH_WINDOW_MS = 30_000
+/** How often each racer is told their own energy/health. */
+const NEEDS_SYNC_MS = 500
 
 type PlayerInfo = {
   id: string
@@ -35,6 +44,13 @@ type PlayerInfo = {
   turnIntent: { direction: RoadDirection; expiresAt: number } | null
   finishPosition: number | null
   connected: boolean
+  // Body: loaded from the DB for signed-in players, saved back after the race.
+  energy: number
+  health: number
+  sprinting: boolean
+  collapsedUntil: number | null
+  needsLoaded: boolean
+  needsSentAt: number
 }
 
 const RECONNECT_SECONDS = 30
@@ -142,6 +158,12 @@ export class RaceRoom extends Room {
       player.moving = on === true
     })
 
+    this.onMessage("sprint", (client, on: boolean) => {
+      const player = this.players[client.sessionId]
+      if (!player) return
+      player.sprinting = on === true
+    })
+
     this.onMessage("turn", (client, direction: RoadDirection) => {
       const player = this.players[client.sessionId]
       if (!player || !this.roadGraph || !player.roadPosition) return
@@ -216,8 +238,15 @@ export class RaceRoom extends Room {
         moving: false,
         turnIntent: null,
         finishPosition: null,
-        connected: true
+        connected: true,
+        energy: NEED_MAX,
+        health: NEED_MAX,
+        sprinting: false,
+        collapsedUntil: null,
+        needsLoaded: false,
+        needsSentAt: 0
       }
+      void this.loadPlayerNeeds(client.sessionId)
     }
     // No auto-placement: the player stays off-map until they drop a start pin.
     this.broadcast("roomState", this.getRoomState())
@@ -244,6 +273,8 @@ export class RaceRoom extends Room {
         this.syncMetadata()
       }
     } catch {
+      const gone = this.players[client.sessionId]
+      if (gone) void this.savePlayerNeeds(gone)
       delete this.players[client.sessionId]
       this.broadcast("roomState", this.getRoomState())
       this.syncMetadata()
@@ -251,6 +282,8 @@ export class RaceRoom extends Room {
   }
 
   onLeave(client: Client) {
+    const leaving = this.players[client.sessionId]
+    if (leaving) void this.savePlayerNeeds(leaving)
     delete this.players[client.sessionId]
     const remaining = Object.keys(this.players).length
     if (remaining === 0) {
@@ -330,7 +363,25 @@ export class RaceRoom extends Room {
           continue
         }
       }
-      if (!player.moving || !player.roadPosition) continue
+      if (player.collapsedUntil !== null && now >= player.collapsedUntil) {
+        player.collapsedUntil = null
+        changed = true
+      }
+      const collapsed = player.collapsedUntil !== null
+      if (!player.moving || !player.roadPosition || collapsed) continue
+      const sprinting = player.sprinting
+      if (sprinting) {
+        const tick = applySprint(player, deltaSeconds)
+        player.energy = tick.energy
+        player.health = tick.health
+        if (tick.collapsed) {
+          // Banange! Down for a few seconds, never out of the race.
+          player.collapsedUntil = now + COLLAPSE_SECONDS * 1000
+          changed = true
+          this.sendNeeds(player, now)
+          continue
+        }
+      }
       const edge = this.roadGraph.edges[player.roadPosition.edgeId]
       if (!edge) {
         player.moving = false
@@ -340,7 +391,10 @@ export class RaceRoom extends Room {
 
       const distance =
         player.roadPosition.distanceAlongEdge +
-        WALK_SPEED_METERS_PER_SECOND * deltaSeconds * player.roadPosition.direction
+        WALK_SPEED_METERS_PER_SECOND *
+          speedMultiplier(sprinting, false) *
+          deltaSeconds *
+          player.roadPosition.direction
       const reachedEnd = distance > edge.lengthMeters
       const reachedStart = distance < 0
 
@@ -386,6 +440,10 @@ export class RaceRoom extends Room {
       }
     }
 
+    for (const player of Object.values(this.players)) {
+      if (now - player.needsSentAt >= NEEDS_SYNC_MS) this.sendNeeds(player, now)
+    }
+
     if (changed || arrived) {
       this.broadcast("positions", this.getPositions())
     }
@@ -412,6 +470,10 @@ export class RaceRoom extends Room {
     for (const player of Object.values(this.players)) {
       player.moving = false
       player.turnIntent = null
+      player.sprinting = false
+      player.collapsedUntil = null
+      this.sendNeeds(player, Date.now())
+      void this.savePlayerNeeds(player)
     }
     const finishedAt = new Date()
     this.broadcast("roomState", this.getRoomState())
@@ -488,6 +550,42 @@ export class RaceRoom extends Room {
     }
   }
 
+  private async loadPlayerNeeds(sessionId: string) {
+    const player = this.players[sessionId]
+    if (!player?.userId) return
+    try {
+      const needs = await loadNeeds(player.userId)
+      const current = this.players[sessionId]
+      if (!current) return
+      current.energy = needs.energy
+      current.health = needs.health
+      current.needsLoaded = true
+      this.sendNeeds(current, Date.now())
+    } catch (error) {
+      console.error("Failed to load needs:", error)
+    }
+  }
+
+  private async savePlayerNeeds(player: PlayerInfo) {
+    // Only persist what we actually loaded, so a DB hiccup can't reset someone to full.
+    if (!player.userId || !player.needsLoaded) return
+    try {
+      await saveNeeds(player.userId, { energy: player.energy, health: player.health })
+    } catch (error) {
+      console.error("Failed to save needs:", error)
+    }
+  }
+
+  private sendNeeds(player: PlayerInfo, now: number) {
+    player.needsSentAt = now
+    const client = this.clients.find((candidate) => candidate.sessionId === player.id)
+    client?.send("needs", {
+      energy: Math.round(player.energy * 10) / 10,
+      health: Math.round(player.health * 10) / 10,
+      collapsedForMs: player.collapsedUntil === null ? 0 : Math.max(0, player.collapsedUntil - now)
+    })
+  }
+
   private getPositions() {
     const positions: Record<
       string,
@@ -495,6 +593,8 @@ export class RaceRoom extends Room {
         roadPosition: RoadPosition | null
         coordinate: { lat: number; lng: number } | null
         moving: boolean
+        sprinting: boolean
+        collapsed: boolean
         loadout: AvatarLoadout
       }
     > = {}
@@ -502,7 +602,9 @@ export class RaceRoom extends Room {
       positions[sessionId] = {
         roadPosition: player.roadPosition,
         coordinate: player.coordinate,
-        moving: player.moving,
+        moving: player.moving && player.collapsedUntil === null,
+        sprinting: player.sprinting && player.moving,
+        collapsed: player.collapsedUntil !== null,
         loadout: player.loadout
       }
     }

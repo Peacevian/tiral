@@ -29,6 +29,8 @@ type Avatar3DProps = {
   isSelf?: boolean
   /** Set once this racer has finished; they celebrate while standing. */
   finishPosition?: number | null
+  /** Down after sprinting on empty (Banange!). */
+  collapsed?: boolean
 }
 
 // Model units (≈ metres in the avatar rig) → mercator units. Avatars are drawn
@@ -283,7 +285,8 @@ export function Avatar3D({
   smooth = false,
   name,
   isSelf = false,
-  finishPosition = null
+  finishPosition = null,
+  collapsed = false
 }: Avatar3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const displayRef = useRef<{ x: number; y: number } | null>(null)
@@ -320,7 +323,13 @@ export function Avatar3D({
             the model makes three.js flip front faces back so meshes aren't
             drawn inside-out. */}
         <group rotation={[Math.PI / 2, 0, 0]} scale={[-1, 1, 1]}>
-          <RealisticAvatar loadout={loadout} moving={moving} pose={celebrating ? "dance" : "auto"} gait="run" />
+          <RealisticAvatar
+            loadout={loadout}
+            moving={moving}
+            pose={celebrating ? "dance" : "auto"}
+            gait="run"
+            act={collapsed ? "collapse" : undefined}
+          />
         </group>
         {(name || isSelf) && (
           <NameTag name={name ?? ""} isSelf={isSelf} finishPosition={finishPosition} rarity={rarity} />

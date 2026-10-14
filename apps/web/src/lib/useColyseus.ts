@@ -47,9 +47,14 @@ export type RemotePositions = Record<
     roadPosition: RoomPlayer["roadPosition"]
     coordinate: RoomPlayer["coordinate"]
     moving: boolean
+    sprinting?: boolean
+    collapsed?: boolean
     loadout?: AvatarLoadout
   }
 >
+
+/** Your own body, as the server sees it. collapsedUntil is a local Date.now() time. */
+export type RaceNeeds = { energy: number; health: number; collapsedUntil: number | null }
 
 export type RaceListing = {
   roomId: string
@@ -119,6 +124,7 @@ export function useColyseus({
   const [positions, setPositions] = useState<RemotePositions>({})
   const [results, setResults] = useState<RaceResult[] | null>(null)
   const [earnings, setEarnings] = useState<RaceEarnings | null>(null)
+  const [needs, setNeeds] = useState<RaceNeeds | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -165,6 +171,14 @@ export function useColyseus({
 
     room.onMessage("raceFinished", (order: RaceResult[]) => {
       setResults(order)
+    })
+
+    room.onMessage("needs", (next: { energy: number; health: number; collapsedForMs: number }) => {
+      setNeeds({
+        energy: next.energy,
+        health: next.health,
+        collapsedUntil: next.collapsedForMs > 0 ? Date.now() + next.collapsedForMs : null
+      })
     })
 
     // Coins paid for this race (sent only to signed-in finishers).
@@ -363,6 +377,10 @@ export function useColyseus({
     roomRef.current?.send("walk", on)
   }, [])
 
+  const sendSprint = useCallback((on: boolean) => {
+    roomRef.current?.send("sprint", on)
+  }, [])
+
   const sendTurn = useCallback((direction: RoadDirection) => {
     roomRef.current?.send("turn", direction)
   }, [])
@@ -421,6 +439,7 @@ export function useColyseus({
     positions,
     results,
     earnings,
+    needs,
     countdown,
     connect,
     disconnect,
@@ -431,6 +450,7 @@ export function useColyseus({
     joinByCode,
     listRaces,
     sendWalk,
+    sendSprint,
     sendTurn,
     sendTurnAround,
     sendSelectStart,
