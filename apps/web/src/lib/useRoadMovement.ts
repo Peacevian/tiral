@@ -27,7 +27,9 @@ export function useRoadMovement(
   graph: RoadGraph | null,
   start: LatLng | null,
   onInput?: (input: RoadInput) => void,
-  locked = false
+  locked = false,
+  /** Live speed factor (sprint ×1.35, collapsed 0); mirrors the server. */
+  speedRef?: { current: number }
 ) {
   const [position, setPosition] = useState<RoadPosition | null>(null)
   const [moving, setMoving] = useState(false)
@@ -110,7 +112,8 @@ export function useRoadMovement(
       if (movingRef.current && current) {
         const edge = graph.edges[current.edgeId]
         if (edge) {
-          let distance = current.distanceAlongEdge + WALK_SPEED_METERS_PER_SECOND * deltaSeconds * current.direction
+          const speed = WALK_SPEED_METERS_PER_SECOND * (speedRef?.current ?? 1)
+          let distance = current.distanceAlongEdge + speed * deltaSeconds * current.direction
           const reachedEnd = distance > edge.lengthMeters
           const reachedStart = distance < 0
 
@@ -162,15 +165,18 @@ export function useRoadMovement(
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return
-      if (event.key === "w" || event.key === "ArrowUp") updateMoving(true)
-      if (event.key === "a" || event.key === "ArrowLeft") requestTurn("left")
-      if (event.key === "d" || event.key === "ArrowRight") requestTurn("right")
-      if (event.key === "s" || event.key === "ArrowDown") turnAround()
-      if (event.key === " ") updateMoving(false)
+      // Lower-case so Shift (sprint) + W still walks.
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
+      if (key === "w" || key === "ArrowUp") updateMoving(true)
+      if (key === "a" || key === "ArrowLeft") requestTurn("left")
+      if (key === "d" || key === "ArrowRight") requestTurn("right")
+      if (key === "s" || key === "ArrowDown") turnAround()
+      if (key === " ") updateMoving(false)
     }
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "w" || event.key === "ArrowUp") updateMoving(false)
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
+      if (key === "w" || key === "ArrowUp") updateMoving(false)
     }
 
     window.addEventListener("keydown", onKeyDown)

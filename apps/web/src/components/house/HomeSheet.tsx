@@ -2,12 +2,13 @@
 
 import type { ReactNode } from "react"
 
-export type HomeSheetTab = "avatar" | "house" | "room" | "wallet"
+export type HomeSheetTab = "avatar" | "house" | "room" | "body" | "wallet"
 
 const TABS: { id: HomeSheetTab; label: string }[] = [
   { id: "avatar", label: "🧍 Avatar" },
   { id: "house", label: "🏠 House" },
   { id: "room", label: "📋 Room" },
+  { id: "body", label: "⚡ Body" },
   { id: "wallet", label: "🪙 Wallet" }
 ]
 
@@ -21,6 +22,7 @@ export function HomeSheet({
   avatar,
   house,
   room,
+  body,
   wallet
 }: {
   tab: HomeSheetTab
@@ -30,6 +32,7 @@ export function HomeSheet({
   avatar: ReactNode
   house: ReactNode
   room: ReactNode
+  body: ReactNode
   wallet: ReactNode
 }) {
   return (
@@ -69,7 +72,15 @@ export function HomeSheet({
             open ? "" : "hidden md:block"
           }`}
         >
-          {tab === "avatar" ? avatar : tab === "house" ? house : tab === "wallet" ? wallet : room}
+          {tab === "avatar"
+            ? avatar
+            : tab === "house"
+              ? house
+              : tab === "body"
+                ? body
+                : tab === "wallet"
+                  ? wallet
+                  : room}
         </div>
       </div>
     </div>
