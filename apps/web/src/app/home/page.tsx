@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { KAMPALA_ZONE } from "@tiral/game-core"
+import dynamic from "next/dynamic"
+import { KAMPALA_ZONE, RENTAL_BIKE_LOOK, type BikeLook } from "@tiral/game-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 import { ProfileCustomizer } from "@/components/ProfileCustomizer"
@@ -15,6 +16,11 @@ import { GaragePanel } from "@/components/bike/GaragePanel"
 import { NeedsPanel } from "@/components/NeedsPanel"
 import { usePlayer } from "@/lib/player"
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
+
+const BikeShowroom = dynamic(
+  () => import("@/components/bike/BikeShowroom").then((module) => ({ default: module.BikeShowroom })),
+  { ssr: false }
+)
 
 type ProfileUser = {
   id: string
@@ -60,6 +66,8 @@ export default function HomePage() {
   const [homeView, setHomeView] = useState<HouseView>("outside")
   // Open section of the home panel, or null for the menu of tiles.
   const [section, setSection] = useState<HomeSheetTab | null>(null)
+  // Home → Bike shows the selected bike big in the main scene.
+  const [showroomLook, setShowroomLook] = useState<BikeLook>(RENTAL_BIKE_LOOK)
   // The Bike tile shows which bike you ride.
   const [bikeStatus, setBikeStatus] = useState<string | null>(null)
   useEffect(() => {
@@ -197,6 +205,15 @@ export default function HomePage() {
           section ? "bottom-[calc(var(--shell-bottom)+40dvh+4rem)] sm:bottom-[calc(var(--shell-bottom)+44dvh+4rem)]" : "bottom-[calc(var(--shell-bottom)+16.5rem)]"
         }`}
       >
+        {section === "bike" ? (
+          // Bike: the main scene becomes the showroom for the selected bike.
+          <div className="absolute inset-0">
+            <BikeShowroom look={showroomLook} />
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] font-bold text-slate-400">
+              Drag to look around
+            </div>
+          </div>
+        ) : (
         <HousePreview
           fill
           house={draftHouse}
@@ -218,6 +235,7 @@ export default function HomePage() {
             setSection("house")
           }}
         />
+        )}
         <HomeHud
           displayName={user.displayName}
           dirty={dirty}
@@ -234,7 +252,7 @@ export default function HomePage() {
             setNotice(null)
           }}
         />
-        <div className="absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[3.75rem] z-20 flex overflow-hidden rounded-xl border border-white/15 bg-slate-950/80 shadow-xl backdrop-blur-md">
+        <div className={`absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[3.75rem] z-20 overflow-hidden ${section === "bike" ? "hidden" : "flex"} rounded-xl border border-white/15 bg-slate-950/80 shadow-xl backdrop-blur-md`}>
           {(["outside", "inside"] as const).map((view) => (
             <button
               key={view}
@@ -270,7 +288,7 @@ export default function HomePage() {
           />
         }
         body={<NeedsPanel />}
-        bike={<GaragePanel />}
+        bike={<GaragePanel onShow={setShowroomLook} />}
         wallet={<WalletPanel />}
         house={
           <div className="flex flex-col gap-3">
