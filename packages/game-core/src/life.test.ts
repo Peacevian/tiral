@@ -63,7 +63,7 @@ describe("stress", () => {
 
 describe("events", () => {
   it("are owed once per interval, capped by pending requests", () => {
-    expect(eventsDue(null, now, 0)).toBe(1)
+    expect(eventsDue(null, now, 0)).toBe(0)
     expect(eventsDue(ago(3), now, 0)).toBe(0)
     expect(eventsDue(ago(17), now, 0)).toBe(2)
     expect(eventsDue(ago(17), now, 1)).toBe(1)

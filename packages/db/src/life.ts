@@ -186,7 +186,8 @@ export async function syncLife(userId: string, db: Database = getDatabase()): Pr
         rentDueAt: settlement.rentDueAt,
         stress,
         stressAt: now,
-        lastEventAt: owed > 0 ? now : row.lastEventAt
+        // First visit starts the event clock (see eventsDue).
+        lastEventAt: owed > 0 ? now : row.lastEventAt ?? now
       })
       .where(eq(users.id, userId))
 
