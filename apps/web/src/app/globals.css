@@ -241,6 +241,84 @@ body {
   font-size: 13px;
 }
 
+/* Landing hero: bill pop-ups pinned on the map (BillsMap, plain DOM markers) */
+.tiral-bill {
+  pointer-events: none;
+}
+.tiral-bill__pop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-origin: 50% 100%;
+  transition: opacity 180ms ease, transform 380ms cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.tiral-bill[data-shown="false"] .tiral-bill__pop {
+  opacity: 0;
+  transform: translateY(10px) scale(0.6);
+}
+.tiral-bill[data-shown="true"] .tiral-bill__pop {
+  opacity: 1;
+  transform: none;
+}
+.tiral-bill__card {
+  border: 3px solid #1b1b1b;
+  background: #fbfaf5;
+  padding: 6px 10px 7px;
+  box-shadow: 4px 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  text-align: left;
+  white-space: nowrap;
+}
+.tiral-bill__place {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tiral-bill__label {
+  margin-top: 1px;
+  font-size: 12px;
+  color: #4a4335;
+}
+.tiral-bill__amount {
+  font-family: var(--font-sign), sans-serif;
+  font-size: 22px;
+  line-height: 1.05;
+  color: #c8102e;
+}
+.tiral-bill__pin {
+  width: 3px;
+  height: 18px;
+  background: #1b1b1b;
+}
+@media (max-width: 767px) {
+  .tiral-bill__card {
+    transform: scale(0.78);
+    transform-origin: 50% 100%;
+  }
+  .tiral-bill__pin {
+    height: 10px;
+  }
+}
+.tiral-bill__pin::after {
+  content: "";
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin: 15px 0 0 -4px;
+  border-radius: 9999px;
+  background: #c8102e;
+  border: 2px solid #1b1b1b;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiral-bill__pop {
+    transition: none;
+  }
+}
+
 /* Twin thumb sticks: touch devices only, never on keypad laptops */
 .tiral-sticks {
   display: none;

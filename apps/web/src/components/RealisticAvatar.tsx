@@ -19,6 +19,20 @@ import {
 const MODEL_URL = "/models/runner.glb"
 useGLTF.preload(MODEL_URL)
 
+/** Scripted beats for storytelling scenes (the landing hero). */
+export const ACT_CLIPS = {
+  calm: "CharacterArmature|Idle_Neutral",
+  phone: "CharacterArmature|Interact",
+  flinch: "CharacterArmature|HitRecieve",
+  shock: "CharacterArmature|HitRecieve_2",
+  collapse: "CharacterArmature|Death",
+  run: "CharacterArmature|Run",
+  wave: "CharacterArmature|Wave"
+} as const
+export type AvatarAct = keyof typeof ACT_CLIPS
+// Beats that play once and hold their last pose.
+const ONE_SHOT_ACTS: ReadonlySet<AvatarAct> = new Set(["phone", "flinch", "shock", "collapse"])
+
 const CLIPS = {
   idle: "CharacterArmature|Idle",
   walk: "CharacterArmature|Walk",
@@ -562,12 +576,14 @@ function HumanAvatar({
   loadout,
   moving,
   pose,
-  gait
+  gait,
+  act
 }: {
   loadout: AvatarLoadout
   moving: boolean
   pose: AvatarPose
   gait: "walk" | "run"
+  act?: AvatarAct
 }) {
   const { scene, animations } = useGLTF(MODEL_URL)
   const rig = useMemo(() => instantiate(scene), [scene])
@@ -603,10 +619,25 @@ function HumanAvatar({
   }, [rig, outfit, shirt, skin, pants, hairColor, shoes, hair, hat])
 
   // Animation state machine with short cross-fades.
-  const clip = pose === "dance" ? CLIPS.dance : moving ? CLIPS[gait] : CLIPS.idle
+  const clip = act
+    ? ACT_CLIPS[act]
+    : pose === "dance"
+      ? CLIPS.dance
+      : moving
+        ? CLIPS[gait]
+        : CLIPS.idle
   useEffect(() => {
     const action = actions[clip]
     if (!action) return
+    if (act) {
+      const once = ONE_SHOT_ACTS.has(act)
+      action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity)
+      action.clampWhenFinished = once
+      action.reset().fadeIn(0.2).play()
+      return () => {
+        action.fadeOut(0.2)
+      }
+    }
     // Racing: mix some idle pose into the run so the stride stays compact on
     // the map instead of legs splaying across the road. (Fixed weights here —
     // a fadeIn would animate the weight back to 1.)
@@ -621,13 +652,13 @@ function HumanAvatar({
       action.fadeOut(0.25)
       stance?.fadeOut(0.25)
     }
-  }, [actions, clip])
+  }, [actions, clip, act])
 
   // A little celebratory hop and turn on top of the wave.
   useFrame(({ clock }) => {
     const group = spinRef.current
     if (!group) return
-    if (pose === "dance") {
+    if (pose === "dance" && !act) {
       const t = clock.elapsedTime
       group.position.y = Math.abs(Math.sin(t * 5)) * 0.08
       group.rotation.y = Math.sin(t * 1.4) * 0.6
@@ -735,7 +766,8 @@ export function RealisticAvatar({
   loadout,
   moving,
   pose = "auto",
-  gait = "walk"
+  gait = "walk",
+  act
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -743,12 +775,14 @@ export function RealisticAvatar({
   pose?: AvatarPose
   /** Which cycle plays while moving: strolling at home, running in races. */
   gait?: "walk" | "run"
+  /** Scripted beat; overrides pose/moving (storytelling scenes only). */
+  act?: AvatarAct
   /** Kept for callers; the rigged model is light enough to use everywhere. */
   detail?: "full" | "lite"
 }) {
   return (
     <Suspense fallback={null}>
-      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} />
+      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} />
     </Suspense>
   )
 }
