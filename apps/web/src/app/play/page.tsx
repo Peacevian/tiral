@@ -38,6 +38,7 @@ import { RaceEarningsSummary } from "@/components/game/RaceEarningsSummary"
 import { NeedsHud } from "@/components/game/NeedsHud"
 import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
+import { GigSummary } from "@/components/game/GigSummary"
 import type { RaceListing } from "@/lib/useColyseus"
 
 type BillboardSlot = {
@@ -100,6 +101,8 @@ export default function Home() {
     results,
     earnings,
     needs,
+    gigResult,
+    gigDeadline,
     countdown,
     sendWalk,
     sendSprint,
@@ -113,7 +116,8 @@ export default function Home() {
     createRace,
     joinRace,
     joinByCode,
-    quickPlay
+    quickPlay,
+    startGig
   } = useColyseusContext()
   const [races, setRaces] = useState<RaceListing[]>([])
   const [lobbyLoading, setLobbyLoading] = useState(false)
@@ -121,6 +125,19 @@ export default function Home() {
   const [joining, setJoining] = useState(false)
 
   const phase = roomState?.phase ?? "lobby"
+  const gig = roomState?.mode === "gig"
+  // Seconds left on a delivery, ticking once a second while it runs.
+  const [gigSecondsLeft, setGigSecondsLeft] = useState<number | null>(null)
+  useEffect(() => {
+    if (gigDeadline === null || phase !== "racing") {
+      setGigSecondsLeft(null)
+      return
+    }
+    const tick = () => setGigSecondsLeft(Math.max(0, Math.ceil((gigDeadline - Date.now()) / 1000)))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [gigDeadline, phase])
   const ownFinishPosition =
     sessionId ? roomState?.players[sessionId]?.finishPosition ?? null : null
   const locked = (connected && phase !== "racing") || ownFinishPosition !== null
@@ -417,7 +434,8 @@ export default function Home() {
       onJoin: (roomId: string) => void runJoin(() => joinRace(roomId, myLoadout)),
       onJoinCode: handleJoinCode,
       onCreate: () => void runJoin(() => createRace(myLoadout)),
-      onQuickPlay: () => void runJoin(() => quickPlay(myLoadout))
+      onQuickPlay: () => void runJoin(() => quickPlay(myLoadout)),
+      onGig: () => void runJoin(() => startGig(myLoadout))
     }
     return (
       <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950">
@@ -483,6 +501,15 @@ export default function Home() {
                   className="min-h-[48px] flex-1 rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50"
                 >
                   Quick play
+                </button>
+                <button
+                  type="button"
+                  disabled={joining}
+                  onClick={joinHandlers.onGig}
+                  title="Deliver a package across town for BNG"
+                  className="min-h-[48px] rounded-xl border border-emerald-300/50 px-3 py-2 text-sm font-black text-emerald-200 transition hover:bg-emerald-400/10 disabled:opacity-50"
+                >
+                  🛵 Boda gig
                 </button>
               </div>
             )}
@@ -566,7 +593,11 @@ export default function Home() {
           countdown={countdown}
           bountyName={revealedBounty?.name ?? null}
           hudText={
-            raceHud ? `${raceHud.distanceMeters}m · ${raceHud.rank}/${raceHud.total}` : null
+            gig && gigSecondsLeft !== null
+              ? `${raceHud?.distanceMeters ?? "…"}m · ${Math.floor(gigSecondsLeft / 60)}:${String(gigSecondsLeft % 60).padStart(2, "0")}`
+              : raceHud
+                ? `${raceHud.distanceMeters}m · ${raceHud.rank}/${raceHud.total}`
+                : null
           }
           locked={locked}
           showRecenter={phase === "racing"}
@@ -604,7 +635,33 @@ export default function Home() {
         </div>
       )}
 
-      {connected && phase === "finished" && (
+      {connected && phase === "finished" && gig && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-[min(92vw,380px)] rounded-2xl border border-emerald-300/30 bg-slate-950/95 p-5 text-white shadow-2xl">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Boda delivery</div>
+            <div className="mt-1 text-2xl font-black">
+              {gigResult ? (gigResult.delivered ? "Delivered!" : "Too late") : "Delivered"}
+            </div>
+            <GigSummary result={gigResult} />
+            <button
+              type="button"
+              onClick={sendPlayAgain}
+              className="mt-4 w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+            >
+              Next delivery
+            </button>
+            <button
+              type="button"
+              onClick={leaveRoom}
+              className="mt-2 block w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
+            >
+              Park the bike
+            </button>
+          </div>
+        </div>
+      )}
+
+      {connected && phase === "finished" && !gig && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
           <div className="w-[min(92vw,380px)] rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl">
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
@@ -674,6 +731,7 @@ export default function Home() {
         onTogglePlacement={() => placement.setArmed((armed) => !armed)}
         showSolo={phase === "lobby" && playerCount < 2}
         onStartNow={sendStartNow}
+        startLabel={gig ? "🛵 Pick up the package" : undefined}
         notice={placement.notice}
       />
     </main>

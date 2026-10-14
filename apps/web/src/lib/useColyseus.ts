@@ -38,7 +38,21 @@ type RoomState = {
   destinationId: string | null
   startedAt: number | null
   roomCode: string | null
+  mode?: "race" | "gig"
+  gigRemainingMs?: number | null
+  gigMeters?: number | null
   players: Record<string, RoomPlayer>
+}
+
+/** How a boda delivery went (sent only to the courier). */
+export type GigResult = {
+  delivered: boolean
+  paid: boolean
+  reason?: "guest" | "daily_limit" | "duplicate" | "error" | "late"
+  gross?: number
+  cut?: number
+  net?: number
+  meters: number
 }
 
 export type RemotePositions = Record<
@@ -125,6 +139,9 @@ export function useColyseus({
   const [results, setResults] = useState<RaceResult[] | null>(null)
   const [earnings, setEarnings] = useState<RaceEarnings | null>(null)
   const [needs, setNeeds] = useState<RaceNeeds | null>(null)
+  const [gigResult, setGigResult] = useState<GigResult | null>(null)
+  /** Local Date.now() time the current delivery is due. */
+  const [gigDeadline, setGigDeadline] = useState<number | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -158,7 +175,9 @@ export function useColyseus({
       if (state.phase !== "finished") {
         setResults(null)
         setEarnings(null)
+        setGigResult(null)
       }
+      setGigDeadline(state.gigRemainingMs != null ? Date.now() + state.gigRemainingMs : null)
     })
 
     room.onMessage("countdownTick", (remaining: number) => {
@@ -179,6 +198,11 @@ export function useColyseus({
         health: next.health,
         collapsedUntil: next.collapsedForMs > 0 ? Date.now() + next.collapsedForMs : null
       })
+    })
+
+    room.onMessage("gigResult", (result: GigResult) => {
+      setGigResult(result)
+      if (result.paid) notifyCoinsChanged()
     })
 
     // Coins paid for this race (sent only to signed-in finishers).
@@ -308,6 +332,20 @@ export function useColyseus({
       attachRoom(room)
     } catch (err) {
       console.error("Create race failed:", err)
+      throw err
+    }
+  }, [getClient, attachRoom, authorize])
+
+  /** Take a boda delivery: a solo room with a timed drop-off. */
+  const startGig = useCallback(async (loadout?: AvatarLoadout) => {
+    if (roomRef.current) return
+    manualLeaveRef.current = false
+    try {
+      await authorize()
+      const room = await getClient().create("gig", loadout ? { loadout } : undefined)
+      attachRoom(room)
+    } catch (err) {
+      console.error("Start gig failed:", err)
       throw err
     }
   }, [getClient, attachRoom, authorize])
@@ -445,12 +483,15 @@ export function useColyseus({
     results,
     earnings,
     needs,
+    gigResult,
+    gigDeadline,
     countdown,
     connect,
     disconnect,
     leaveRoom,
     quickPlay,
     createRace,
+    startGig,
     joinRace,
     joinByCode,
     listRaces,

@@ -1,8 +1,12 @@
 import { Room, Client } from "@colyseus/core"
 import {
   COLLAPSE_SECONDS,
+  GIG_MAX_METERS,
+  GIG_MIN_METERS,
+  GIG_TIME_LIMIT_SECONDS,
   KAMPALA_ZONE,
   NEED_MAX,
+  STRESS,
   applySprint,
   haversineDistanceMeters,
   speedMultiplier
@@ -20,7 +24,7 @@ import {
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
-import { applyNeedsDeltas, awardRaceEarnings, loadNeeds, recordRaceResults } from "@tiral/db"
+import { applyNeedsDeltas, awardRaceEarnings, loadNeeds, payGig, recordRaceResults } from "@tiral/db"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_INTENT_TIMEOUT_MS = 3000
@@ -28,6 +32,8 @@ const TICK_MS = 100
 const COUNTDOWN_SECONDS = Number(process.env.RACE_COUNTDOWN_SECONDS ?? 20)
 const ARRIVAL_RADIUS_METERS = Number(process.env.RACE_ARRIVAL_RADIUS ?? 25)
 const FINISH_WINDOW_MS = 30_000
+/** Boda gigs skip the lobby wait: a short "ready, go". */
+const GIG_COUNTDOWN_SECONDS = 3
 /** How often each racer is told their own energy/health. */
 const NEEDS_SYNC_MS = 500
 /** How often changed energy/health is written to the DB (one query per room). */
@@ -56,6 +62,7 @@ type PlayerInfo = {
   /** Energy/health change since the last DB write (written as a delta). */
   pendingEnergy: number
   pendingHealth: number
+  pendingStress: number
 }
 
 const RECONNECT_SECONDS = 30
@@ -78,6 +85,11 @@ function generateRoomCode(): string {
   }
   return Math.random().toString(36).slice(2, 6).toUpperCase()
 }
+
+export type GigResult =
+  | { delivered: true; paid: true; gross: number; cut: number; net: number; meters: number }
+  | { delivered: true; paid: false; reason: "guest" | "daily_limit" | "duplicate" | "error"; meters: number }
+  | { delivered: false; paid: false; reason: "late"; meters: number }
 
 type BountyTarget = {
   destinationId: string
@@ -102,12 +114,20 @@ export class RaceRoom extends Room {
   private finishDeadline: number | null = null
   private roadGraph: RoadGraph | null = null
   private roomCode = ""
+  /** "gig": a solo boda delivery against the clock instead of a race. */
+  private mode: "race" | "gig" = "race"
+  private gigDeadline: number | null = null
+  private gigMeters = 0
 
   static async onAuth(token: unknown) {
     return verifyJoinToken(token)
   }
 
-  onCreate(_options: any) {
+  onCreate(options: any) {
+    if (options?.mode === "gig") {
+      this.mode = "gig"
+      this.maxClients = 1
+    }
     this.roomCode = generateRoomCode()
     this.syncMetadata()
     this.onMessage("selectStart", (client, startPointId: string) => {
@@ -259,7 +279,8 @@ export class RaceRoom extends Room {
         needsLoaded: false,
         needsSentAt: 0,
         pendingEnergy: 0,
-        pendingHealth: 0
+        pendingHealth: 0,
+        pendingStress: 0
       }
       void this.loadPlayerNeeds(client.sessionId)
     }
@@ -399,6 +420,7 @@ export class RaceRoom extends Room {
         if (tick.collapsed) {
           // Banange! Down for a few seconds, never out of the race.
           player.collapsedUntil = now + COLLAPSE_SECONDS * 1000
+          player.pendingStress += STRESS.collapse
           changed = true
           this.sendNeeds(player, now)
           continue
@@ -473,6 +495,11 @@ export class RaceRoom extends Room {
       this.broadcast("roomState", this.getRoomState())
     }
 
+    if (this.mode === "gig" && this.gigDeadline !== null && now >= this.gigDeadline && this.finishOrder.length === 0) {
+      this.finishRace()
+      return
+    }
+
     const racers = Object.values(this.players).filter((player) => player.roadPosition)
     const allFinished = racers.length > 0 && racers.every((player) => player.finishPosition !== null)
     if (this.finishOrder.length > 0 && (allFinished || (this.finishDeadline !== null && now >= this.finishDeadline))) {
@@ -496,8 +523,16 @@ export class RaceRoom extends Room {
       player.collapsedUntil = null
       this.sendNeeds(player, Date.now())
     }
-    void this.flushNeeds(Object.values(this.players))
+    if (this.mode === "gig") {
+      this.finishGig()
+      return
+    }
     const finishedAt = new Date()
+    // Winning a real race (someone to beat) takes the edge off.
+    const winner = this.players[this.finishOrder[0] ?? ""]
+    const field = Object.values(this.players).filter((player) => player.roadPosition).length
+    if (winner && field >= 2) winner.pendingStress += STRESS.raceWin
+    void this.flushNeeds(Object.values(this.players))
     this.broadcast("roomState", this.getRoomState())
     this.broadcast(
       "raceFinished",
@@ -510,6 +545,35 @@ export class RaceRoom extends Room {
     // Everyone who actually raced (had a start), finished or not.
     const fieldSize = Object.values(this.players).filter((player) => player.roadPosition).length
     void this.persistResults(finishedAt, fieldSize)
+  }
+
+  private finishGig() {
+    const player = Object.values(this.players)[0]
+    const delivered = this.finishOrder.length > 0
+    const meters = Math.round(this.gigMeters)
+    this.gigDeadline = null
+    this.broadcast("roomState", this.getRoomState())
+    if (!player) return
+    player.pendingStress += delivered ? STRESS.gigDelivered : STRESS.gigFailed
+    void this.flushNeeds([player])
+    const send = (result: GigResult) => {
+      this.clients.find((candidate) => candidate.sessionId === player.id)?.send("gigResult", result)
+    }
+    if (!delivered) return send({ delivered: false, paid: false, reason: "late", meters })
+    if (!player.userId) return send({ delivered: true, paid: false, reason: "guest", meters })
+    const gigId = `${this.roomId}:${this.startedAt}`
+    payGig({ userId: player.userId, gigId, distanceMeters: meters })
+      .then((result) =>
+        send(
+          result.ok
+            ? { delivered: true, paid: true, gross: result.gross, cut: result.cut, net: result.net, meters }
+            : { delivered: true, paid: false, reason: result.reason, meters }
+        )
+      )
+      .catch((error) => {
+        console.error("Failed to pay gig:", error)
+        send({ delivered: true, paid: false, reason: "error", meters })
+      })
   }
 
   private async persistResults(finishedAt: Date, fieldSize: number) {
@@ -556,6 +620,7 @@ export class RaceRoom extends Room {
     this.bounty = null
     this.finishOrder = []
     this.finishDeadline = null
+    this.gigDeadline = null
     for (const player of Object.values(this.players)) {
       player.roadPosition = null
       player.coordinate = null
@@ -598,13 +663,19 @@ export class RaceRoom extends Room {
   private async flushNeeds(players: PlayerInfo[], force = false) {
     // Only persist what we actually loaded, so a DB hiccup can't reset anyone.
     const batch = players.filter(
-      (player) => player.userId && player.needsLoaded && (force || player.pendingEnergy !== 0 || player.pendingHealth !== 0)
+      (player) => player.userId && player.needsLoaded && (force || player.pendingEnergy !== 0 || player.pendingHealth !== 0 || player.pendingStress !== 0)
     )
     if (batch.length === 0) return
     const sent = batch.map((player) => {
-      const delta = { userId: player.userId!, energy: player.pendingEnergy, health: player.pendingHealth }
+      const delta = {
+        userId: player.userId!,
+        energy: player.pendingEnergy,
+        health: player.pendingHealth,
+        stress: player.pendingStress
+      }
       player.pendingEnergy = 0
       player.pendingHealth = 0
+      player.pendingStress = 0
       return { player, delta }
     })
     try {
@@ -622,6 +693,7 @@ export class RaceRoom extends Room {
       for (const { player, delta } of sent) {
         player.pendingEnergy += delta.energy
         player.pendingHealth += delta.health
+        player.pendingStress += delta.stress
       }
       console.error("Failed to flush needs:", error)
     }
@@ -669,6 +741,10 @@ export class RaceRoom extends Room {
       destinationId: this.destinationId,
       startedAt: this.startedAt,
       roomCode: this.roomCode,
+      mode: this.mode,
+      // Remaining time rather than a timestamp, so client clocks don't matter.
+      gigRemainingMs: this.gigDeadline === null ? null : Math.max(0, this.gigDeadline - Date.now()),
+      gigMeters: this.mode === "gig" ? Math.round(this.gigMeters) : null,
       players: this.players
     }
   }
@@ -678,7 +754,8 @@ export class RaceRoom extends Room {
     this.broadcast("roomState", this.getRoomState())
     this.syncMetadata()
 
-    let remaining = COUNTDOWN_SECONDS
+    let remaining = this.mode === "gig" ? GIG_COUNTDOWN_SECONDS : COUNTDOWN_SECONDS
+    this.countdownSeconds = remaining
     this.countdownInterval = setInterval(() => {
       remaining--
       this.countdownSeconds = remaining
@@ -698,7 +775,17 @@ export class RaceRoom extends Room {
     this.startedAt = Date.now()
     this.finishOrder = []
     this.finishDeadline = null
-    const options = [...KAMPALA_ZONE.bountyLocations].sort(() => Math.random() - 0.5)
+    let options = [...KAMPALA_ZONE.bountyLocations].sort(() => Math.random() - 0.5)
+    const courier = this.mode === "gig" ? Object.values(this.players)[0]?.coordinate ?? null : null
+    if (courier) {
+      // Drop-offs a proper ride away come first, the rest by how close they are to that range.
+      const offRange = (meters: number) =>
+        meters < GIG_MIN_METERS ? GIG_MIN_METERS - meters : meters > GIG_MAX_METERS ? meters - GIG_MAX_METERS : 0
+      options = options
+        .map((pick) => ({ pick, off: offRange(haversineDistanceMeters(courier, pick.position)) }))
+        .sort((a, b) => a.off - b.off)
+        .map((entry) => entry.pick)
+    }
     const fallback = options[0]!
     this.destinationId = fallback.id
     this.bounty = null
@@ -746,6 +833,11 @@ export class RaceRoom extends Room {
       player.moving = false
       player.turnIntent = null
       player.finishPosition = null
+    }
+    if (this.mode === "gig") {
+      // Paid by the straight-line distance from pickup to drop-off.
+      this.gigMeters = courier && this.bounty ? haversineDistanceMeters(courier, this.bounty.coordinate) : GIG_MIN_METERS
+      this.gigDeadline = Date.now() + GIG_TIME_LIMIT_SECONDS * 1000
     }
     this.broadcast("roomState", this.getRoomState())
     this.syncMetadata()
