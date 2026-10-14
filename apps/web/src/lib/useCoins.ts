@@ -18,6 +18,7 @@ export type WalletEntry = {
 
 export const REASON_LABELS: Record<string, string> = {
   welcome_grant: "Arrived in Kampala",
+  admin_grant: "Gift from Tiral",
   race_finish: "Finished a race",
   race_podium: "Podium bonus",
   first_win_of_day: "First win today",
