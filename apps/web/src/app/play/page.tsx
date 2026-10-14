@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import type maplibregl from "maplibre-gl"
 import { KAMPALA_ZONE, SPRINT_MULTIPLIER, haversineDistanceMeters } from "@tiral/game-core"
 import { useColyseusContext } from "@/components/ColyseusProvider"
@@ -42,7 +43,6 @@ import { RaceEarningsSummary } from "@/components/game/RaceEarningsSummary"
 import { NeedsHud } from "@/components/game/NeedsHud"
 import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
-import { GigSummary } from "@/components/game/GigSummary"
 import type { RaceListing } from "@/lib/useColyseus"
 
 type BillboardSlot = {
@@ -105,8 +105,7 @@ export default function Home() {
     results,
     earnings,
     needs,
-    gigResult,
-    gigDeadline,
+    hustle,
     countdown,
     sendWalk,
     sendSprint,
@@ -145,19 +144,11 @@ export default function Home() {
   const [joining, setJoining] = useState(false)
 
   const phase = roomState?.phase ?? "lobby"
-  const gig = roomState?.mode === "gig"
-  // Seconds left on a delivery, ticking once a second while it runs.
-  const [gigSecondsLeft, setGigSecondsLeft] = useState<number | null>(null)
+  // In a hustle shift, not a race: that has its own screen.
+  const router = useRouter()
   useEffect(() => {
-    if (gigDeadline === null || phase !== "racing") {
-      setGigSecondsLeft(null)
-      return
-    }
-    const tick = () => setGigSecondsLeft(Math.max(0, Math.ceil((gigDeadline - Date.now()) / 1000)))
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [gigDeadline, phase])
+    if (connected && hustle) router.replace("/hustle")
+  }, [connected, hustle, router])
   const ownFinishPosition =
     sessionId ? roomState?.players[sessionId]?.finishPosition ?? null : null
   const locked = (connected && phase !== "racing") || ownFinishPosition !== null
@@ -233,6 +224,12 @@ export default function Home() {
   speedRef.current = collapsed ? 0 : sprinting ? SPRINT_MULTIPLIER : 1
 
   const movement = useRoadMovement(graph, assignedStart, handleRoadInput, locked, speedRef)
+  // The server decides who reaches the bounty; keep the predicted runner close to it.
+  const ownServerPosition = sessionId ? positions[sessionId] : undefined
+  const { reconcile } = movement
+  useEffect(() => {
+    if (ownServerPosition?.roadPosition) reconcile(ownServerPosition.roadPosition, ownServerPosition.moving)
+  }, [ownServerPosition, reconcile])
   const myLoadout = useMyLoadout()
   const { recenter, followSuspended } = useRaceCamera(map, phase, movement.coordinate, movement.heading)
 
@@ -588,13 +585,7 @@ export default function Home() {
           reconnecting={reconnecting}
           countdown={countdown}
           bountyName={revealedBounty?.name ?? null}
-          hudText={
-            gig && gigSecondsLeft !== null
-              ? `${raceHud?.distanceMeters ?? "…"}m · ${Math.floor(gigSecondsLeft / 60)}:${String(gigSecondsLeft % 60).padStart(2, "0")}`
-              : raceHud
-                ? `${raceHud.distanceMeters}m · ${raceHud.rank}/${raceHud.total}`
-                : null
-          }
+          hudText={raceHud ? `${raceHud.distanceMeters}m · ${raceHud.rank}/${raceHud.total}` : null}
           locked={locked}
           showRecenter={phase === "racing"}
           followSuspended={followSuspended}
@@ -631,33 +622,7 @@ export default function Home() {
         </div>
       )}
 
-      {connected && phase === "finished" && gig && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-[min(92vw,380px)] rounded-2xl border border-emerald-300/30 bg-slate-950/95 p-5 text-white shadow-2xl">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Boda delivery</div>
-            <div className="mt-1 text-2xl font-black">
-              {gigResult ? (gigResult.delivered ? "Delivered!" : "Too late") : "Delivered"}
-            </div>
-            <GigSummary result={gigResult} />
-            <button
-              type="button"
-              onClick={sendPlayAgain}
-              className="mt-4 w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-            >
-              Next delivery
-            </button>
-            <button
-              type="button"
-              onClick={leaveRoom}
-              className="mt-2 block w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
-            >
-              Back to base
-            </button>
-          </div>
-        </div>
-      )}
-
-      {connected && phase === "finished" && !gig && (
+      {connected && phase === "finished" && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
           <div className="w-[min(92vw,380px)] rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl">
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
@@ -737,7 +702,6 @@ export default function Home() {
         onTogglePlacement={() => placement.setArmed((armed) => !armed)}
         showSolo={phase === "lobby" && playerCount < 2}
         onStartNow={sendStartNow}
-        startLabel={gig ? "🛵 Pick up the package" : undefined}
         notice={placement.notice}
       />
     </main>

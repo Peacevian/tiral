@@ -1,6 +1,5 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm"
 import {
-  GIG_DAILY_LIMIT,
   HOUR_MS,
   RENT_PERIOD_HOURS,
   REQUEST_EXPIRY_HOURS,
@@ -11,7 +10,6 @@ import {
   eventsDue,
   findLifeEvent,
   findTier,
-  gigPay,
   kampalaDay,
   kampalaDayStart,
   pickLifeEvent,
@@ -255,32 +253,45 @@ export async function moveHouse(userId: string, tierId: HousingTierId, db: Datab
   await db.update(users).set({ houseTier: findTier(tierId).id }).where(eq(users.id, userId))
 }
 
-export type GigPayResult =
-  | { ok: true; gross: number; cut: number; net: number }
+export type HustlePayResult =
+  | { ok: true; balance: number }
   | { ok: false; reason: "daily_limit" | "duplicate" }
 
-/** Pay a completed boda delivery (once per gig, capped per Kampala day). */
-export async function payGig(
-  input: { userId: string; gigId: string; distanceMeters: number },
+/**
+ * Pay one completed hustle job (once per job id). `dailyLimit` caps paid jobs
+ * of this kind per Kampala day; omit it for gigs limited by energy alone.
+ * `meta` carries the receipt (gross, costs, tip) for the wallet history.
+ */
+export async function payHustle(
+  input: {
+    userId: string
+    hustle: string
+    jobId: string
+    net: number
+    meta: Record<string, unknown>
+    dailyLimit?: number
+  },
   db: Database = getDatabase()
-): Promise<GigPayResult> {
+): Promise<HustlePayResult> {
+  const reason = `hustle_${input.hustle}`
   return db.transaction(async (tx) => {
     await lockUser(tx, input.userId)
-    const dayStart = kampalaDayStart(kampalaDay(new Date()))
-    const [today] = await tx
-      .select({ count: sql<number>`count(*)::int` })
-      .from(coinLedger)
-      .where(and(eq(coinLedger.userId, input.userId), eq(coinLedger.reason, "gig_pay"), gte(coinLedger.createdAt, dayStart)))
-    if ((today?.count ?? 0) >= GIG_DAILY_LIMIT) return { ok: false, reason: "daily_limit" }
-    const pay = gigPay(input.distanceMeters)
+    if (input.dailyLimit !== undefined) {
+      const dayStart = kampalaDayStart(kampalaDay(new Date()))
+      const [today] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(coinLedger)
+        .where(and(eq(coinLedger.userId, input.userId), eq(coinLedger.reason, reason), gte(coinLedger.createdAt, dayStart)))
+      if ((today?.count ?? 0) >= input.dailyLimit) return { ok: false, reason: "daily_limit" }
+    }
     const inserted = await insertEntry(tx, {
       userId: input.userId,
-      delta: pay.net,
-      reason: "gig_pay",
-      refId: input.gigId,
-      meta: { gross: pay.gross, cut: pay.cut, meters: Math.round(input.distanceMeters) }
+      delta: Math.max(0, Math.round(input.net)),
+      reason,
+      refId: input.jobId,
+      meta: input.meta
     })
     if (!inserted) return { ok: false, reason: "duplicate" }
-    return { ok: true, ...pay }
+    return { ok: true, balance: await balanceOf(tx, input.userId) }
   })
 }

@@ -29,6 +29,7 @@ export function useRaceCamera(
   // until recenter is tapped, so the map is freely movable at any time.
   const [followSuspended, setFollowSuspended] = useState(false)
   const suspendedRef = useRef(false)
+  const overviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const suspendFollow = useCallback(() => {
     suspendedRef.current = true
@@ -57,7 +58,13 @@ export function useRaceCamera(
   useEffect(() => {
     if (!map) return
     const onMoveStart = (event: maplibregl.MapLibreEvent) => {
-      if (event.originalEvent) suspendFollow()
+      if (!event.originalEvent) return
+      // Grabbing the map during an overview cancels the trip back.
+      if (overviewTimer.current) {
+        clearTimeout(overviewTimer.current)
+        overviewTimer.current = null
+      }
+      suspendFollow()
     }
     map.on("movestart", onMoveStart)
     return () => {
@@ -94,5 +101,35 @@ export function useRaceCamera(
     }
   }, [map, phase, coordinate])
 
-  return { recenter: flyToPlayer, suspendFollow, followSuspended }
+  // Briefly frame several points (e.g. you + a job's pickup and drop-off),
+  // then fly back and resume following.
+  const showOverview = useCallback(
+    (points: LatLng[], padding: maplibregl.PaddingOptions, holdMs = 2500) => {
+      if (!map || points.length === 0) return
+      if (overviewTimer.current) clearTimeout(overviewTimer.current)
+      suspendedRef.current = true
+      const lngs = points.map((point) => point.lng)
+      const lats = points.map((point) => point.lat)
+      map.fitBounds(
+        [
+          [Math.min(...lngs), Math.min(...lats)],
+          [Math.max(...lngs), Math.max(...lats)]
+        ],
+        { padding, maxZoom: RACE_ZOOM, duration: 900, essential: true }
+      )
+      overviewTimer.current = setTimeout(() => {
+        overviewTimer.current = null
+        flyToPlayer()
+      }, holdMs + 900)
+    },
+    [map, flyToPlayer]
+  )
+  useEffect(
+    () => () => {
+      if (overviewTimer.current) clearTimeout(overviewTimer.current)
+    },
+    []
+  )
+
+  return { recenter: flyToPlayer, suspendFollow, followSuspended, showOverview }
 }

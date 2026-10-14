@@ -12,13 +12,17 @@ function makePinElement(label: string, own: boolean): HTMLDivElement {
   const el = document.createElement("div")
   if (own) {
     // Hollow pulsing drop-zone ring: the avatar stands inside it, never hidden.
-    el.style.width = "46px"
-    el.style.height = "46px"
-    el.style.borderRadius = "9999px"
-    el.style.background = "rgba(245,158,11,0.12)"
-    el.style.border = "3px solid #f59e0b"
-    el.style.boxShadow = "0 0 18px rgba(245,158,11,0.8)"
-    el.style.animation = "tiral-pin-pulse 1.6s ease-in-out infinite"
+    // The pulse animates transform, which the map uses to place the marker,
+    // so it lives on an inner element.
+    const ring = document.createElement("div")
+    ring.style.width = "46px"
+    ring.style.height = "46px"
+    ring.style.borderRadius = "9999px"
+    ring.style.background = "rgba(245,158,11,0.12)"
+    ring.style.border = "3px solid #f59e0b"
+    ring.style.boxShadow = "0 0 18px rgba(245,158,11,0.8)"
+    ring.style.animation = "tiral-pin-pulse 1.6s ease-in-out infinite"
+    el.appendChild(ring)
   } else {
     el.style.width = "26px"
     el.style.height = "26px"

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { LatLng } from "@tiral/game-core"
+import { haversineDistanceMeters, type LatLng } from "@tiral/game-core"
 import {
   chooseBestEdge,
   classifyConnectedEdges,
@@ -17,6 +17,9 @@ import {
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_DECISION_DISTANCE_METERS = 28
 const TURN_INTENT_TIMEOUT_MS = 3000
+/** How far the predicted runner may stray from the server's before snapping back. */
+const RECONCILE_MOVING_METERS = 12
+const RECONCILE_STILL_METERS = 3
 
 export type RoadInput =
   | { type: "walk"; on: boolean }
@@ -229,6 +232,32 @@ export function useRoadMovement(
     })
   }, [])
 
+  /**
+   * The server owns where you really are (it decides arrivals). The runner on
+   * screen is predicted locally for responsiveness; when it strays beyond a
+   * small tolerance (latency, a turn the server took differently, a start
+   * snapped to another road), snap it to the server's position.
+   */
+  const reconcile = useCallback(
+    (server: RoadPosition, serverMoving: boolean) => {
+      if (!graph || !graph.edges[server.edgeId]) return
+      const serverCoordinate = getRoadCoordinate(graph, server)
+      if (!serverCoordinate) return
+      const current = positionRef.current
+      const clientCoordinate = current ? getRoadCoordinate(graph, current) : null
+      const gap = clientCoordinate ? haversineDistanceMeters(clientCoordinate, serverCoordinate) : Infinity
+      const sameEdge = current?.edgeId === server.edgeId && current.direction === server.direction
+      const limit = movingRef.current || serverMoving ? RECONCILE_MOVING_METERS : RECONCILE_STILL_METERS
+      const moving = movingRef.current || serverMoving
+      // Within tolerance is fine, except standing still on a different road
+      // (e.g. a start snapped to another street at a junction): adopt the server's.
+      if (gap <= limit && (sameEdge || moving)) return
+      positionRef.current = server
+      setPosition(server)
+    },
+    [graph]
+  )
+
   const coordinate = useMemo(
     () => graph && position ? getRoadCoordinate(graph, position) ?? start : start,
     [graph, position, start]
@@ -257,6 +286,7 @@ export function useRoadMovement(
     availableDirections,
     setMoving: updateMoving,
     requestTurn,
-    turnAround
+    turnAround,
+    reconcile
   }
 }

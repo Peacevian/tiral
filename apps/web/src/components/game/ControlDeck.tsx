@@ -26,8 +26,6 @@ type ControlDeckProps = {
   // solo start
   showSolo: boolean
   onStartNow(): void
-  /** Label for the solo start button (gigs say something else). */
-  startLabel?: string
   // transient tap feedback (e.g. rejected pin placement)
   notice: string | null
 }
@@ -53,7 +51,6 @@ export function ControlDeck({
   onTogglePlacement,
   showSolo,
   onStartNow,
-  startLabel = "Start now (solo)",
   notice
 }: ControlDeckProps) {
   const edge = position && graph ? graph.edges[position.edgeId] : null
@@ -105,7 +102,7 @@ export function ControlDeck({
                 onClick={onStartNow}
                 className="mt-1 min-h-[44px] w-full rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400"
               >
-                {startLabel}
+                Start now (solo)
               </button>
             </div>
           )}

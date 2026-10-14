@@ -1,19 +1,6 @@
 import { Room, Client, ServerError } from "@colyseus/core"
+import { KAMPALA_ZONE, STRESS, haversineDistanceMeters } from "@tiral/game-core"
 import {
-  COLLAPSE_SECONDS,
-  GIG_MAX_METERS,
-  GIG_MIN_METERS,
-  GIG_TIME_LIMIT_SECONDS,
-  KAMPALA_ZONE,
-  NEED_MAX,
-  STRESS,
-  applySprint,
-  haversineDistanceMeters,
-  speedMultiplier
-} from "@tiral/game-core"
-import {
-  chooseBestEdge,
-  classifyConnectedEdges,
   findNearestEdge,
   getRoadCoordinate,
   isEdgeReachable,
@@ -24,45 +11,29 @@ import {
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
-import { applyNeedsDeltas, awardRaceEarnings, loadNeeds, payGig, recordRaceResults } from "@tiral/db"
+import { awardRaceEarnings, recordRaceResults } from "@tiral/db"
+import {
+  BodySync,
+  NEEDS_FLUSH_MS,
+  freshBody,
+  requestTurn,
+  stepRunner,
+  turnAround,
+  type Runner
+} from "./runner.js"
 
-const WALK_SPEED_METERS_PER_SECOND = 18
-const TURN_INTENT_TIMEOUT_MS = 3000
 const TICK_MS = 100
 const COUNTDOWN_SECONDS = Number(process.env.RACE_COUNTDOWN_SECONDS ?? 20)
 const ARRIVAL_RADIUS_METERS = Number(process.env.RACE_ARRIVAL_RADIUS ?? 25)
 const FINISH_WINDOW_MS = 30_000
-/** Boda gigs skip the lobby wait: a short "ready, go". */
-const GIG_COUNTDOWN_SECONDS = 3
-/** How often each racer is told their own energy/health. */
-const NEEDS_SYNC_MS = 500
-/** How often changed energy/health is written to the DB (one query per room). */
-const NEEDS_FLUSH_MS = 10_000
 
-type PlayerInfo = {
-  id: string
+type PlayerInfo = Runner & {
   name: string
-  userId: string | null
   loadout: AvatarLoadout
   startPointId: string | null
   startAt: { lat: number; lng: number } | null
-  roadPosition: RoadPosition | null
-  coordinate: { lat: number; lng: number } | null
-  moving: boolean
-  turnIntent: { direction: RoadDirection; expiresAt: number } | null
   finishPosition: number | null
   connected: boolean
-  // Body: loaded from the DB for signed-in players, saved back after the race.
-  energy: number
-  health: number
-  sprinting: boolean
-  collapsedUntil: number | null
-  needsLoaded: boolean
-  needsSentAt: number
-  /** Energy/health change since the last DB write (written as a delta). */
-  pendingEnergy: number
-  pendingHealth: number
-  pendingStress: number
 }
 
 const RECONNECT_SECONDS = 30
@@ -85,11 +56,6 @@ function generateRoomCode(): string {
   }
   return Math.random().toString(36).slice(2, 6).toUpperCase()
 }
-
-export type GigResult =
-  | { delivered: true; paid: true; gross: number; cut: number; net: number; meters: number }
-  | { delivered: true; paid: false; reason: "guest" | "daily_limit" | "duplicate" | "error"; meters: number }
-  | { delivered: false; paid: false; reason: "late"; meters: number }
 
 type BountyTarget = {
   destinationId: string
@@ -114,10 +80,10 @@ export class RaceRoom extends Room {
   private finishDeadline: number | null = null
   private roadGraph: RoadGraph | null = null
   private roomCode = ""
-  /** "gig": a solo boda delivery against the clock instead of a race. */
-  private mode: "race" | "gig" = "race"
-  private gigDeadline: number | null = null
-  private gigMeters = 0
+  private lastTickAt: number | null = null
+  private readonly body = new BodySync((runner, message, payload) => {
+    this.clients.find((candidate) => candidate.sessionId === runner.id)?.send(message, payload)
+  })
 
   // Only signed-in players (TikTok or guest account) race; the web app asks
   // first, and this stops anyone skipping that step.
@@ -127,11 +93,7 @@ export class RaceRoom extends Room {
     return identity
   }
 
-  onCreate(options: any) {
-    if (options?.mode === "gig") {
-      this.mode = "gig"
-      this.maxClients = 1
-    }
+  onCreate(_options: any) {
     this.roomCode = generateRoomCode()
     this.syncMetadata()
     this.onMessage("selectStart", (client, startPointId: string) => {
@@ -196,24 +158,14 @@ export class RaceRoom extends Room {
 
     this.onMessage("turn", (client, direction: RoadDirection) => {
       const player = this.players[client.sessionId]
-      if (!player || !this.roadGraph || !player.roadPosition) return
-      if (this.phase !== "racing") return
-      if (direction !== "left" && direction !== "right" && direction !== "straight") return
-      const available = classifyConnectedEdges(this.roadGraph, player.roadPosition)
-      if (!available.some((candidate) => candidate.direction === direction)) return
-      player.turnIntent = { direction, expiresAt: Date.now() + TURN_INTENT_TIMEOUT_MS }
+      if (!player || !this.roadGraph || this.phase !== "racing") return
+      requestTurn(this.roadGraph, player, direction, Date.now())
     })
 
     this.onMessage("turnAround", (client) => {
       const player = this.players[client.sessionId]
-      if (!player || !player.roadPosition) return
-      if (this.phase !== "racing") return
-      player.moving = false
-      player.turnIntent = null
-      player.roadPosition = {
-        ...player.roadPosition,
-        direction: player.roadPosition.direction === 1 ? -1 : 1
-      }
+      if (!player || !player.roadPosition || this.phase !== "racing") return
+      turnAround(player)
       this.broadcast("roomState", this.getRoomState())
     })
 
@@ -240,12 +192,12 @@ export class RaceRoom extends Room {
       })
 
     this.tickInterval = setInterval(() => this.tickMovement(), TICK_MS)
-    this.needsFlushInterval = setInterval(() => void this.flushNeeds(Object.values(this.players)), NEEDS_FLUSH_MS)
+    this.needsFlushInterval = setInterval(() => void this.body.flush(Object.values(this.players)), NEEDS_FLUSH_MS)
 
     // Food bought on the profile while still connected: pull fresh values now.
     this.onMessage("refreshNeeds", (client) => {
       const player = this.players[client.sessionId]
-      if (player) void this.flushNeeds([player], true)
+      if (player) void this.body.flush([player], true)
     })
   }
 
@@ -276,17 +228,10 @@ export class RaceRoom extends Room {
         turnIntent: null,
         finishPosition: null,
         connected: true,
-        energy: NEED_MAX,
-        health: NEED_MAX,
-        sprinting: false,
-        collapsedUntil: null,
-        needsLoaded: false,
-        needsSentAt: 0,
-        pendingEnergy: 0,
-        pendingHealth: 0,
-        pendingStress: 0
+        ...freshBody()
       }
-      void this.loadPlayerNeeds(client.sessionId)
+      const joined = this.players[client.sessionId]!
+      void this.body.load(joined, () => this.players[client.sessionId] === joined)
     }
     // No auto-placement: the player stays off-map until they drop a start pin.
     this.broadcast("roomState", this.getRoomState())
@@ -314,7 +259,7 @@ export class RaceRoom extends Room {
       }
     } catch {
       const gone = this.players[client.sessionId]
-      if (gone) void this.flushNeeds([gone])
+      if (gone) void this.body.flush([gone])
       delete this.players[client.sessionId]
       this.broadcast("roomState", this.getRoomState())
       this.syncMetadata()
@@ -323,7 +268,7 @@ export class RaceRoom extends Room {
 
   onLeave(client: Client) {
     const leaving = this.players[client.sessionId]
-    if (leaving) void this.flushNeeds([leaving])
+    if (leaving) void this.body.flush([leaving])
     delete this.players[client.sessionId]
     const remaining = Object.keys(this.players).length
     if (remaining === 0) {
@@ -348,7 +293,7 @@ export class RaceRoom extends Room {
       clearInterval(this.needsFlushInterval)
       this.needsFlushInterval = null
     }
-    void this.flushNeeds(Object.values(this.players))
+    void this.body.flush(Object.values(this.players))
   }
 
   private syncMetadata() {
@@ -388,9 +333,15 @@ export class RaceRoom extends Room {
   }
 
   private tickMovement() {
-    if (!this.roadGraph || this.phase !== "racing") return
+    if (!this.roadGraph || this.phase !== "racing") {
+      this.lastTickAt = null
+      return
+    }
     const now = Date.now()
-    const deltaSeconds = TICK_MS / 1000
+    // Real elapsed time, not the nominal tick: timers fire late, and a fixed
+    // step would leave the server's runners behind what players see.
+    const deltaSeconds = Math.min(0.25, (now - (this.lastTickAt ?? now - TICK_MS)) / 1000)
+    this.lastTickAt = now
     let changed = false
     let arrived = false
 
@@ -408,100 +359,18 @@ export class RaceRoom extends Room {
           continue
         }
       }
-      if (player.collapsedUntil !== null && now >= player.collapsedUntil) {
-        player.collapsedUntil = null
-        changed = true
-      }
-      const collapsed = player.collapsedUntil !== null
-      if (!player.moving || !player.roadPosition || collapsed) continue
-      const sprinting = player.sprinting
-      if (sprinting) {
-        const tick = applySprint(player, deltaSeconds)
-        player.pendingEnergy += tick.energy - player.energy
-        player.pendingHealth += tick.health - player.health
-        player.energy = tick.energy
-        player.health = tick.health
-        if (tick.collapsed) {
-          // Banange! Down for a few seconds, never out of the race.
-          player.collapsedUntil = now + COLLAPSE_SECONDS * 1000
-          player.pendingStress += STRESS.collapse
-          changed = true
-          this.sendNeeds(player, now)
-          continue
-        }
-      }
-      const edge = this.roadGraph.edges[player.roadPosition.edgeId]
-      if (!edge) {
-        player.moving = false
-        changed = true
-        continue
-      }
-
-      const distance =
-        player.roadPosition.distanceAlongEdge +
-        WALK_SPEED_METERS_PER_SECOND *
-          speedMultiplier(sprinting, false) *
-          deltaSeconds *
-          player.roadPosition.direction
-      const reachedEnd = distance > edge.lengthMeters
-      const reachedStart = distance < 0
-
-      if (reachedEnd || reachedStart) {
-        const nodeId = reachedEnd ? edge.toNodeId : edge.fromNodeId
-        const candidates = classifyConnectedEdges(this.roadGraph, player.roadPosition)
-        const intent =
-          player.turnIntent && player.turnIntent.expiresAt > now
-            ? player.turnIntent.direction
-            : null
-        const selected = chooseBestEdge(candidates, intent)
-        const fallback = chooseBestEdge(candidates, "straight")
-        const chosen = selected ?? (intent ? null : fallback)
-
-        if (chosen) {
-          const chosenEdge = this.roadGraph.edges[chosen.edgeId]!
-          const overflow = reachedEnd ? distance - edge.lengthMeters : -distance
-          const direction: 1 | -1 = chosenEdge.fromNodeId === nodeId ? 1 : -1
-          player.roadPosition = {
-            edgeId: chosen.edgeId,
-            distanceAlongEdge:
-              direction === 1
-                ? Math.min(overflow, chosenEdge.lengthMeters)
-                : Math.max(chosenEdge.lengthMeters - overflow, 0),
-            direction
-          }
-          player.turnIntent = null
-          player.coordinate = getRoadCoordinate(this.roadGraph, player.roadPosition)
-          changed = true
-        } else {
-          player.roadPosition = {
-            ...player.roadPosition,
-            distanceAlongEdge: reachedEnd ? edge.lengthMeters : 0
-          }
-          player.moving = false
-          player.turnIntent = null
-          changed = true
-        }
-      } else {
-        player.roadPosition = { ...player.roadPosition, distanceAlongEdge: distance }
-        player.coordinate = getRoadCoordinate(this.roadGraph, player.roadPosition)
-        changed = true
-      }
+      const step = stepRunner(this.roadGraph, player, now, deltaSeconds)
+      if (step.changed) changed = true
+      if (step.collapsedNow) this.body.send(player, now)
     }
 
-    for (const player of Object.values(this.players)) {
-      if (now - player.needsSentAt >= NEEDS_SYNC_MS) this.sendNeeds(player, now)
-    }
+    this.body.sendDue(Object.values(this.players), now)
 
     if (changed || arrived) {
       this.broadcast("positions", this.getPositions())
     }
     if (arrived) {
       this.broadcast("roomState", this.getRoomState())
-    }
-
-    if (this.mode === "gig" && this.gigDeadline !== null && now >= this.gigDeadline && this.finishOrder.length === 0) {
-      this.finishRace()
-      return
     }
 
     const racers = Object.values(this.players).filter((player) => player.roadPosition)
@@ -525,18 +394,14 @@ export class RaceRoom extends Room {
       player.turnIntent = null
       player.sprinting = false
       player.collapsedUntil = null
-      this.sendNeeds(player, Date.now())
-    }
-    if (this.mode === "gig") {
-      this.finishGig()
-      return
+      this.body.send(player, Date.now())
     }
     const finishedAt = new Date()
     // Winning a real race (someone to beat) takes the edge off.
     const winner = this.players[this.finishOrder[0] ?? ""]
     const field = Object.values(this.players).filter((player) => player.roadPosition).length
     if (winner && field >= 2) winner.pendingStress += STRESS.raceWin
-    void this.flushNeeds(Object.values(this.players))
+    void this.body.flush(Object.values(this.players))
     this.broadcast("roomState", this.getRoomState())
     this.broadcast(
       "raceFinished",
@@ -549,35 +414,6 @@ export class RaceRoom extends Room {
     // Everyone who actually raced (had a start), finished or not.
     const fieldSize = Object.values(this.players).filter((player) => player.roadPosition).length
     void this.persistResults(finishedAt, fieldSize)
-  }
-
-  private finishGig() {
-    const player = Object.values(this.players)[0]
-    const delivered = this.finishOrder.length > 0
-    const meters = Math.round(this.gigMeters)
-    this.gigDeadline = null
-    this.broadcast("roomState", this.getRoomState())
-    if (!player) return
-    player.pendingStress += delivered ? STRESS.gigDelivered : STRESS.gigFailed
-    void this.flushNeeds([player])
-    const send = (result: GigResult) => {
-      this.clients.find((candidate) => candidate.sessionId === player.id)?.send("gigResult", result)
-    }
-    if (!delivered) return send({ delivered: false, paid: false, reason: "late", meters })
-    if (!player.userId) return send({ delivered: true, paid: false, reason: "guest", meters })
-    const gigId = `${this.roomId}:${this.startedAt}`
-    payGig({ userId: player.userId, gigId, distanceMeters: meters })
-      .then((result) =>
-        send(
-          result.ok
-            ? { delivered: true, paid: true, gross: result.gross, cut: result.cut, net: result.net, meters }
-            : { delivered: true, paid: false, reason: result.reason, meters }
-        )
-      )
-      .catch((error) => {
-        console.error("Failed to pay gig:", error)
-        send({ delivered: true, paid: false, reason: "error", meters })
-      })
   }
 
   private async persistResults(finishedAt: Date, fieldSize: number) {
@@ -624,7 +460,6 @@ export class RaceRoom extends Room {
     this.bounty = null
     this.finishOrder = []
     this.finishDeadline = null
-    this.gigDeadline = null
     for (const player of Object.values(this.players)) {
       player.roadPosition = null
       player.coordinate = null
@@ -639,78 +474,6 @@ export class RaceRoom extends Room {
     if (Object.keys(this.players).length >= 2) {
       this.beginCountdown()
     }
-  }
-
-  private async loadPlayerNeeds(sessionId: string) {
-    const player = this.players[sessionId]
-    if (!player?.userId) return
-    try {
-      const needs = await loadNeeds(player.userId)
-      const current = this.players[sessionId]
-      if (!current) return
-      current.energy = needs.energy
-      current.health = needs.health
-      current.needsLoaded = true
-      this.sendNeeds(current, Date.now())
-      // Racing wakes you: a zero-change write clears resting_since.
-      if (needs.resting) void this.flushNeeds([current], true)
-    } catch (error) {
-      console.error("Failed to load needs:", error)
-    }
-  }
-
-  /**
-   * Write energy/health changes as deltas, one query for the whole batch, and
-   * adopt the DB's answer (which includes regen and any food bought mid-race).
-   * Only players whose needs changed are written unless `force` is set.
-   */
-  private async flushNeeds(players: PlayerInfo[], force = false) {
-    // Only persist what we actually loaded, so a DB hiccup can't reset anyone.
-    const batch = players.filter(
-      (player) => player.userId && player.needsLoaded && (force || player.pendingEnergy !== 0 || player.pendingHealth !== 0 || player.pendingStress !== 0)
-    )
-    if (batch.length === 0) return
-    const sent = batch.map((player) => {
-      const delta = {
-        userId: player.userId!,
-        energy: player.pendingEnergy,
-        health: player.pendingHealth,
-        stress: player.pendingStress
-      }
-      player.pendingEnergy = 0
-      player.pendingHealth = 0
-      player.pendingStress = 0
-      return { player, delta }
-    })
-    try {
-      const fresh = await applyNeedsDeltas(sent.map((entry) => entry.delta))
-      const now = Date.now()
-      for (const { player } of sent) {
-        const next = fresh.get(player.userId!)
-        if (!next) continue
-        // Keep whatever changed while the query was in flight.
-        player.energy = Math.max(0, Math.min(NEED_MAX, next.energy + player.pendingEnergy))
-        player.health = Math.max(0, Math.min(NEED_MAX, next.health + player.pendingHealth))
-        this.sendNeeds(player, now)
-      }
-    } catch (error) {
-      for (const { player, delta } of sent) {
-        player.pendingEnergy += delta.energy
-        player.pendingHealth += delta.health
-        player.pendingStress += delta.stress
-      }
-      console.error("Failed to flush needs:", error)
-    }
-  }
-
-  private sendNeeds(player: PlayerInfo, now: number) {
-    player.needsSentAt = now
-    const client = this.clients.find((candidate) => candidate.sessionId === player.id)
-    client?.send("needs", {
-      energy: Math.round(player.energy * 10) / 10,
-      health: Math.round(player.health * 10) / 10,
-      collapsedForMs: player.collapsedUntil === null ? 0 : Math.max(0, player.collapsedUntil - now)
-    })
   }
 
   private getPositions() {
@@ -745,10 +508,6 @@ export class RaceRoom extends Room {
       destinationId: this.destinationId,
       startedAt: this.startedAt,
       roomCode: this.roomCode,
-      mode: this.mode,
-      // Remaining time rather than a timestamp, so client clocks don't matter.
-      gigRemainingMs: this.gigDeadline === null ? null : Math.max(0, this.gigDeadline - Date.now()),
-      gigMeters: this.mode === "gig" ? Math.round(this.gigMeters) : null,
       players: this.players
     }
   }
@@ -758,7 +517,7 @@ export class RaceRoom extends Room {
     this.broadcast("roomState", this.getRoomState())
     this.syncMetadata()
 
-    let remaining = this.mode === "gig" ? GIG_COUNTDOWN_SECONDS : COUNTDOWN_SECONDS
+    let remaining = COUNTDOWN_SECONDS
     this.countdownSeconds = remaining
     this.countdownInterval = setInterval(() => {
       remaining--
@@ -779,17 +538,7 @@ export class RaceRoom extends Room {
     this.startedAt = Date.now()
     this.finishOrder = []
     this.finishDeadline = null
-    let options = [...KAMPALA_ZONE.bountyLocations].sort(() => Math.random() - 0.5)
-    const courier = this.mode === "gig" ? Object.values(this.players)[0]?.coordinate ?? null : null
-    if (courier) {
-      // Drop-offs a proper ride away come first, the rest by how close they are to that range.
-      const offRange = (meters: number) =>
-        meters < GIG_MIN_METERS ? GIG_MIN_METERS - meters : meters > GIG_MAX_METERS ? meters - GIG_MAX_METERS : 0
-      options = options
-        .map((pick) => ({ pick, off: offRange(haversineDistanceMeters(courier, pick.position)) }))
-        .sort((a, b) => a.off - b.off)
-        .map((entry) => entry.pick)
-    }
+    const options = [...KAMPALA_ZONE.bountyLocations].sort(() => Math.random() - 0.5)
     const fallback = options[0]!
     this.destinationId = fallback.id
     this.bounty = null
@@ -837,11 +586,6 @@ export class RaceRoom extends Room {
       player.moving = false
       player.turnIntent = null
       player.finishPosition = null
-    }
-    if (this.mode === "gig") {
-      // Paid by the straight-line distance from pickup to drop-off.
-      this.gigMeters = courier && this.bounty ? haversineDistanceMeters(courier, this.bounty.coordinate) : GIG_MIN_METERS
-      this.gigDeadline = Date.now() + GIG_TIME_LIMIT_SECONDS * 1000
     }
     this.broadcast("roomState", this.getRoomState())
     this.syncMetadata()
