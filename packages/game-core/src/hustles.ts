@@ -16,8 +16,8 @@ export const HUSTLES = [
     id: "boda",
     name: "Boda passengers",
     icon: "🛵",
-    blurb: "Rent a bike and carry passengers from the stage.",
-    available: false
+    blurb: "Rent a bike for the day and carry passengers from the stage.",
+    available: true
   }
 ] as const
 
@@ -72,6 +72,11 @@ export const PORTER_PICKUP_SECONDS = 90
 export const HUSTLE_ARRIVAL_METERS = 25
 /** Sprinting under a load drains energy faster. */
 export const PORTER_SPRINT_DRAIN = { light: 1.3, heavy: 1.8 } as const
+/**
+ * Paid porter jobs per Kampala day. Energy alone can't limit it: street food
+ * is cheap enough (a rolex funds ~5 jobs) that eating would make it endless.
+ */
+export const PORTER_DAILY_JOBS = 20
 /** Stress: a paid job eases it a little; an abandoned or late one hurts. */
 export const HUSTLE_STRESS = { paid: -1, failed: 3 } as const
 
@@ -93,6 +98,7 @@ export function porterTimeLimit(meters: number): number {
 
 export type PorterOffer = {
   id: string
+  kind: "porter"
   pickupId: string
   dropoffId: string
   loadId: string
@@ -119,6 +125,7 @@ export function makePorterOffer(id: string, now: number, random: () => number, e
     const load = PORTER_LOADS[Math.floor(random() * PORTER_LOADS.length)]!
     return {
       id,
+      kind: "porter",
       pickupId: pickup.id,
       dropoffId: dropoff.id,
       loadId: load.id,
@@ -136,6 +143,7 @@ export function makePorterOffer(id: string, now: number, random: () => number, e
   const meters = haversineDistanceMeters(pickup.position, dropoff.position)
   return {
     id,
+    kind: "porter",
     pickupId: pickup.id,
     dropoffId: dropoff.id,
     loadId: "covers",
@@ -147,3 +155,174 @@ export function makePorterOffer(id: string, now: number, random: () => number, e
     expiresAt: now + PORTER_OFFER_TTL_SECONDS * 1000
   }
 }
+
+// ---------------------------------------------------------------------------
+// Boda passengers: wait at a stage, carry people across town. Pins sit on the
+// nearest road point so arrivals (within 25 m of the server's runner) are reachable.
+export const BODA_STAGES: HustleSpot[] = [
+  { id: "stage-old-taxi-park", name: "Old Taxi Park stage", position: { lat: 0.3131, lng: 32.5739 } },
+  { id: "stage-city-square", name: "City Square stage", position: { lat: 0.31334, lng: 32.58079 } },
+  { id: "stage-nakasero", name: "Nakasero Market stage", position: { lat: 0.3186, lng: 32.5766 } },
+  { id: "stage-jinja-road", name: "Jinja Road stage", position: { lat: 0.31177, lng: 32.58518 } }
+]
+
+/** Where passengers want to go (inside the play area). */
+export const BODA_DESTINATIONS: HustleSpot[] = [
+  { id: "dest-parliament", name: "Parliament", position: { lat: 0.3208, lng: 32.58754 } },
+  { id: "dest-sheraton", name: "Sheraton Hill", position: { lat: 0.3184, lng: 32.5863 } },
+  { id: "dest-nakivubo", name: "Nakivubo", position: { lat: 0.3098, lng: 32.5794 } },
+  { id: "dest-nasser-road", name: "Nasser Road printers", position: { lat: 0.31772, lng: 32.57932 } },
+  { id: "dest-nakasero-hill", name: "Nakasero hill", position: { lat: 0.32022, lng: 32.58425 } },
+  { id: "dest-kampala-road", name: "Kampala Road banks", position: { lat: 0.31329, lng: 32.58104 } },
+  { id: "dest-kikuubo", name: "Kikuubo Lane", position: { lat: 0.31328, lng: 32.57543 } },
+  { id: "dest-luwum", name: "Luwum Street", position: { lat: 0.31319, lng: 32.5764 } },
+  { id: "dest-william", name: "William Street", position: { lat: 0.31373, lng: 32.57722 } },
+  { id: "dest-market-street", name: "Market Street", position: { lat: 0.3119, lng: 32.57754 } }
+]
+
+const ALL_PLACES = [...KIKUUBO_SPOTS, ...BODA_STAGES, ...BODA_DESTINATIONS]
+
+/** Any hustle pin by id (shops, stages, destinations). */
+export function findPlace(id: string) {
+  return ALL_PLACES.find((place) => place.id === id) ?? null
+}
+
+export const BODA_BIKE_RENT = 10_000
+/** Bike vs walking speed (sprint "revs" on top, and uses less energy than running). */
+export const BODA_SPEED_FACTOR = 2
+export const BODA_SPRINT_DRAIN = 0.5
+export const BODA_MIN_METERS = 500
+export const BODA_MAX_METERS = 2_200
+export const BODA_OFFER_COUNT = 3
+export const BODA_OFFER_TTL_SECONDS = 75
+/** Seconds to reach the stage after accepting. */
+export const BODA_PICKUP_SECONDS = 120
+export const BODA_DAILY_TRIPS = 15
+/** BNG of fuel per metre ridden (petrol ≈ 6,500/L at ~11 km/L). */
+export const BODA_FUEL_PER_METER = 0.6
+export const BODA_TIP_MAX = 0.2
+
+/** Kampala is UTC+3 all year. */
+export function kampalaHour(at: Date): number {
+  return (at.getUTCHours() + 3) % 24
+}
+
+/** Morning and evening rush: fares ×1.5. */
+export function isRushHour(at: Date): boolean {
+  const hour = kampalaHour(at)
+  return (hour >= 7 && hour < 9) || (hour >= 17 && hour < 20)
+}
+
+export function bodaFare(meters: number, rush: boolean): number {
+  const base = 1_500 + meters * 1.8
+  return Math.round((base * (rush ? 1.5 : 1)) / 100) * 100
+}
+
+export function bodaFuelCost(metersRidden: number): number {
+  return Math.round(metersRidden * BODA_FUEL_PER_METER)
+}
+
+/** Seconds a quick rider needs (straight line at bike speed, plus a margin for streets). */
+export function bodaExpectedSeconds(meters: number): number {
+  return Math.round(meters / (18 * BODA_SPEED_FACTOR) * 1.6 + 10)
+}
+
+/** Full fare up to this; half fare after; the passenger gets off at `bodaGiveUpSeconds`. */
+export function bodaFullFareSeconds(meters: number): number {
+  return Math.round(bodaExpectedSeconds(meters) * 1.8 + 10)
+}
+
+export function bodaGiveUpSeconds(meters: number): number {
+  return Math.round(bodaExpectedSeconds(meters) * 3 + 20)
+}
+
+/** Tip share for a ride that took `seconds`: up to 20% when quick, nothing when slow. */
+export function bodaTipShare(meters: number, seconds: number): number {
+  const expected = bodaExpectedSeconds(meters)
+  const ratio = seconds / expected
+  if (ratio <= 1) return BODA_TIP_MAX
+  if (ratio >= 2) return 0
+  return Math.round(BODA_TIP_MAX * (2 - ratio) * 100) / 100
+}
+
+export function bodaEnergyCost(meters: number): number {
+  return Math.round((1.5 + meters / 1000) * 10) / 10
+}
+
+export type BodaPayout = { fare: number; tip: number; fuel: number; late: boolean; net: number }
+
+/**
+ * What a finished ride pays. Fuel since the last payout comes off the fare;
+ * if the fare can't cover it, the shortfall is simply absorbed (agreed for now).
+ */
+export function bodaPayout(input: { fare: number; meters: number; seconds: number; fuelMeters: number }): BodaPayout {
+  const late = input.seconds > bodaFullFareSeconds(input.meters)
+  const fare = late ? Math.round(input.fare / 2 / 100) * 100 : input.fare
+  const tip = late ? 0 : Math.round((fare * bodaTipShare(input.meters, input.seconds)) / 100) * 100
+  const fuel = bodaFuelCost(input.fuelMeters)
+  return { fare, tip, fuel, late, net: Math.max(0, fare + tip - fuel) }
+}
+
+export const PASSENGER_NAMES = [
+  "Auntie Florence",
+  "a student from Makerere",
+  "Mzee Okello",
+  "a market vendor",
+  "a man in a suit",
+  "Nalongo with shopping",
+  "a nurse on shift",
+  "a tourist with a backpack"
+] as const
+
+export type BodaOffer = {
+  id: string
+  kind: "boda"
+  pickupId: string
+  dropoffId: string
+  passenger: string
+  meters: number
+  fare: number
+  rush: boolean
+  energy: number
+  expiresAt: number
+}
+
+export function makeBodaOffer(id: string, now: number, random: () => number, exclude: readonly string[] = []): BodaOffer {
+  const rush = isRushHour(new Date(now))
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const stage = BODA_STAGES[Math.floor(random() * BODA_STAGES.length)]!
+    const dest = BODA_DESTINATIONS[Math.floor(random() * BODA_DESTINATIONS.length)]!
+    if (exclude.includes(`${stage.id}>${dest.id}`)) continue
+    const meters = haversineDistanceMeters(stage.position, dest.position)
+    if (meters < BODA_MIN_METERS || meters > BODA_MAX_METERS) continue
+    return {
+      id,
+      kind: "boda",
+      pickupId: stage.id,
+      dropoffId: dest.id,
+      passenger: PASSENGER_NAMES[Math.floor(random() * PASSENGER_NAMES.length)]!,
+      meters: Math.round(meters),
+      fare: bodaFare(meters, rush),
+      rush,
+      energy: bodaEnergyCost(meters),
+      expiresAt: now + BODA_OFFER_TTL_SECONDS * 1000
+    }
+  }
+  const stage = BODA_STAGES[0]!
+  const dest = BODA_DESTINATIONS[5]!
+  const meters = haversineDistanceMeters(stage.position, dest.position)
+  return {
+    id,
+    kind: "boda",
+    pickupId: stage.id,
+    dropoffId: dest.id,
+    passenger: PASSENGER_NAMES[0],
+    meters: Math.round(meters),
+    fare: bodaFare(meters, rush),
+    rush,
+    energy: bodaEnergyCost(meters),
+    expiresAt: now + BODA_OFFER_TTL_SECONDS * 1000
+  }
+}
+
+export type HustleOffer = PorterOffer | BodaOffer

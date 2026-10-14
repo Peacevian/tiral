@@ -5,7 +5,16 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type maplibregl from "maplibre-gl"
-import { HUSTLES, KIKUUBO_SPOTS, SPRINT_MULTIPLIER, findSpot, haversineDistanceMeters } from "@tiral/game-core"
+import {
+  BODA_SPEED_FACTOR,
+  BODA_STAGES,
+  KIKUUBO_SPOTS,
+  RENTAL_BIKE_LOOK,
+  SPRINT_MULTIPLIER,
+  findHustle,
+  findPlace,
+  haversineDistanceMeters
+} from "@tiral/game-core"
 import { buildRoadGraph, type OverpassResponse, type RoadGraph } from "@tiral/road-graph"
 import { useColyseusContext } from "@/components/ColyseusProvider"
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
@@ -17,7 +26,7 @@ import { ControlDeck } from "@/components/game/ControlDeck"
 import { NeedsHud } from "@/components/game/NeedsHud"
 import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
-import { JobBoard, clock, loadName, spotName, useNow } from "@/components/hustle/JobBoard"
+import { JobBoard, clock, offerTitle, spotName, useNow } from "@/components/hustle/JobBoard"
 import type { HustlePin } from "@/components/hustle/HustlePins"
 import { ActionButton, Card } from "@/components/ui"
 
@@ -38,9 +47,23 @@ const Avatar3D = dynamic(
 const KIKUUBO_CENTER = { lat: 0.3125, lng: 32.5765 }
 
 const FAILURE_TEXT = {
-  abandoned: "Job dropped. No pay, and the shopkeeper won't forget it.",
+  abandoned: "Job dropped. No pay, and they won't forget it.",
   late: "Too late. The customer found another porter.",
-  no_show: "You never made it to the pickup. The job went to someone else."
+  no_show: "You never made it to the pickup. The job went to someone else.",
+  gave_up: "Your passenger gave up and got off. No fare."
+} as const
+
+const GIGS = {
+  porter: {
+    blurb:
+      "Shops around Kikuubo need loads moved: sugar, soda, bales of clothes. Take a job, collect it, carry it across before time runs out. About 1,200–3,300 BNG a trip, and it tires you out.",
+    spots: KIKUUBO_SPOTS
+  },
+  boda: {
+    blurb:
+      "Rent the stage bike for the day (10,000 BNG, charged with your first ride), pick passengers up at a stage and drop them across town. Fares run about 2,500–5,500, more in rush hour, minus fuel. Quick rides get tipped.",
+    spots: BODA_STAGES
+  }
 } as const
 
 // A hustle shift: simulated jobs on the real Kikuubo streets, no other
@@ -73,6 +96,11 @@ export default function HustlePage() {
   const [startError, setStartError] = useState<string | null>(null)
   const [boardOpen, setBoardOpen] = useState(true)
   const now = useNow(500)
+  // Which gig to start (?gig=boda); inside a shift, the room decides.
+  const [requestedGig, setRequestedGig] = useState<"porter" | "boda">("porter")
+  useEffect(() => {
+    setRequestedGig(new URLSearchParams(window.location.search).get("gig") === "boda" ? "boda" : "porter")
+  }, [])
 
   // In a race, not a shift: that has its own screen.
   useEffect(() => {
@@ -130,7 +158,8 @@ export default function HustlePage() {
       window.removeEventListener("keyup", up)
     }
   }, [setSprint])
-  speedRef.current = collapsed ? 0 : sprinting ? SPRINT_MULTIPLIER : 1
+  const onBike = hustle?.hustle === "boda"
+  speedRef.current = collapsed ? 0 : (onBike ? BODA_SPEED_FACTOR : 1) * (sprinting ? SPRINT_MULTIPLIER : 1)
 
   const movement = useRoadMovement(graph, inShift ? hustle.startAt : null, handleRoadInput, !inShift, speedRef)
   // Keep the predicted runner honest: the server decides pickups and drop-offs.
@@ -146,8 +175,8 @@ export default function HustlePage() {
   coordinateRef.current = movement.coordinate
   useEffect(() => {
     if (!jobId || !hustle?.job) return
-    const pickup = findSpot(hustle.job.offer.pickupId)
-    const dropoff = findSpot(hustle.job.offer.dropoffId)
+    const pickup = findPlace(hustle.job.offer.pickupId)
+    const dropoff = findPlace(hustle.job.offer.dropoffId)
     const points = [coordinateRef.current, pickup?.position, dropoff?.position].filter(
       (point): point is { lat: number; lng: number } => point != null
     )
@@ -164,7 +193,7 @@ export default function HustlePage() {
   }, [jobActive])
 
   const target = hustle?.job
-    ? findSpot(hustle.job.stage === "carrying" ? hustle.job.offer.dropoffId : hustle.job.offer.pickupId)
+    ? findPlace(hustle.job.stage === "carrying" ? hustle.job.offer.dropoffId : hustle.job.offer.pickupId)
     : null
   const distanceToTarget =
     target && movement.coordinate ? Math.round(haversineDistanceMeters(movement.coordinate, target.position)) : null
@@ -173,8 +202,8 @@ export default function HustlePage() {
     if (!hustle) return []
     const job = hustle.job
     if (job) {
-      const pickup = findSpot(job.offer.pickupId)
-      const dropoff = findSpot(job.offer.dropoffId)
+      const pickup = findPlace(job.offer.pickupId)
+      const dropoff = findPlace(job.offer.dropoffId)
       const list: HustlePin[] = []
       if (job.stage === "to_pickup" && pickup) {
         list.push({ id: `p:${pickup.id}`, position: pickup.position, label: "📦", title: `Pickup: ${pickup.name}`, tone: "pickup" })
@@ -185,7 +214,7 @@ export default function HustlePage() {
       return list
     }
     return hustle.offers.flatMap((offer, index) => {
-      const pickup = findSpot(offer.pickupId)
+      const pickup = findPlace(offer.pickupId)
       return pickup
         ? [{ id: `o:${pickup.id}`, position: pickup.position, label: String(index + 1), title: `Job ${index + 1}: ${pickup.name}`, tone: "offer" as const }]
         : []
@@ -215,7 +244,7 @@ export default function HustlePage() {
     setStarting(true)
     setStartError(null)
     try {
-      await startHustle("porter", myLoadout)
+      await startHustle(requestedGig, myLoadout)
     } catch (error) {
       setStartError(error instanceof Error ? error.message : "Couldn't start the shift")
     } finally {
@@ -223,7 +252,8 @@ export default function HustlePage() {
     }
   }
 
-  const porter = HUSTLES[0]
+  const gig = inShift ? hustle.hustle : requestedGig
+  const gigInfo = findHustle(gig)!
 
   return (
     <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950 text-white">
@@ -242,11 +272,22 @@ export default function HustlePage() {
               loadout={myLoadout}
               isSelf
               collapsed={collapsed}
+              bike={
+                onBike
+                  ? {
+                      look: RENTAL_BIKE_LOOK,
+                      // A dummy passenger rides along once they're on board.
+                      passenger: hustle?.job?.stage === "carrying",
+                      passengerSeed: hustle?.job?.offer.id,
+                      plateSeed: player?.user.id
+                    }
+                  : null
+              }
             />
           )}
         </ThreeLayer>
       )}
-      {map && <HustlePins map={map} pins={inShift ? pins : KIKUUBO_SPOTS.map((spot) => ({ id: spot.id, position: spot.position, label: "•", title: spot.name, tone: "offer" as const }))} />}
+      {map && <HustlePins map={map} pins={inShift ? pins : GIGS[gig].spots.map((spot) => ({ id: spot.id, position: spot.position, label: "•", title: spot.name, tone: "offer" as const }))} />}
 
       {!inShift ? (
         // Start screen.
@@ -254,12 +295,9 @@ export default function HustlePage() {
           <Card className="!bg-slate-950/95 shadow-2xl backdrop-blur-md">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">Hustle</div>
             <h1 className="mt-1 text-xl font-black">
-              {porter.icon} {porter.name}
+              {gigInfo.icon} {gigInfo.name}
             </h1>
-            <p className="mt-1 text-sm leading-snug text-slate-300">
-              Shops around Kikuubo need loads moved: sugar, soda, bales of clothes. Take a job, collect it, carry it
-              across before time runs out. About 1,200–3,300 BNG a trip, and it tires you out.
-            </p>
+            <p className="mt-1 text-sm leading-snug text-slate-300">{GIGS[gig].blurb}</p>
             {player && (
               <p className="mt-2 text-xs text-slate-400">
                 Your energy: <span className="font-bold text-white">{Math.round(player.needs.energy)}/100</span> ·
@@ -294,11 +332,17 @@ export default function HustlePage() {
                 {hustle.job ? (
                   <>
                     <div className="truncate text-xs font-black">
-                      {hustle.job.stage === "carrying" ? "🏁 Deliver to " : "📦 Collect at "}
+                      {hustle.job.stage === "carrying"
+                        ? onBike
+                          ? "🏁 Drop them at "
+                          : "🏁 Deliver to "
+                        : onBike
+                          ? "🛵 Pick up at "
+                          : "📦 Collect at "}
                       {spotName(hustle.job.stage === "carrying" ? hustle.job.offer.dropoffId : hustle.job.offer.pickupId)}
                     </div>
                     <div className="truncate font-mono text-[11px] text-cyan-300">
-                      {distanceToTarget ?? "…"} m · {clock(hustle.job.deadline - now)} · {loadName(hustle.job.offer.loadId)}
+                      {distanceToTarget ?? "…"} m · {clock(hustle.job.deadline - now)} · {offerTitle(hustle.job.offer)}
                     </div>
                   </>
                 ) : (
@@ -359,9 +403,12 @@ export default function HustlePage() {
               role="status"
               className="absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border border-amber-300/40 bg-amber-950/90 px-4 py-3 text-center shadow-2xl backdrop-blur-md md:left-[calc(50%-12.5rem)]"
             >
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">📦 Picked up</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+                {onBike ? "🛵 Passenger on" : "📦 Picked up"}
+              </div>
               <div className="mt-0.5 text-sm font-bold text-white">
-                Now carry it to {spotName(hustle.job.offer.dropoffId)} 🏁
+                {onBike ? "Take them to " : "Now carry it to "}
+                {spotName(hustle.job.offer.dropoffId)} 🏁
               </div>
             </div>
           )}
@@ -371,23 +418,42 @@ export default function HustlePage() {
               className={`absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border px-4 py-3 text-center shadow-2xl backdrop-blur-md md:left-[calc(50%-12.5rem)] ${
                 toast.kind === "receipt" && toast.receipt.paid
                   ? "border-emerald-300/40 bg-emerald-950/90"
-                  : "border-rose-300/40 bg-rose-950/90"
+                  : toast.kind === "rented"
+                    ? "border-amber-300/40 bg-amber-950/90"
+                    : "border-rose-300/40 bg-rose-950/90"
               }`}
             >
               {toast.kind === "receipt" ? (
                 toast.receipt.paid ? (
                   <>
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Delivered</div>
-                    <div className="mt-0.5 font-mono text-2xl font-black text-amber-100">+{formatCoins(toast.receipt.pay)} BNG</div>
-                    <div className="mt-0.5 text-[11px] text-slate-300">
-                      {toast.receipt.load}, {toast.receipt.meters} m · balance {formatCoins(toast.receipt.balance)}
-                    </div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">{toast.receipt.title}</div>
+                    <div className="mt-0.5 font-mono text-2xl font-black text-amber-100">+{formatCoins(toast.receipt.net)} BNG</div>
+                    {toast.receipt.lines.length > 1 && (
+                      <dl className="mx-auto mt-1 w-full max-w-[220px] font-mono text-[11px]">
+                        {toast.receipt.lines.map((line) => (
+                          <div key={line.label} className="flex justify-between text-slate-300">
+                            <dt>{line.label}</dt>
+                            <dd className={line.amount < 0 ? "text-rose-300" : ""}>
+                              {line.amount < 0 ? "−" : "+"}
+                              {formatCoins(Math.abs(line.amount))}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                    <div className="mt-0.5 text-[11px] text-slate-400">balance {formatCoins(toast.receipt.balance)}</div>
                   </>
                 ) : (
-                  <div className="text-sm font-bold text-rose-100">Delivered, but the pay didn&apos;t go through. Try another job.</div>
+                  <div className="text-sm font-bold text-rose-100">
+                    {toast.receipt.reason === "daily_limit"
+                      ? "Done, but that's today's limit: no more paid jobs of this kind until tomorrow."
+                      : "Delivered, but the pay didn't go through. Try another job."}
+                  </div>
                 )
               ) : toast.kind === "failed" ? (
                 <div className="text-sm font-bold text-rose-100">{FAILURE_TEXT[toast.reason]}</div>
+              ) : toast.kind === "rented" ? (
+                <div className="text-sm font-bold text-amber-100">🛵 Bike rented for today: −{formatCoins(toast.amount)} BNG</div>
               ) : (
                 <div className="text-sm font-bold text-rose-100">{toast.text}</div>
               )}

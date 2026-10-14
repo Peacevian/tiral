@@ -1,20 +1,34 @@
 import { Room, Client, ServerError } from "@colyseus/core"
 import {
+  BODA_BIKE_RENT,
+  BODA_DAILY_TRIPS,
+  BODA_OFFER_COUNT,
+  BODA_PICKUP_SECONDS,
+  BODA_SPEED_FACTOR,
+  BODA_SPRINT_DRAIN,
+  BODA_STAGES,
   HUSTLE_ARRIVAL_METERS,
   HUSTLE_STRESS,
+  KIKUUBO_SPOTS,
   PORTER_LOADS,
+  PORTER_DAILY_JOBS,
   PORTER_OFFER_COUNT,
   PORTER_PICKUP_SECONDS,
   PORTER_SPRINT_DRAIN,
-  findSpot,
+  bodaFuelCost,
+  bodaFullFareSeconds,
+  bodaGiveUpSeconds,
+  bodaPayout,
+  findPlace,
   haversineDistanceMeters,
+  isRushHour,
+  makeBodaOffer,
   makePorterOffer,
-  KIKUUBO_SPOTS,
-  type PorterOffer
+  type HustleOffer
 } from "@tiral/game-core"
 import type { RoadDirection, RoadGraph } from "@tiral/road-graph"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
-import { payHustle } from "@tiral/db"
+import { chargeFuel, payHustle, rentBikeToday } from "@tiral/db"
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import {
@@ -34,36 +48,52 @@ const RECONNECT_SECONDS = 30
 /** Tests widen this (like RACE_ARRIVAL_RADIUS) to complete jobs without walking. */
 const ARRIVAL_METERS = Number(process.env.HUSTLE_ARRIVAL_RADIUS ?? HUSTLE_ARRIVAL_METERS)
 
+type Gig = "porter" | "boda"
+
 type Worker = Runner & { name: string; loadout: AvatarLoadout; startAt: { lat: number; lng: number } | null }
 
 type ActiveJob = {
-  offer: PorterOffer
+  offer: HustleOffer
   stage: "to_pickup" | "carrying"
-  /** Server clock time this stage must be done by. */
+  /** Server clock time this stage must be done by (boda: when the passenger gives up). */
   deadline: number
+  /** Boda: when the passenger got on. */
+  pickedUpAt: number | null
 }
 
 type Shift = { jobs: number; earned: number; failed: number }
 
+export type ReceiptLine = { label: string; amount: number }
+
 export type HustleReceipt =
-  | { jobId: string; paid: true; pay: number; load: string; meters: number; balance: number }
-  | { jobId: string; paid: false; reason: "duplicate" | "daily_limit" | "error"; load: string; meters: number }
+  | { jobId: string; paid: true; title: string; lines: ReceiptLine[]; net: number; meters: number; balance: number }
+  | { jobId: string; paid: false; title: string; reason: "duplicate" | "daily_limit" | "error"; meters: number }
 
 /**
  * A solo hustle shift: the server keeps a board of simulated jobs; the player
- * accepts one, walks to the pickup, carries the load to the drop-off before
- * the timer and is paid through the ledger. No other players needed.
+ * takes one, goes to the pickup, delivers before the timer and is paid through
+ * the ledger. Porters walk with loads; boda riders carry dummy passengers on a
+ * rented bike. No other players needed.
  */
 export class HustleRoom extends Room {
   maxClients = 1
 
-  private hustle = "porter"
+  private gig: Gig = "porter"
   private worker: Worker | null = null
   private graph: RoadGraph | null = null
-  private offers: PorterOffer[] = []
+  private offers: HustleOffer[] = []
   private job: ActiveJob | null = null
   private shift: Shift = { jobs: 0, earned: 0, failed: 0 }
   private offerSeq = 0
+  /** Boda: today's bike rent is paid (checked on the first ride). */
+  private bikeReady = false
+  private accepting = false
+  /** Boda: metres ridden since fuel was last paid for. */
+  private fuelMeters = 0
+  private fuelCharges = 0
+  private lastCoordinate: { lat: number; lng: number } | null = null
+  private positionSentAt = 0
+  private lastTickAt: number | null = null
   private tickInterval: ReturnType<typeof setInterval> | null = null
   private flushInterval: ReturnType<typeof setInterval> | null = null
   private readonly body = new BodySync((runner, message, payload) => {
@@ -77,8 +107,7 @@ export class HustleRoom extends Room {
   }
 
   onCreate(options: any) {
-    // Only the porter exists so far; anything else falls back to it.
-    this.hustle = options?.hustle === "porter" ? "porter" : "porter"
+    this.gig = options?.hustle === "boda" ? "boda" : "porter"
     this.setPrivate(true)
 
     this.onMessage("walk", (client, on: boolean) => {
@@ -101,7 +130,7 @@ export class HustleRoom extends Room {
       const worker = this.own(client)
       if (worker) void this.body.flush([worker], true)
     })
-    this.onMessage("accept", (client, offerId: string) => this.accept(client, offerId))
+    this.onMessage("accept", (client, offerId: string) => void this.accept(client, offerId))
     this.onMessage("abandon", (client) => {
       if (this.own(client) && this.job) this.failJob("abandoned")
     })
@@ -128,7 +157,7 @@ export class HustleRoom extends Room {
     const worker: Worker = {
       id: client.sessionId,
       userId: verified?.userId ?? null,
-      name: verified?.displayName ?? "Porter",
+      name: verified?.displayName ?? "Worker",
       loadout: sanitizeLoadout(options?.loadout),
       startAt: null,
       roadPosition: null,
@@ -149,12 +178,12 @@ export class HustleRoom extends Room {
       await this.allowReconnection(client, RECONNECT_SECONDS)
       this.sendState()
     } catch {
-      this.endShift()
+      void this.endShift()
     }
   }
 
   onLeave() {
-    this.endShift()
+    void this.endShift()
   }
 
   onDispose() {
@@ -167,36 +196,67 @@ export class HustleRoom extends Room {
     return this.worker && this.worker.id === client.sessionId ? this.worker : null
   }
 
-  /** Start the shift at a random Kikuubo shop. */
+  /** Start at a random Kikuubo shop (porter) or boda stage. */
   private place(worker: Worker) {
     if (!this.graph) return
-    const spot = KIKUUBO_SPOTS[Math.floor(Math.random() * KIKUUBO_SPOTS.length)]!
+    const spots = this.gig === "boda" ? BODA_STAGES : KIKUUBO_SPOTS
+    const spot = spots[Math.floor(Math.random() * spots.length)]!
     const snapped = snapToRoad(this.graph, spot.position)
     if (!snapped) return
     worker.roadPosition = snapped.roadPosition
     worker.coordinate = snapped.coordinate
     worker.startAt = snapped.coordinate ? { ...snapped.coordinate } : null
+    this.lastCoordinate = snapped.coordinate ? { ...snapped.coordinate } : null
   }
 
   private fillOffers(now: number) {
     this.offers = this.offers.filter((offer) => offer.expiresAt > now)
-    while (this.offers.length < PORTER_OFFER_COUNT) {
-      const taken = this.offers.map((offer) => offer.pickupId)
-      this.offers.push(makePorterOffer(`${this.roomId}:${++this.offerSeq}`, now, Math.random, taken))
+    const count = this.gig === "boda" ? BODA_OFFER_COUNT : PORTER_OFFER_COUNT
+    while (this.offers.length < count) {
+      const id = `${this.roomId}:${++this.offerSeq}`
+      if (this.gig === "boda") {
+        const taken = this.offers.map((offer) => `${offer.pickupId}>${offer.dropoffId}`)
+        this.offers.push(makeBodaOffer(id, now, Math.random, taken))
+      } else {
+        const taken = this.offers.map((offer) => offer.pickupId)
+        this.offers.push(makePorterOffer(id, now, Math.random, taken))
+      }
     }
   }
 
-  private accept(client: Client, offerId: string) {
+  private async accept(client: Client, offerId: string) {
     const worker = this.own(client)
-    if (!worker || this.job) return
+    if (!worker || this.job || this.accepting) return
     const offer = this.offers.find((candidate) => candidate.id === offerId)
     if (!offer) return client.send("notice", "That job was taken. Pick another one.")
     if (worker.energy < offer.energy) {
-      return client.send("notice", "You're too tired for this load. Eat something or rest first.")
+      return client.send("notice", "You're too tired for this job. Eat something or rest first.")
     }
+    if (this.gig === "boda" && !this.bikeReady) {
+      // Today's bike rent comes due with the first passenger of the day.
+      if (!worker.userId) return
+      this.accepting = true
+      try {
+        const rent = await rentBikeToday({ userId: worker.userId, amount: BODA_BIKE_RENT })
+        if (!rent.ok) {
+          return client.send("notice", `You need ${BODA_BIKE_RENT.toLocaleString("en-US")} BNG to rent a bike for today.`)
+        }
+        this.bikeReady = true
+        if (rent.charged) client.send("bikeRented", { amount: BODA_BIKE_RENT, balance: rent.balance })
+      } catch (error) {
+        console.error("Bike rent failed:", error)
+        return client.send("notice", "Couldn't rent the bike right now. Try again.")
+      } finally {
+        this.accepting = false
+      }
+      // The offer may have expired while we waited.
+      if (!this.offers.some((candidate) => candidate.id === offerId) || this.job) return
+    }
+    const now = Date.now()
     this.offers = this.offers.filter((candidate) => candidate.id !== offerId)
-    this.job = { offer, stage: "to_pickup", deadline: Date.now() + PORTER_PICKUP_SECONDS * 1000 }
-    this.fillOffers(Date.now())
+    const pickupSeconds = offer.kind === "boda" ? BODA_PICKUP_SECONDS : PORTER_PICKUP_SECONDS
+    this.job = { offer, stage: "to_pickup", deadline: now + pickupSeconds * 1000, pickedUpAt: null }
+    this.fillOffers(now)
     this.sendState()
   }
 
@@ -204,84 +264,116 @@ export class HustleRoom extends Room {
     const worker = this.worker
     const now = Date.now()
     if (!worker || !this.graph) return
-    const carrying = this.job?.stage === "carrying"
-    const load = carrying ? PORTER_LOADS.find((candidate) => candidate.id === this.job!.offer.loadId) : null
     // Real elapsed time, not the nominal tick: timers fire late, and a fixed
     // step would leave the server's runner behind the player's screen.
     const deltaSeconds = Math.min(0.25, (now - (this.lastTickAt ?? now - TICK_MS)) / 1000)
     this.lastTickAt = now
+    const carrying = this.job?.stage === "carrying"
+    const offer = this.job?.offer
+    const sprintDrainFactor =
+      this.gig === "boda"
+        ? BODA_SPRINT_DRAIN
+        : carrying && offer?.kind === "porter"
+          ? PORTER_SPRINT_DRAIN[offer.heavy ? "heavy" : "light"]
+          : 1
     const step = stepRunner(this.graph, worker, now, deltaSeconds, {
-      sprintDrainFactor: load ? PORTER_SPRINT_DRAIN[load.heavy ? "heavy" : "light"] : 1
+      sprintDrainFactor,
+      speedFactor: this.gig === "boda" ? BODA_SPEED_FACTOR : 1
     })
     if (step.collapsedNow) this.body.send(worker, now)
+    // Fuel: every metre the bike actually moves.
+    if (this.gig === "boda" && worker.coordinate) {
+      if (this.lastCoordinate) this.fuelMeters += haversineDistanceMeters(this.lastCoordinate, worker.coordinate)
+      this.lastCoordinate = { ...worker.coordinate }
+    }
     // Moving: every change. Standing still: a heartbeat so the client can settle.
     if (step.changed || now - this.positionSentAt >= 1000) this.sendPosition(worker)
     this.body.sendDue([worker], now)
 
     if (this.job && worker.coordinate) {
       const { offer, stage } = this.job
-      const target = findSpot(stage === "to_pickup" ? offer.pickupId : offer.dropoffId)
+      const target = findPlace(stage === "to_pickup" ? offer.pickupId : offer.dropoffId)
       const there = target && haversineDistanceMeters(worker.coordinate, target.position) <= ARRIVAL_METERS
       if (there && stage === "to_pickup") {
-        this.job = { offer, stage: "carrying", deadline: now + offer.timeLimitSeconds * 1000 }
+        const deadline =
+          offer.kind === "boda"
+            ? now + bodaGiveUpSeconds(offer.meters) * 1000
+            : now + offer.timeLimitSeconds * 1000
+        this.job = { offer, stage: "carrying", deadline, pickedUpAt: now }
         this.sendState()
       } else if (there && stage === "carrying") {
-        void this.deliver(offer)
+        void this.deliver(this.job, now)
       } else if (now > this.job.deadline) {
-        this.failJob(stage === "to_pickup" ? "no_show" : "late")
+        this.failJob(stage === "to_pickup" ? "no_show" : offer.kind === "boda" ? "gave_up" : "late")
       }
     }
 
-    if (this.offers.some((offer) => offer.expiresAt <= now)) {
+    if (this.offers.some((candidate) => candidate.expiresAt <= now)) {
       this.fillOffers(now)
       this.sendState()
     }
   }
 
-  private async deliver(offer: PorterOffer) {
+  private async deliver(job: ActiveJob, now: number) {
     const worker = this.worker
     if (!worker) return
+    const { offer } = job
     this.job = null
     spendEnergy(worker, offer.energy)
     worker.pendingStress += HUSTLE_STRESS.paid
-    const load = PORTER_LOADS.find((candidate) => candidate.id === offer.loadId)?.name ?? "a load"
+
+    let title: string
+    let lines: ReceiptLine[]
+    let net: number
+    let meta: Record<string, unknown>
+    let dailyLimit: number | undefined
+    if (offer.kind === "boda") {
+      const seconds = (now - (job.pickedUpAt ?? now)) / 1000
+      const payout = bodaPayout({ fare: offer.fare, meters: offer.meters, seconds, fuelMeters: this.fuelMeters })
+      this.fuelMeters = 0
+      title = `Dropped ${offer.passenger} at ${findPlace(offer.dropoffId)?.name ?? "their stop"}`
+      lines = [
+        { label: payout.late ? "Fare (late: half)" : offer.rush ? "Fare (rush hour)" : "Fare", amount: payout.fare },
+        ...(payout.tip > 0 ? [{ label: "Tip", amount: payout.tip }] : []),
+        { label: "Fuel", amount: -payout.fuel }
+      ]
+      net = payout.net
+      meta = { passenger: offer.passenger, from: offer.pickupId, to: offer.dropoffId, meters: offer.meters, ...payout, seconds: Math.round(seconds) }
+      dailyLimit = BODA_DAILY_TRIPS
+    } else {
+      const load = PORTER_LOADS.find((candidate) => candidate.id === offer.loadId)?.name ?? "a load"
+      title = `Delivered ${load}`
+      lines = [{ label: "Pay", amount: offer.pay }]
+      net = offer.pay
+      meta = { load: offer.loadId, from: offer.pickupId, to: offer.dropoffId, meters: offer.meters, gross: offer.pay }
+      dailyLimit = PORTER_DAILY_JOBS
+    }
     this.sendState()
+
     let receipt: HustleReceipt
     if (!worker.userId) {
-      receipt = { jobId: offer.id, paid: false, reason: "error", load, meters: offer.meters }
+      receipt = { jobId: offer.id, paid: false, title, reason: "error", meters: offer.meters }
     } else {
       try {
-        const result = await payHustle({
-          userId: worker.userId,
-          hustle: this.hustle,
-          jobId: offer.id,
-          net: offer.pay,
-          meta: {
-            load: offer.loadId,
-            from: offer.pickupId,
-            to: offer.dropoffId,
-            meters: offer.meters,
-            gross: offer.pay
-          }
-        })
+        const result = await payHustle({ userId: worker.userId, hustle: this.gig, jobId: offer.id, net, meta, dailyLimit })
         receipt = result.ok
-          ? { jobId: offer.id, paid: true, pay: offer.pay, load, meters: offer.meters, balance: result.balance }
-          : { jobId: offer.id, paid: false, reason: result.reason, load, meters: offer.meters }
+          ? { jobId: offer.id, paid: true, title, lines, net, meters: offer.meters, balance: result.balance }
+          : { jobId: offer.id, paid: false, title, reason: result.reason, meters: offer.meters }
       } catch (error) {
         console.error("Failed to pay hustle:", error)
-        receipt = { jobId: offer.id, paid: false, reason: "error", load, meters: offer.meters }
+        receipt = { jobId: offer.id, paid: false, title, reason: "error", meters: offer.meters }
       }
     }
     if (receipt.paid) {
       this.shift.jobs++
-      this.shift.earned += receipt.pay
+      this.shift.earned += receipt.net
     }
     this.clients.find((candidate) => candidate.sessionId === worker.id)?.send("receipt", receipt)
     this.sendState()
     void this.body.flush([worker])
   }
 
-  private failJob(reason: "abandoned" | "late" | "no_show") {
+  private failJob(reason: "abandoned" | "late" | "no_show" | "gave_up") {
     const worker = this.worker
     const job = this.job
     if (!worker || !job) return
@@ -289,18 +381,27 @@ export class HustleRoom extends Room {
     this.shift.failed++
     worker.pendingStress += HUSTLE_STRESS.failed
     // Hauling half the way still tired you out.
-    if (job.stage === "carrying") spendEnergy(worker, job.offer.energy / 2)
+    if (job.stage === "carrying" && job.offer.kind === "porter") spendEnergy(worker, job.offer.energy / 2)
     this.clients.find((candidate) => candidate.sessionId === worker.id)?.send("jobFailed", { reason })
     this.sendState()
   }
 
-  private endShift() {
+  private async endShift() {
     if (this.job && this.job.stage === "carrying") this.failJob("abandoned")
-    if (this.worker) void this.body.flush([this.worker])
+    const worker = this.worker
+    if (!worker) return
+    void this.body.flush([worker])
+    // Fuel burned after the last paid ride still has to be paid for.
+    const fuel = bodaFuelCost(this.fuelMeters)
+    this.fuelMeters = 0
+    if (fuel > 0 && worker.userId) {
+      try {
+        await chargeFuel({ userId: worker.userId, amount: fuel, refId: `${this.roomId}:fuel:${++this.fuelCharges}` })
+      } catch (error) {
+        console.error("Failed to charge fuel:", error)
+      }
+    }
   }
-
-  private positionSentAt = 0
-  private lastTickAt: number | null = null
 
   private sendPosition(worker: Worker) {
     this.positionSentAt = Date.now()
@@ -316,15 +417,29 @@ export class HustleRoom extends Room {
     const worker = this.worker
     if (!worker) return
     const now = Date.now()
+    const job = this.job
     this.clients.find((candidate) => candidate.sessionId === worker.id)?.send("hustle", {
-      hustle: this.hustle,
+      hustle: this.gig,
       startAt: worker.startAt,
       offers: this.offers.map((offer) => ({ ...offer, expiresInMs: Math.max(0, offer.expiresAt - now) })),
-      // Remaining time rather than timestamps, so client clocks don't matter.
-      job: this.job
-        ? { offer: this.job.offer, stage: this.job.stage, remainingMs: Math.max(0, this.job.deadline - now) }
+      // Remaining times rather than timestamps, so client clocks don't matter.
+      job: job
+        ? {
+            offer: job.offer,
+            stage: job.stage,
+            remainingMs: Math.max(0, job.deadline - now),
+            // Boda: time left for the full fare (after that, half).
+            fullFareMs:
+              job.offer.kind === "boda" && job.pickedUpAt !== null
+                ? Math.max(0, job.pickedUpAt + bodaFullFareSeconds(job.offer.meters) * 1000 - now)
+                : null
+          }
         : null,
-      shift: this.shift
+      shift: this.shift,
+      boda:
+        this.gig === "boda"
+          ? { bikeReady: this.bikeReady, rent: BODA_BIKE_RENT, rush: isRushHour(new Date(now)), fuel: bodaFuelCost(this.fuelMeters) }
+          : null
     })
   }
 }

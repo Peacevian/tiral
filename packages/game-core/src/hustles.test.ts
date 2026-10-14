@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest"
 import { haversineDistanceMeters } from "./geo.js"
 import {
+  BODA_MAX_METERS,
+  BODA_MIN_METERS,
+  BODA_STAGES,
   KIKUUBO_SPOTS,
+  bodaExpectedSeconds,
+  bodaFare,
+  bodaFullFareSeconds,
+  bodaPayout,
+  findPlace,
+  isRushHour,
+  makeBodaOffer,
   PORTER_MAX_METERS,
   PORTER_MIN_METERS,
   findSpot,
@@ -51,5 +61,43 @@ describe("porter offers", () => {
 
   it("has unique spot ids", () => {
     expect(new Set(KIKUUBO_SPOTS.map((spot) => spot.id)).size).toBe(KIKUUBO_SPOTS.length)
+  })
+})
+
+describe("boda", () => {
+  it("prices fares by distance, with a rush-hour bump", () => {
+    expect(bodaFare(2000, false)).toBe(5100)
+    expect(bodaFare(2000, true)).toBe(7700)
+  })
+
+  it("knows Kampala rush hour (UTC+3)", () => {
+    expect(isRushHour(new Date("2026-10-14T05:30:00Z"))).toBe(true) // 08:30
+    expect(isRushHour(new Date("2026-10-14T09:00:00Z"))).toBe(false) // 12:00
+    expect(isRushHour(new Date("2026-10-14T15:00:00Z"))).toBe(true) // 18:00
+  })
+
+  it("pays quick rides a tip, halves late ones, and takes fuel off the top", () => {
+    const fare = bodaFare(2000, false)
+    const quick = bodaPayout({ fare, meters: 2000, seconds: bodaExpectedSeconds(2000), fuelMeters: 2300 })
+    expect(quick.tip).toBeGreaterThan(0)
+    expect(quick.fuel).toBe(1380)
+    expect(quick.net).toBe(quick.fare + quick.tip - quick.fuel)
+    const late = bodaPayout({ fare, meters: 2000, seconds: bodaFullFareSeconds(2000) + 1, fuelMeters: 2300 })
+    expect(late.late).toBe(true)
+    expect(late.fare).toBe(2600)
+    expect(late.tip).toBe(0)
+    // Fuel never makes a ride cost money.
+    expect(bodaPayout({ fare: 500, meters: 500, seconds: 999, fuelMeters: 9000 }).net).toBe(0)
+  })
+
+  it("offers rides between a stage and a destination a sensible distance apart", () => {
+    const random = seeded(3)
+    for (let i = 0; i < 200; i++) {
+      const offer = makeBodaOffer(`b${i}`, Date.parse("2026-10-14T09:00:00Z"), random)
+      const meters = haversineDistanceMeters(findPlace(offer.pickupId)!.position, findPlace(offer.dropoffId)!.position)
+      expect(meters).toBeGreaterThanOrEqual(BODA_MIN_METERS)
+      expect(meters).toBeLessThanOrEqual(BODA_MAX_METERS)
+      expect(BODA_STAGES.some((stage) => stage.id === offer.pickupId)).toBe(true)
+    }
   })
 })

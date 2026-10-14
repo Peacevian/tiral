@@ -169,7 +169,7 @@ export function Hub(actions: HubActions) {
             hustle.available ? (
               <li key={hustle.id}>
                 <Link
-                  href="/hustle"
+                  href={`/hustle?gig=${hustle.id}`}
                   className="flex min-h-[56px] items-center gap-3 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 transition hover:bg-emerald-400/15"
                 >
                   <span aria-hidden className="text-2xl">

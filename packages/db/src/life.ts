@@ -295,3 +295,48 @@ export async function payHustle(
     return { ok: true, balance: await balanceOf(tx, input.userId) }
   })
 }
+
+export type BikeRentResult = { ok: true; charged: boolean; balance: number } | { ok: false; reason: "insufficient"; balance: number }
+
+/**
+ * Rent the stage bike for today (once per Kampala day). Returns charged=false
+ * if today's rent was already paid. Refuses if the player can't afford it.
+ */
+export async function rentBikeToday(
+  input: { userId: string; amount: number },
+  db: Database = getDatabase()
+): Promise<BikeRentResult> {
+  return db.transaction(async (tx) => {
+    await lockUser(tx, input.userId)
+    const day = kampalaDay(new Date())
+    const refId = `bike_rent:${day}`
+    const [existing] = await tx
+      .select({ id: coinLedger.id })
+      .from(coinLedger)
+      .where(and(eq(coinLedger.userId, input.userId), eq(coinLedger.reason, "bike_rent"), eq(coinLedger.refId, refId)))
+      .limit(1)
+    const balance = await balanceOf(tx, input.userId)
+    if (existing) return { ok: true, charged: false, balance }
+    if (balance < input.amount) return { ok: false, reason: "insufficient", balance }
+    await insertEntry(tx, { userId: input.userId, delta: -input.amount, reason: "bike_rent", refId, meta: { day } })
+    return { ok: true, charged: true, balance: balance - input.amount }
+  })
+}
+
+/**
+ * Charge fuel burned without a paid ride to cover it (e.g. at the end of a
+ * shift). Takes what the player has, never more; once per `refId`.
+ */
+export async function chargeFuel(
+  input: { userId: string; amount: number; refId: string },
+  db: Database = getDatabase()
+): Promise<number> {
+  if (input.amount <= 0) return 0
+  return db.transaction(async (tx) => {
+    await lockUser(tx, input.userId)
+    const charge = Math.min(Math.round(input.amount), await balanceOf(tx, input.userId))
+    if (charge <= 0) return 0
+    const inserted = await insertEntry(tx, { userId: input.userId, delta: -charge, reason: "fuel", refId: input.refId })
+    return inserted ? charge : 0
+  })
+}

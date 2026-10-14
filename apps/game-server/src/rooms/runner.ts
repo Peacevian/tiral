@@ -85,8 +85,10 @@ export function spendEnergy(runner: Runner, amount: number) {
 }
 
 export type StepOptions = {
-  /** Sprint drains this many times faster (carrying a load). */
+  /** Sprint drains this many times faster (carrying a load) or slower (on a bike). */
   sprintDrainFactor?: number
+  /** Base speed multiplier (a bike is ~2× walking). */
+  speedFactor?: number
 }
 
 /**
@@ -131,7 +133,11 @@ export function stepRunner(
 
   const distance =
     runner.roadPosition.distanceAlongEdge +
-    WALK_SPEED_METERS_PER_SECOND * speedMultiplier(sprinting, false) * deltaSeconds * runner.roadPosition.direction
+    WALK_SPEED_METERS_PER_SECOND *
+      (options.speedFactor ?? 1) *
+      speedMultiplier(sprinting, false) *
+      deltaSeconds *
+      runner.roadPosition.direction
   const reachedEnd = distance > edge.lengthMeters
   const reachedStart = distance < 0
 
