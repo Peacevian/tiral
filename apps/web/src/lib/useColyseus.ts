@@ -41,41 +41,53 @@ type RoomState = {
   players: Record<string, RoomPlayer>
 }
 
-export type HustleOffer = {
+type OfferBase = {
   id: string
   pickupId: string
   dropoffId: string
-  loadId: string
-  heavy: boolean
   meters: number
-  pay: number
   energy: number
-  timeLimitSeconds: number
   /** Local Date.now() time the offer disappears from the board. */
   expiresAt: number
 }
 
+export type HustleOffer =
+  | (OfferBase & { kind: "porter"; loadId: string; heavy: boolean; pay: number; timeLimitSeconds: number })
+  | (OfferBase & { kind: "boda"; passenger: string; fare: number; rush: boolean })
+
 export type HustleState = {
-  hustle: string
+  hustle: "porter" | "boda"
   startAt: { lat: number; lng: number } | null
   offers: HustleOffer[]
   job: {
     offer: HustleOffer
     stage: "to_pickup" | "carrying"
-    /** Local Date.now() time this stage must be done by. */
+    /** Local Date.now() time this stage must be done by (boda: the passenger gives up). */
     deadline: number
+    /** Boda: local time the full fare runs out (half fare after). */
+    fullFareDeadline: number | null
   } | null
   shift: { jobs: number; earned: number; failed: number }
+  boda: { bikeReady: boolean; rent: number; rush: boolean; fuel: number } | null
 }
 
 export type HustleReceipt =
-  | { jobId: string; paid: true; pay: number; load: string; meters: number; balance: number }
-  | { jobId: string; paid: false; reason: string; load: string; meters: number }
+  | {
+      jobId: string
+      paid: true
+      title: string
+      lines: Array<{ label: string; amount: number }>
+      net: number
+      meters: number
+      balance: number
+    }
+  | { jobId: string; paid: false; title: string; reason: string; meters: number }
 
 /** Latest thing to tell the player during a shift (receipt, failure, notice). */
 export type HustleEvent =
   | { kind: "receipt"; receipt: HustleReceipt; at: number }
-  | { kind: "failed"; reason: "abandoned" | "late" | "no_show"; at: number }
+  | { kind: "failed"; reason: "abandoned" | "late" | "no_show" | "gave_up"; at: number }
+  | { kind: "rented"; amount: number; at: number }
   | { kind: "notice"; text: string; at: number }
 
 export type RemotePositions = Record<
@@ -233,16 +245,24 @@ export function useColyseus({
     room.onMessage(
       "hustle",
       (next: Omit<HustleState, "offers" | "job"> & {
-        offers: Array<Omit<HustleOffer, "expiresAt"> & { expiresInMs: number }>
-        job: { offer: HustleOffer; stage: "to_pickup" | "carrying"; remainingMs: number } | null
+        offers: Array<HustleOffer & { expiresInMs: number }>
+        job: { offer: HustleOffer; stage: "to_pickup" | "carrying"; remainingMs: number; fullFareMs: number | null } | null
       }) => {
         const now = Date.now()
         setHustle({
           hustle: next.hustle,
           startAt: next.startAt,
-          offers: next.offers.map(({ expiresInMs, ...offer }) => ({ ...offer, expiresAt: now + expiresInMs })),
-          job: next.job ? { offer: next.job.offer, stage: next.job.stage, deadline: now + next.job.remainingMs } : null,
-          shift: next.shift
+          offers: next.offers.map(({ expiresInMs, ...offer }) => ({ ...offer, expiresAt: now + expiresInMs }) as HustleOffer),
+          job: next.job
+            ? {
+                offer: next.job.offer,
+                stage: next.job.stage,
+                deadline: now + next.job.remainingMs,
+                fullFareDeadline: next.job.fullFareMs === null ? null : now + next.job.fullFareMs
+              }
+            : null,
+          shift: next.shift,
+          boda: next.boda
         })
       }
     )
@@ -250,7 +270,11 @@ export function useColyseus({
       setHustleEvent({ kind: "receipt", receipt, at: Date.now() })
       if (receipt.paid) notifyCoinsChanged()
     })
-    room.onMessage("jobFailed", (failure: { reason: "abandoned" | "late" | "no_show" }) => {
+    room.onMessage("bikeRented", (rent: { amount: number }) => {
+      setHustleEvent({ kind: "rented", amount: rent.amount, at: Date.now() })
+      notifyCoinsChanged()
+    })
+    room.onMessage("jobFailed", (failure: { reason: "abandoned" | "late" | "no_show" | "gave_up" }) => {
       setHustleEvent({ kind: "failed", reason: failure.reason, at: Date.now() })
     })
     room.onMessage("notice", (text: string) => {

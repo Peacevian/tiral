@@ -15,6 +15,11 @@ import {
   type Trail
 } from "@tiral/avatars"
 import { RealisticAvatar } from "./RealisticAvatar"
+import { BikeRider } from "./bike/BikeRider"
+import type { BikeLook } from "@tiral/game-core"
+
+/** Wheel spin while riding (m/s, visual only). */
+const BIKE_WHEEL_SPEED = 9
 import { useMapOrigin } from "./ThreeLayer"
 
 type Avatar3DProps = {
@@ -31,6 +36,8 @@ type Avatar3DProps = {
   finishPosition?: number | null
   /** Down after sprinting on empty (Banange!). */
   collapsed?: boolean
+  /** Riding a boda (hustles): the bike, and an optional passenger on the back. */
+  bike?: { look: BikeLook; passenger?: boolean; passengerSeed?: string; plateSeed?: string } | null
 }
 
 // Model units (≈ metres in the avatar rig) → mercator units. Avatars are drawn
@@ -286,7 +293,8 @@ export function Avatar3D({
   name,
   isSelf = false,
   finishPosition = null,
-  collapsed = false
+  collapsed = false,
+  bike = null
 }: Avatar3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const displayRef = useRef<{ x: number; y: number } | null>(null)
@@ -323,13 +331,25 @@ export function Avatar3D({
             the model makes three.js flip front faces back so meshes aren't
             drawn inside-out. */}
         <group rotation={[Math.PI / 2, 0, 0]} scale={[-1, 1, 1]}>
-          <RealisticAvatar
-            loadout={loadout}
-            moving={moving}
-            pose={celebrating ? "dance" : "auto"}
-            gait="run"
-            act={collapsed ? "collapse" : undefined}
-          />
+          {bike ? (
+            <BikeRider
+              look={bike.look}
+              rider={loadout}
+              passenger={bike.passenger ?? false}
+              passengerSeed={bike.passengerSeed}
+              speed={moving ? BIKE_WHEEL_SPEED : 0}
+              plateSeed={bike.plateSeed}
+              mirroredText
+            />
+          ) : (
+            <RealisticAvatar
+              loadout={loadout}
+              moving={moving}
+              pose={celebrating ? "dance" : "auto"}
+              gait="run"
+              act={collapsed ? "collapse" : undefined}
+            />
+          )}
         </group>
         {(name || isSelf) && (
           <NameTag name={name ?? ""} isSelf={isSelf} finishPosition={finishPosition} rarity={rarity} />

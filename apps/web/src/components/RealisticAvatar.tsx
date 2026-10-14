@@ -447,7 +447,9 @@ function instantiate(scene: THREE.Object3D) {
   let skeleton: THREE.Skeleton | null = null
 
   root.traverse((object) => {
-    if ((object as THREE.Bone).isBone) bones.set(object.name, object as THREE.Bone)
+    // Leaf markers like "LowerLeg.L_end" are plain nodes, not bones; keep them
+    // too (the seated poses aim shins at them).
+    if ((object as THREE.Bone).isBone || object.name.endsWith("_end")) bones.set(object.name, object as THREE.Bone)
     const mesh = object as THREE.SkinnedMesh
     if (!mesh.isMesh) return
     mesh.castShadow = true
@@ -500,8 +502,18 @@ function instantiate(scene: THREE.Object3D) {
   root.updateMatrixWorld(true)
   const bindInverse = new Map<string, THREE.Matrix4>()
   for (const [name, bone] of bones) bindInverse.set(name, bone.matrixWorld.clone().invert())
+  // Each foot bone sits below the end of its shin (feet aren't children of the
+  // legs); keep that gap when seating the model.
+  const footOffset = new Map<string, THREE.Vector3>()
+  for (const side of ["L", "R"]) {
+    const foot = bones.get(`Foot${side}`)
+    const end = bones.get(`LowerLeg${side}_end`)
+    if (foot && end) {
+      footOffset.set(side, foot.getWorldPosition(new THREE.Vector3()).sub(end.getWorldPosition(new THREE.Vector3())))
+    }
+  }
 
-  return { root, parts, bones, bindInverse }
+  return { root, parts, bones, bindInverse, footOffset }
 }
 
 function setPattern(materials: THREE.MeshStandardMaterial[], mode: number, base: string, accent: string) {
@@ -572,18 +584,109 @@ function useNumberTexture(enabled: boolean) {
 
 export type AvatarPose = "auto" | "dance"
 
+// ---------------------------------------------------------------------------
+// Seated poses (riding a boda, or on the back of one). The model has no sitting
+// clip, so limbs are aimed at target directions every frame on top of the idle
+// clip. Directions are in model space: +Z forward, +Y up, +X the model's left.
+export type RidePose = "rider" | "passenger"
+
+type Aim = { bone: string; toward: string; direction: [number, number, number] }
+
+function sideAims(side: "L" | "R", legs: { thigh: number[]; shin: number[] }, arms: { upper: number[]; fore: number[] }): Aim[] {
+  const s = side === "L" ? 1 : -1
+  const mirror = (v: number[]): [number, number, number] => [v[0]! * s, v[1]!, v[2]!]
+  return [
+    { bone: `UpperLeg${side}`, toward: `LowerLeg${side}`, direction: mirror(legs.thigh) },
+    { bone: `LowerLeg${side}`, toward: `LowerLeg${side}_end`, direction: mirror(legs.shin) },
+    { bone: `UpperArm${side}`, toward: `LowerArm${side}`, direction: mirror(arms.upper) },
+    { bone: `LowerArm${side}`, toward: `Wrist${side}`, direction: mirror(arms.fore) }
+  ]
+}
+
+const RIDE_AIMS: Record<RidePose, Aim[]> = {
+  // Leaning a little forward, thighs along the tank, feet on the pegs, hands on the bars.
+  rider: [
+    { bone: "Torso", toward: "Neck", direction: [0, 1, 0.4] },
+    ...sideAims("L", { thigh: [0.24, -0.3, 1], shin: [0.04, -1, -0.62] }, { upper: [0.4, -0.75, 0.7], fore: [0.06, -0.2, 1] }),
+    ...sideAims("R", { thigh: [0.24, -0.3, 1], shin: [0.04, -1, -0.62] }, { upper: [0.4, -0.75, 0.7], fore: [0.06, -0.2, 1] })
+  ],
+  // Upright on the back, knees wider, hands resting on the thighs.
+  passenger: [
+    { bone: "Torso", toward: "Neck", direction: [0, 1, 0.06] },
+    ...sideAims("L", { thigh: [0.32, -0.18, 1], shin: [0.1, -1, -0.5] }, { upper: [0.22, -1, 0.28], fore: [0.12, -0.55, 1] }),
+    ...sideAims("R", { thigh: [0.32, -0.18, 1], shin: [0.1, -1, -0.5] }, { upper: [0.22, -1, 0.28], fore: [0.12, -0.55, 1] })
+  ]
+}
+
+const scratch = {
+  rootInverse: new THREE.Matrix4(),
+  matrix: new THREE.Matrix4(),
+  position: new THREE.Vector3(),
+  childPosition: new THREE.Vector3(),
+  scale: new THREE.Vector3(),
+  quaternion: new THREE.Quaternion(),
+  parentQuaternion: new THREE.Quaternion(),
+  delta: new THREE.Quaternion(),
+  current: new THREE.Vector3(),
+  target: new THREE.Vector3()
+}
+
+/** Bone position/rotation relative to the rig root (immune to any mirroring above it). */
+function relative(object: THREE.Object3D, rootInverse: THREE.Matrix4, position: THREE.Vector3, quaternion: THREE.Quaternion) {
+  scratch.matrix.multiplyMatrices(rootInverse, object.matrixWorld)
+  scratch.matrix.decompose(position, quaternion, scratch.scale)
+}
+
+function applyRidePose(rig: ReturnType<typeof instantiate>, pose: RidePose) {
+  const { root, bones } = rig
+  root.updateMatrixWorld(true)
+  scratch.rootInverse.copy(root.matrixWorld).invert()
+  for (const aim of RIDE_AIMS[pose]) {
+    const bone = bones.get(aim.bone)
+    const child = bones.get(aim.toward)
+    if (!bone || !child || !bone.parent) continue
+    relative(bone, scratch.rootInverse, scratch.position, scratch.quaternion)
+    relative(child, scratch.rootInverse, scratch.childPosition, scratch.delta)
+    scratch.current.subVectors(scratch.childPosition, scratch.position).normalize()
+    scratch.target.set(...aim.direction).normalize()
+    scratch.delta.setFromUnitVectors(scratch.current, scratch.target)
+    // New root-space rotation, expressed in the parent's frame.
+    scratch.quaternion.premultiply(scratch.delta)
+    relative(bone.parent, scratch.rootInverse, scratch.position, scratch.parentQuaternion)
+    bone.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
+    bone.updateMatrixWorld(true)
+  }
+  // The feet are separate bones (not children of the shins): carry each along
+  // with its shin's end, keeping the bind-pose gap so the shoe isn't stretched.
+  for (const side of ["L", "R"] as const) {
+    const foot = bones.get(`Foot${side}`)
+    const end = bones.get(`LowerLeg${side}_end`)
+    const offset = rig.footOffset.get(side)
+    if (!foot || !end || !foot.parent || !offset) continue
+    // The offset is in model space: add it there, then back out to world space
+    // (the map rotates and mirrors the model).
+    end.getWorldPosition(scratch.childPosition)
+    root.worldToLocal(scratch.childPosition).add(offset)
+    root.localToWorld(scratch.childPosition)
+    foot.position.copy(foot.parent.worldToLocal(scratch.childPosition))
+    foot.updateMatrixWorld(true)
+  }
+}
+
 function HumanAvatar({
   loadout,
   moving,
   pose,
   gait,
-  act
+  act,
+  ride
 }: {
   loadout: AvatarLoadout
   moving: boolean
   pose: AvatarPose
   gait: "walk" | "run"
   act?: AvatarAct
+  ride?: RidePose
 }) {
   const { scene, animations } = useGLTF(MODEL_URL)
   const rig = useMemo(() => instantiate(scene), [scene])
@@ -621,7 +724,9 @@ function HumanAvatar({
   // Animation state machine with short cross-fades.
   const clip = act
     ? ACT_CLIPS[act]
-    : pose === "dance"
+    : ride
+      ? CLIPS.idle
+      : pose === "dance"
       ? CLIPS.dance
       : moving
         ? CLIPS[gait]
@@ -668,6 +773,12 @@ function HumanAvatar({
     }
   })
 
+  // Seated: aim the limbs after the mixer has applied this frame's idle pose
+  // (registered after useAnimations, so it runs after it).
+  useFrame(() => {
+    if (ride && !act) applyRidePose(rig, ride)
+  })
+
   const robe = outfit === "kanzu" ? KANZU_COLOR : outfit === "gomesi" ? shirt : null
 
   return (
@@ -689,7 +800,8 @@ function HumanAvatar({
       </OnBone>
 
       <OnBone rig={rig} bone="Chest">
-        <Backpack color={resolved.backpack} />
+        {/* Seated on a boda, a backpack would push into whoever sits behind. */}
+        {!ride && <Backpack color={resolved.backpack} />}
         {outfit === "jersey" && numberTexture && (
           <mesh position={[0, 1.3, 0.195]}>
             <planeGeometry args={[0.13, 0.13]} />
@@ -767,7 +879,8 @@ export function RealisticAvatar({
   moving,
   pose = "auto",
   gait = "walk",
-  act
+  act,
+  ride
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -777,12 +890,14 @@ export function RealisticAvatar({
   gait?: "walk" | "run"
   /** Scripted beat; overrides pose/moving (storytelling scenes only). */
   act?: AvatarAct
+  /** Seated on a boda (rider or passenger); hips stay where the caller puts the model's origin. */
+  ride?: RidePose
   /** Kept for callers; the rigged model is light enough to use everywhere. */
   detail?: "full" | "lite"
 }) {
   return (
     <Suspense fallback={null}>
-      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} />
+      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} />
     </Suspense>
   )
 }

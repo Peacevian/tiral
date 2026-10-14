@@ -899,6 +899,47 @@ browser check on phone and desktop.
 - Show other players' boda riders on the map (ghosts) for life, without
   interaction? Proposed: later; nice for "the city feels busy".
 
+### 16.10 Bikes — ownership, upkeep and decoration (agreed 14 Oct 2026)
+
+**Decisions:** a real 3D bike model (worth the extra work); the map stays on
+Kampala city; fuel shortfalls come out of the fare for now; **made-up bike
+names** modelled on real types; **20 fixed mudflap slogans** to start;
+the **electric Zembo E** ships in H2a; decorations are **cosmetic only**
+(no stats, no rep bonus).
+
+**Lineup**
+| Bike | Based on | Speed | Fuel | Comfort | Durability | Price | Get it |
+|---|---|---|---|---|---|---|---|
+| Stage rental | tired 100cc | ★★ | ★★ | ★ | ★ | 10,000/day | rent at a stage (H1b) |
+| Boxa 100 | Boxer-type workhorse | ★★★ | ★★★★ | ★★ | ★★★★ | 450,000 | buy / lease |
+| Star 125 | Star-type 125 | ★★★ | ★★★ | ★★★ | ★★★ | 550,000 | buy / lease |
+| Dragon 150 | Chinese 150cc | ★★★★ | ★★ | ★★ | ★★ | 600,000 | buy |
+| Zembo E | electric boda | ★★★ | battery swaps | ★★★ | ★★★★ | 700,000 | lease only |
+
+Speed = trip time; fuel = cost per km; comfort = slower patience drain and
+better tips; durability = breakdown chance (a shock: repair cost, ride ends).
+
+**Upkeep:** wear per km raises breakdown odds; garage service resets it
+(5k–15k by bike); missed lease → repossessed after a week's grace; later,
+rent your bike out (passive income, small damage risk).
+
+**Decoration (cosmetic only, priced by rarity):** paint and tank stripes;
+seat covers (plain, fluffy, leopard, tartan, team colours); mudflap slogans
+(fixed list of 20, e.g. "God's Plan", "Maama's Prayers", "Mukama Yamba",
+"No Hurry in Africa", "Sente Ziruma"); stickers (generic clubs, flags,
+flames); grips, tassels, mirrors; LED underglow and lamp colours; crash bars,
+rack, phone holder, grab rail; rider gear (vests, helmets, gloves, poncho).
+
+**3D:** procedural low-poly bike from primitives (like the house builder),
+each part a separate mesh so paint/seat/decals/extras swap; avatar posed
+seated, wheels spin, slight lean into turns; a seated passenger during
+rides. Seen in boda shifts, the Garage, and later as a cosmetic ride to race
+starts (races stay on foot).
+
+**Revised steps:** H1b-1 bike model + riding pose + rental bike → H1b-2 boda
+passengers → H2a garage & ownership (lease/buy, stats, wear, service,
+breakdowns, Zembo E) → H2b customisation shop → H2c app delivery.
+
 ---
 
 ## 15. Revision log
