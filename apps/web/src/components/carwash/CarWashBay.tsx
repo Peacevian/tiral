@@ -265,23 +265,6 @@ function CarBody({ layout }: { layout: CarLayout }) {
 }
 
 function Bay() {
-  const sign = useMemo(() => {
-    if (typeof document === "undefined") return null
-    const canvas = document.createElement("canvas")
-    canvas.width = 512
-    canvas.height = 128
-    const ctx = canvas.getContext("2d")!
-    ctx.fillStyle = "#1d4ed8"
-    ctx.fillRect(0, 0, 512, 128)
-    ctx.fillStyle = "#facc15"
-    ctx.font = "900 54px system-ui, sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillText("NAKIVUBO CAR WASH", 256, 66)
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.colorSpace = THREE.SRGBColorSpace
-    return texture
-  }, [])
   return (
     <group>
       {/* Wet concrete with a drain */}
@@ -293,17 +276,6 @@ function Bay() {
         <planeGeometry args={[0.25, 7]} />
         <meshStandardMaterial color="#1f2937" />
       </mesh>
-      {/* Back wall and sign */}
-      <mesh position={[0, 1.6, -5.5]} receiveShadow>
-        <boxGeometry args={[14, 3.2, 0.3]} />
-        <meshStandardMaterial color="#d6d3d1" roughness={0.9} />
-      </mesh>
-      {sign && (
-        <mesh position={[0, 2.6, -5.33]}>
-          <planeGeometry args={[4.4, 1.1]} />
-          <meshBasicMaterial map={sign} />
-        </mesh>
-      )}
       {/* Bucket and hose reel */}
       <group position={[-3.2, 0, -2.2]}>
         <mesh position={[0, 0.22, 0]} castShadow>
@@ -315,7 +287,7 @@ function Bay() {
           <meshStandardMaterial color="#e0f2fe" />
         </mesh>
       </group>
-      <mesh position={[3.6, 0.5, -4.8]} rotation={[0, 0, 0]} castShadow>
+      <mesh position={[3.6, 0.06, -4.2]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
         <torusGeometry args={[0.4, 0.06, 8, 24]} />
         <meshStandardMaterial color="#16a34a" />
       </mesh>
@@ -345,20 +317,29 @@ function Worker({ loadout, layout }: { loadout: AvatarLoadout; layout: CarLayout
  * The camera walks around the car in 45° steps (buttons only), at a raised
  * angle so the roof is reachable. Dragging never moves it: every drag washes.
  */
-function CameraRig({ step }: { step: number }) {
+function CameraRig({ step, showcase }: { step: number; showcase?: boolean }) {
   const { camera, size } = useThree()
   const angle = useRef(step * (Math.PI / 4))
   // On a tall phone screen, widen the lens and step back so the whole car fits.
   const aspect = size.width / Math.max(1, size.height)
-  const radius = aspect < 1 ? 7.4 * Math.min(1.5, 0.9 / aspect) : 7.4
+  const radius = (aspect < 1 ? 7.4 * Math.min(1.5, 0.9 / aspect) : 7.4) * (showcase && aspect >= 1 ? 1.3 : 1)
   useEffect(() => {
     const lens = camera as THREE.PerspectiveCamera
     lens.fov = aspect < 1 ? 60 : 42
+    // The start screen's card covers the bottom (phones) or the left (wide
+    // screens), so slide the view to keep the car in the open part.
+    if (showcase) {
+      if (aspect < 1) lens.setViewOffset(size.width, size.height, 0, -size.height * 0.26, size.width, size.height)
+      else lens.setViewOffset(size.width, size.height, -size.width * 0.16, 0, size.width, size.height)
+    } else lens.clearViewOffset()
     lens.updateProjectionMatrix()
-  }, [camera, aspect])
+  }, [camera, aspect, showcase, size.width, size.height])
   useFrame((_, delta) => {
-    const target = step * (Math.PI / 4)
-    angle.current += (target - angle.current) * Math.min(1, delta * 5)
+    if (showcase) angle.current += delta * 0.12
+    else {
+      const target = step * (Math.PI / 4)
+      angle.current += (target - angle.current) * Math.min(1, delta * 5)
+    }
     camera.position.set(Math.sin(angle.current) * radius, 3.8 + (radius - 7.4) * 0.3, Math.cos(angle.current) * radius)
     camera.lookAt(0, 0.9, 0)
   })
@@ -372,6 +353,7 @@ function Scene({
   tool,
   loadout,
   step,
+  showcase,
   onWash
 }: {
   carId: string | null
@@ -380,6 +362,7 @@ function Scene({
   tool: WashTool
   loadout: AvatarLoadout
   step: number
+  showcase?: boolean
   onWash(zone: number, tool: WashTool): void
 }) {
   const layout = useMemo(() => (carType && carId ? carLayout(carType, carId) : null), [carType, carId])
@@ -440,6 +423,7 @@ function Scene({
   }, [])
 
   const onWork = (panel: ZonePanel, event: ThreeEvent<PointerEvent>, start: boolean) => {
+    if (showcase) return
     if (cursor.current) {
       cursor.current.position.copy(event.point)
       cursor.current.visible = true
@@ -494,7 +478,7 @@ function Scene({
       </mesh>
       <Spray emitRef={emitRef} />
       <Worker loadout={loadout} layout={layout} />
-      <CameraRig step={step} />
+      <CameraRig step={step} showcase={showcase} />
     </>
   )
 }
@@ -506,17 +490,20 @@ export function CarWashBay(props: {
   zones: BayZone[]
   tool: WashTool
   loadout: AvatarLoadout
+  /** A slowly turning, hands-off view for the start screen. */
+  showcase?: boolean
   onWash(zone: number, tool: WashTool): void
 }) {
   // Camera position around the car, in 45° steps (front-left to start).
   const [step, setStep] = useState(1)
   return (
-    <div className="absolute inset-0">
+    <div className={`absolute inset-0 ${props.showcase ? "pointer-events-none" : ""}`}>
       <Canvas shadows camera={{ position: [5.2, 3.2, 5.6], fov: 42 }} gl={{ antialias: true }} dpr={[1, 2]} style={{ touchAction: "none" }}>
         <color attach="background" args={["#0f172a"]} />
         <fog attach="fog" args={["#0f172a", 14, 26]} />
         <Scene {...props} step={step} />
       </Canvas>
+      {!props.showcase && (
       <div className="pointer-events-none absolute inset-x-0 bottom-[7.5rem] flex justify-between px-3">
         <button
           type="button"
@@ -535,6 +522,7 @@ export function CarWashBay(props: {
           ↻
         </button>
       </div>
+      )}
     </div>
   )
 }
