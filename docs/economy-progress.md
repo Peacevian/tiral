@@ -948,7 +948,7 @@ breakdowns, Zembo E) → H2b customisation shop → H2c app delivery.
 | H2a Own a bike (buy/lease, wear, service, breakdowns) | shipped |
 | H2b Customisation shop | shipped |
 | **H2c App delivery** | **parked** — spec in §16.12, ready to build |
-| H3 Rolex stand + car wash | shipped (car wash as a 3D bay; 3D rolex stand next) |
+| H3 Rolex stand + car wash | shipped (both as 3D scenes) |
 | H4 Mobile money booth + renting out your bike | next |
 
 ### 16.12 H2c — App delivery ("TiralEats", parked)
@@ -986,9 +986,20 @@ customers/cars and scores timing; the client only sends taps.
 - **Stock first:** buy ingredient packs before the shift — 5 rolexes 6,000 or
   10 rolexes 12,000 (1,200 each). Leftover stock **spoils** at the end of the
   shift (money lost).
-- **Customers** queue with patience bars; each wants 1–2 rolexes at 2,000.
-- **Cooking (timing):** tap a customer to start; the egg cooks for ~3–4.5 s;
-  tap **Flip** inside the green window. Perfect (middle of the window) = +500
+- **3D stall:** a wooden counter under a striped umbrella on a Kampala
+  roadside: charcoal stove and hot plate, egg tray, mixing bowl, chopping
+  board (tomato, onion, cabbage), chapati stack. You stand behind the
+  counter; customers walk up, queue at the counter and walk off when served
+  or fed up.
+- **Customers** queue with patience bars (60 s, raised from 35 s because of
+  the prep steps); each wants 1–2 rolexes at 2,000.
+- **Cooking:** tap a customer, then **crack 2 eggs**, **add the veg**,
+  **whisk**, and **pour** on the hot plate (each step is a tap on the thing on
+  the counter, or the big action button). The prep is client-side; pouring
+  sends `cook` and the server starts the clock. You can prep the next bowl
+  while an egg fries. The egg browns as it cooks (~3–4.5 s); tap **Flip**
+  inside the green window, then the chapati goes on, gets rolled and is
+  handed to the customer. Perfect (middle of the window) = +500
   tip; early = raw, half price; late = **burnt**, ingredients wasted, cook
   again. Server timestamps the start and the flip.
 - **KCCA raid** (chance per shift by spot): "KCCA! Pack up!" — tap **Run**
@@ -1056,3 +1067,6 @@ migration. The /hustle page shows a stall screen for these gigs.
 - **15 Oct 2026** — H3 built. Car wash rebuilt as a real 3D washing bay
   (soap, scrub, rinse per panel; see §16.13). Rolex stand gets the same 3D
   treatment next, then H4.
+- **15 Oct 2026** — Rolex stand rebuilt as a 3D stall: walking customers,
+  crack/veg/whisk/pour prep, egg that browns on the hot plate, flip, roll and
+  hand-over. Customer patience 35 → 60 s.

@@ -30,7 +30,7 @@ export const ROLEX_PERFECT_TIP = 500
 export const ROLEX_SHIFTS_PER_DAY = 2
 export const ROLEX_ENERGY_PER_ROLEX = 1.5
 /** Customers wait this long before walking off. */
-export const ROLEX_PATIENCE_SECONDS = 35
+export const ROLEX_PATIENCE_SECONDS = 60
 /** The egg is ready to flip from `start` to `end` seconds after cooking starts. */
 export const ROLEX_FLIP_WINDOW = { start: 3, end: 4.5 } as const
 /** "Perfect" is within this many seconds of the window's middle. */
