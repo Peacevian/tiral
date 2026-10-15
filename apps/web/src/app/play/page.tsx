@@ -219,11 +219,15 @@ export default function Home() {
     const up = (event: KeyboardEvent) => {
       if (event.key === "Shift") setSprint(false)
     }
+    // Switching tabs while holding Shift never sends the keyup: stop sprinting.
+    const release = () => setSprint(false)
     window.addEventListener("keydown", down)
     window.addEventListener("keyup", up)
+    window.addEventListener("blur", release)
     return () => {
       window.removeEventListener("keydown", down)
       window.removeEventListener("keyup", up)
+      window.removeEventListener("blur", release)
     }
   }, [setSprint])
   speedRef.current = collapsed ? 0 : sprinting ? SPRINT_MULTIPLIER : 1
@@ -527,13 +531,18 @@ export default function Home() {
 
   return (
     <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950">
-      <MapView
-        center={fallbackStart.position}
-        zoom={15}
-        pitch={48}
-        bearing={-18}
-        onMapReady={onMapReady}
-      />
+      {/* Same element type and position as the lobby screen's map wrapper, so
+          React keeps the one map (no teardown, refetch or blank flash) when a
+          race is joined or left. */}
+      <div className="absolute inset-0">
+        <MapView
+          center={fallbackStart.position}
+          zoom={15}
+          pitch={48}
+          bearing={-18}
+          onMapReady={onMapReady}
+        />
+      </div>
 
       {map && (
         <ThreeLayer map={map}>

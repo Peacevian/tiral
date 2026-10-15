@@ -30,6 +30,7 @@ import {
   MessageThrottle,
   NEEDS_FLUSH_MS,
   REFRESH_NEEDS_MS,
+  guarded,
   freshBody,
   spendEnergy,
   type Runner
@@ -120,10 +121,16 @@ export class StallRoom extends Room {
       }
     })
 
-    this.tickInterval = setInterval(() => this.tick(), TICK_MS)
-    this.flushInterval = setInterval(() => {
-      if (this.worker) void this.body.flush([this.worker])
-    }, NEEDS_FLUSH_MS)
+    this.tickInterval = setInterval(guarded("stall tick", () => this.tick()), TICK_MS)
+    this.flushInterval = setInterval(
+      guarded("stall needs flush", () => (this.worker ? this.body.flush([this.worker]) : undefined)),
+      NEEDS_FLUSH_MS
+    )
+  }
+
+  /** An error in a message handler or room method: log it, keep the server alive. */
+  onUncaughtException(error: unknown, methodName: string) {
+    console.error(`[stall ${this.roomId}] ${methodName} failed:`, error)
   }
 
   onJoin(client: Client, _options: any, auth?: JoinIdentity) {
@@ -250,20 +257,28 @@ export class StallRoom extends Room {
       this.tell("stallEvent", { kind: "customer_left", mood })
       return
     }
-    this.summary.earned += customer.earned
-    this.summary.served += customer.served
+    // Count and announce the sale only once the ledger has it ("duplicate"
+    // means it was already recorded), so the summary never shows unpaid money.
+    let paid = false
     try {
-      await payHustle({
+      const result = await payHustle({
         userId: worker.userId,
         hustle: "rolex",
         jobId: `${this.roomId}:${customer.id}`,
         net: customer.earned,
         meta: { rolexes: customer.served, spot: this.spotId }
       })
+      paid = result.ok || result.reason === "duplicate"
     } catch (error) {
       console.error("Failed to pay rolex sale:", error)
     }
-    this.tell("stallEvent", { kind: "sale", amount: customer.earned, rolexes: customer.served, mood })
+    if (paid) {
+      this.summary.earned += customer.earned
+      this.summary.served += customer.served
+      this.tell("stallEvent", { kind: "sale", amount: customer.earned, rolexes: customer.served, mood })
+    } else {
+      this.tell("notice", "That sale didn't go through (payment error). Keep cooking, the next one should.")
+    }
     this.sendState()
   }
 

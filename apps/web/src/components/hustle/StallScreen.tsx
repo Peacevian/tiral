@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import {
@@ -76,6 +76,7 @@ function BackToBase() {
 const CAR_ICONS: Record<string, string> = { saloon: "🚗", suv: "🚙", taxi: "🚐" }
 
 const NO_CUSTOMERS: never[] = []
+const NO_ZONES: never[] = []
 const noop = () => {}
 
 /**
@@ -422,18 +423,23 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
   const labels = useMemo(() => (car ? carLayout(car.type, car.id).zones.map((zone) => zone.label) : []), [car?.type, car?.id])
   useEffect(() => setFocus(null), [car?.id])
   const focused = car && focus !== null ? car.zones[focus] : null
+  // Stable for the memoised 3D bay (this screen re-renders every 80 ms).
+  const onWash = useCallback(
+    (zone: number, washTool: WashTool) => {
+      setFocus(zone)
+      send("wash", { zone, tool: washTool })
+    },
+    [send]
+  )
   return (
     <div className="fixed inset-0 z-10">
       <CarWashBay
         carId={car?.id ?? null}
         carType={car?.type ?? null}
-        zones={car?.zones ?? []}
+        zones={car?.zones ?? NO_ZONES}
         tool={tool}
         loadout={loadout}
-        onWash={(zone, washTool) => {
-          setFocus(zone)
-          send("wash", { zone, tool: washTool })
-        }}
+        onWash={onWash}
       />
       {/* Top: the car, the clock and how clean it is. */}
       <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+3.5rem)] mx-auto w-[min(94vw,40rem)] px-1">
