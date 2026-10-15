@@ -656,8 +656,18 @@ function applyRidePose(rig: ReturnType<typeof instantiate>, pose: RidePose) {
     bone.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
     bone.updateMatrixWorld(true)
   }
-  // The feet are separate bones (not children of the shins): carry each along
-  // with its shin's end, keeping the bind-pose gap so the shoe isn't stretched.
+  attachFeet(rig)
+}
+
+/**
+ * The feet are separate bones (not children of the shins): carry each along
+ * with its shin's end, keeping the bind-pose gap so the shoe isn't stretched.
+ * Clips that don't animate the feet (Idle, Wave, …) would otherwise leave them
+ * where the T-pose put them, 12–19 cm from the ankles.
+ */
+function attachFeet(rig: ReturnType<typeof instantiate>) {
+  const { root, bones } = rig
+  root.updateMatrixWorld(true)
   for (const side of ["L", "R"] as const) {
     const foot = bones.get(`Foot${side}`)
     const end = bones.get(`LowerLeg${side}_end`)
@@ -775,8 +785,14 @@ function HumanAvatar({
 
   // Seated: aim the limbs after the mixer has applied this frame's idle pose
   // (registered after useAnimations, so it runs after it).
+  // Otherwise, keep the feet on the ankles for clips that don't move them.
+  const clipMovesFeet = useMemo(
+    () => animations.find((candidate) => candidate.name === clip)?.tracks.some((track) => track.name.startsWith("Foot")) ?? false,
+    [animations, clip]
+  )
   useFrame(() => {
     if (ride && !act) applyRidePose(rig, ride)
+    else if (!clipMovesFeet) attachFeet(rig)
   })
 
   const robe = outfit === "kanzu" ? KANZU_COLOR : outfit === "gomesi" ? shirt : null
