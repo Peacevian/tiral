@@ -110,7 +110,7 @@ export type StallState = {
 export type StallEvent =
   | { kind: "sale"; amount: number; rolexes: number; mood: string; at: number }
   | { kind: "customer_left"; mood: string; at: number }
-  | { kind: "car_done"; car: string; pay: number; tip: number; soap: number; net: number; cleanShare: number; paid: boolean; limit: boolean; at: number }
+  | { kind: "car_done"; car: string; pay: number; tip: number; soap: number; net: number; cleanShare: number; paid: boolean; limit: boolean; unpaid?: "guest" | "error" | null; at: number }
   | { kind: "notice"; text: string; at: number }
 
 /** Latest thing to tell the player during a shift (receipt, failure, notice). */

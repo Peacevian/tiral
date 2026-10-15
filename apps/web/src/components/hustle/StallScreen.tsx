@@ -71,84 +71,147 @@ function BackToBase() {
   )
 }
 
+const CAR_ICONS: Record<string, string> = { saloon: "🚗", suv: "🚙", taxi: "🚐" }
+
+/** Before a shift: the bay (or stall) behind, and a card to start from. */
 function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; onStart(spot: string, pack: string): void; busy: boolean; error: string | null }) {
   const { player } = usePlayer()
+  const loadout = useMyLoadout()
   const info = findHustle(gig)!
   const [spot, setSpot] = useState<string>(ROLEX_SPOTS[0].id)
   const [pack, setPack] = useState<string>(ROLEX_PACKS[1].id)
   const packPrice = ROLEX_PACKS.find((candidate) => candidate.id === pack)?.price ?? 0
+  const energy = player ? Math.round(player.needs.energy) : 0
   return (
-    <Card className="mx-auto w-full max-w-md !bg-slate-950/95 shadow-2xl">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">Hustle</div>
-      <h1 className="mt-1 text-xl font-black">
-        {info.icon} {info.name}
-      </h1>
-      {gig === "rolex" ? (
-        <>
-          <p className="mt-1 text-sm leading-snug text-slate-300">
-            Buy ingredients, then cook rolexes to order: flip the egg at the right moment. Unsold stock spoils, and KCCA
-            raids stalls. 2 shifts a day.
-          </p>
-          <SectionLabel>Where</SectionLabel>
-          <div className="grid grid-cols-3 gap-1.5">
-            {ROLEX_SPOTS.map((candidate) => (
-              <button
-                key={candidate.id}
-                type="button"
-                onClick={() => setSpot(candidate.id)}
-                aria-pressed={spot === candidate.id}
-                className={`rounded-xl border p-2 text-left text-xs ${spot === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
-              >
-                <span className="block font-black text-white">{candidate.name}</span>
-                <span className="block text-[10px] text-slate-400">
-                  {candidate.customersPerMinute >= 5 ? "busiest" : candidate.customersPerMinute >= 4 ? "busy" : "quieter"} · KCCA{" "}
-                  {Math.round(candidate.raidChance * 100)}%
-                </span>
-              </button>
-            ))}
-          </div>
-          <SectionLabel>Stock</SectionLabel>
-          <div className="grid grid-cols-2 gap-1.5">
-            {ROLEX_PACKS.map((candidate) => (
-              <button
-                key={candidate.id}
-                type="button"
-                onClick={() => setPack(candidate.id)}
-                aria-pressed={pack === candidate.id}
-                className={`rounded-xl border p-2 text-left text-xs ${pack === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
-              >
-                <span className="block font-black text-white">{candidate.rolexes} rolexes</span>
-                <span className="block font-mono text-amber-200">{formatCoins(candidate.price)} BNG</span>
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-[11px] text-slate-400">Each rolex sells for 2,000 (+500 tip if perfect).</p>
-        </>
+    <div className="fixed inset-0 z-10 overflow-y-auto">
+      {gig === "carwash" ? (
+        <div className="fixed inset-0">
+          <CarWashBay showcase carId="showcase" carType="saloon" zones={[]} tool="soap" loadout={loadout} onWash={() => {}} />
+        </div>
       ) : (
-        <p className="mt-1 text-sm leading-snug text-slate-300">
-          Cars pull into the washing bay: soap each muddy panel, scrub the mud off and rinse it, all before the driver loses
-          patience. Saloon 8,000 · SUV 12,000 · taxi 15,000, minus 500 soap. 4 paid cars a day.
-        </p>
+        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.18),transparent_60%),linear-gradient(to_bottom,#0f172a,#020617)]" />
       )}
-      {player && (
-        <p className="mt-2 text-xs text-slate-400">
-          Balance <span className="font-mono font-bold text-amber-200">{formatCoins(player.balance)}</span> · energy{" "}
-          {Math.round(player.needs.energy)}/100
-        </p>
-      )}
-      {error && <p className="mt-2 text-xs font-bold text-rose-300">{error}</p>}
-      <div className="mt-4 flex gap-2">
-        <BackToBase />
-        <ActionButton
-          variant="primary"
-          className="flex-[2]"
-          disabled={busy || !player || (gig === "rolex" && player.balance < packPrice)}
-          onClick={() => onStart(spot, pack)}
-        >
-          {busy ? "Opening…" : gig === "rolex" ? `Buy stock and open · ${formatCoins(packPrice)}` : "Start washing"}
-        </ActionButton>
+      {/* Fade the scene behind the card: from the bottom on phones, from the left on wide screens. */}
+      <div className="pointer-events-none fixed inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent md:bg-gradient-to-r md:from-slate-950/95 md:via-slate-950/40" />
+      <div className="relative flex min-h-full items-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[45vh] md:items-center md:px-12 md:py-10">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950/80 p-5 shadow-2xl backdrop-blur-xl">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
+            Hustle{gig === "carwash" ? " · Nakivubo washing bay" : ""}
+          </div>
+          <h1 className="mt-1 text-2xl font-black text-white">
+            {info.icon} {info.name}
+          </h1>
+          {gig === "rolex" ? (
+            <>
+              <p className="mt-1 text-sm leading-snug text-slate-300">
+                Buy ingredients, then cook rolexes to order: flip the egg at the right moment. Unsold stock spoils, and KCCA
+                raids stalls. 2 shifts a day.
+              </p>
+              <SectionLabel>Where</SectionLabel>
+              <div className="grid grid-cols-3 gap-1.5">
+                {ROLEX_SPOTS.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => setSpot(candidate.id)}
+                    aria-pressed={spot === candidate.id}
+                    className={`rounded-xl border p-2 text-left text-xs ${spot === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
+                  >
+                    <span className="block font-black text-white">{candidate.name}</span>
+                    <span className="block text-[10px] text-slate-400">
+                      {candidate.customersPerMinute >= 5 ? "busiest" : candidate.customersPerMinute >= 4 ? "busy" : "quieter"} · KCCA{" "}
+                      {Math.round(candidate.raidChance * 100)}%
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <SectionLabel>Stock</SectionLabel>
+              <div className="grid grid-cols-2 gap-1.5">
+                {ROLEX_PACKS.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => setPack(candidate.id)}
+                    aria-pressed={pack === candidate.id}
+                    className={`rounded-xl border p-2 text-left text-xs ${pack === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
+                  >
+                    <span className="block font-black text-white">{candidate.rolexes} rolexes</span>
+                    <span className="block font-mono text-amber-200">{formatCoins(candidate.price)} BNG</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">Each rolex sells for 2,000 (+500 tip if perfect).</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-sm leading-snug text-slate-300">
+                Drivers pull in covered in Kampala mud. Wash every panel before they lose patience.
+              </p>
+              <ol className="mt-4 grid grid-cols-3 gap-1.5">
+                {TOOLS.map((entry, index) => (
+                  <li key={entry.id} className="flex flex-col items-center rounded-2xl border border-white/10 bg-white/5 px-1 py-2 text-center">
+                    <span aria-hidden className="text-xl">
+                      {entry.icon}
+                    </span>
+                    <span className="text-xs font-black text-white">
+                      {index + 1}. {entry.label}
+                    </span>
+                    <span className="text-[10px] leading-tight text-slate-400">{entry.hint}</span>
+                  </li>
+                ))}
+              </ol>
+              <SectionLabel>Cars</SectionLabel>
+              <div className="grid grid-cols-3 gap-1.5">
+                {CAR_TYPES.map((car) => (
+                  <div key={car.id} className="rounded-2xl border border-white/10 bg-white/5 p-2 text-center">
+                    <span aria-hidden className="block text-2xl">
+                      {CAR_ICONS[car.id]}
+                    </span>
+                    <span className="block text-xs font-black text-white">{car.id === "taxi" ? "Matatu" : car.id === "saloon" ? "Saloon" : car.name}</span>
+                    <span className="block font-mono text-sm font-black text-amber-200">{formatCoins(car.pay)}</span>
+                    <span className="block text-[10px] text-slate-400">
+                      {car.zones} panels · {car.seconds / 60} min
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] leading-snug text-slate-400">
+                500 soap comes off each car. Under 70% clean, the driver won&apos;t pay. 4 paid cars a day.
+              </p>
+            </>
+          )}
+          {player && (
+            <div className="mt-4 grid grid-cols-2 gap-1.5 text-xs">
+              <div className="rounded-xl bg-white/5 px-3 py-2">
+                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Balance</span>
+                <span className="font-mono font-black text-amber-200">{formatCoins(player.balance)}</span>
+              </div>
+              <div className="rounded-xl bg-white/5 px-3 py-2">
+                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Energy</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-mono font-black text-white">{energy}</span>
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                    <span className={`block h-full rounded-full ${energy < 25 ? "bg-rose-400" : "bg-emerald-400"}`} style={{ width: `${energy}%` }} />
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+          {error && <p className="mt-2 text-xs font-bold text-rose-300">{error}</p>}
+          <div className="mt-4 flex gap-2">
+            <BackToBase />
+            <ActionButton
+              variant="primary"
+              className="flex-[2]"
+              disabled={busy || !player || (gig === "rolex" && player.balance < packPrice)}
+              onClick={() => onStart(spot, pack)}
+            >
+              {busy ? "Opening…" : gig === "rolex" ? `Buy stock and open · ${formatCoins(packPrice)}` : "🧽 Start washing"}
+            </ActionButton>
+          </div>
+        </div>
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -515,6 +578,10 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
                 </span>
               ) : toast.limit ? (
                 <span className="text-amber-300">That&apos;s 4 cars today: no more paid washes until tomorrow.</span>
+              ) : toast.unpaid === "guest" ? (
+                <span className="text-amber-300">Sign in to get paid for washes.</span>
+              ) : toast.unpaid === "error" ? (
+                <span className="text-rose-300">The driver was happy, but the payment didn&apos;t go through. Try the next car.</span>
               ) : (
                 <span className="text-rose-300">Only {Math.round(toast.cleanShare * 100)}% clean: the driver refused to pay.</span>
               )

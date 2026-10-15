@@ -323,6 +323,9 @@ export class StallRoom extends Room {
     spendEnergy(worker, CAR_WASH_ENERGY)
     let paid = false
     let limit = false
+    // Why a clean enough car still wasn't paid: no account, or the payment failed.
+    let unpaid: "guest" | "error" | null = null
+    if (payout.net > 0 && !worker.userId) unpaid = "guest"
     if (payout.net > 0 && worker.userId) {
       try {
         const result = await payHustle({
@@ -338,13 +341,14 @@ export class StallRoom extends Room {
       } catch (error) {
         console.error("Failed to pay car wash:", error)
       }
+      if (!paid && !limit) unpaid = "error"
     }
     if (paid) {
       this.summary.earned += payout.net
       this.summary.served++
       this.carsDone++
     }
-    this.tell("stallEvent", { kind: "car_done", car: car.typeId, ...payout, paid, limit })
+    this.tell("stallEvent", { kind: "car_done", car: car.typeId, ...payout, paid, limit, unpaid })
     this.sendState()
   }
 
