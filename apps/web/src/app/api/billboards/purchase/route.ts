@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import {
+  countRecentCampaignsForMsisdn,
   createPendingCampaign,
-  listBillboardSlots
+  listBillboardSlots,
+  setCampaignInternalRef
 } from "@tiral/db"
 import {
   mintRelworxReference,
@@ -10,6 +12,9 @@ import {
 } from "@/lib/relworx"
 
 const PRICE_PER_SLOT_UGX = 20000
+/** Payment prompts one phone number can receive per window (stops prompt spam to strangers). */
+const PROMPTS_PER_NUMBER = 2
+const PROMPT_WINDOW_MS = 15 * 60 * 1000
 
 const BANNED_KEYWORDS = [
   "casino",
@@ -86,6 +91,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const recent = await countRecentCampaignsForMsisdn(msisdn, new Date(Date.now() - PROMPT_WINDOW_MS))
+    if (recent >= PROMPTS_PER_NUMBER) {
+      return NextResponse.json(
+        { error: "This number already has payment prompts waiting. Try again in 15 minutes." },
+        { status: 429 }
+      )
+    }
+
     const reference = mintRelworxReference("tiral")
     const campaignId = await createPendingCampaign({
       brandName,
@@ -98,19 +111,22 @@ export async function POST(request: NextRequest) {
     })
 
     try {
-      await requestRelworxPayment({
+      const prompt = await requestRelworxPayment({
         reference,
         msisdn,
         amountUgx,
         description: `Tiral billboard ${uniqueSlotIds.length} slot(s)`
       })
+      // Keep Relworx's id: the status re-check (and the webhook match) need it.
+      await setCampaignInternalRef(campaignId, prompt.internalReference)
     } catch (error) {
       const { failCampaign } = await import("@tiral/db")
       await failCampaign(campaignId).catch(() => {})
       const message = error instanceof Error ? error.message : "Payment request failed"
+      console.error("Relworx payment request failed:", message)
       const friendly = /rate-limit|5 requests/i.test(message)
         ? "Too many payment prompts — wait a few minutes and retry"
-        : message
+        : "Couldn't send the payment prompt. Check the number and try again."
       return NextResponse.json({ error: friendly }, { status: 502 })
     }
 
