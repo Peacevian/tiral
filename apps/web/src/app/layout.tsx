@@ -3,6 +3,7 @@ import "./globals.css"
 import { ColyseusProvider } from "@/components/ColyseusProvider"
 import { PlayerProvider } from "@/lib/player"
 import { AppNav } from "@/components/shell/AppNav"
+import { ServiceWorker } from "@/components/ServiceWorker"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tiral.geinz.lol"
 
@@ -54,6 +55,7 @@ export default function RootLayout({
             <AppNav />
           </ColyseusProvider>
         </PlayerProvider>
+        <ServiceWorker />
       </body>
     </html>
   )
