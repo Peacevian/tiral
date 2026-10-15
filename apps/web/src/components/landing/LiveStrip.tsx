@@ -18,10 +18,10 @@ export function LiveStrip() {
     let cancelled = false
     const racesUrl = process.env.NEXT_PUBLIC_RACES_API_URL ?? ""
     const jobs: Promise<Partial<NonNullable<LiveState>>>[] = [
-      fetch("/api/leaderboard")
+      fetch("/api/leaderboard?limit=3")
         .then((r) => (r.ok ? r.json() : null))
         .then((body): Partial<NonNullable<LiveState>> => {
-          const rows = Array.isArray(body?.results) ? body.results : []
+          const rows = Array.isArray(body?.entries) ? body.entries : []
           const top = rows
             .slice(0, 3)
             .map((row: { displayName?: string }) => row.displayName)
@@ -43,7 +43,8 @@ export function LiveStrip() {
         fetch(`${racesUrl}/races`)
           .then((r) => (r.ok ? r.json() : null))
           .then((body): Partial<NonNullable<LiveState>> => {
-            const list = Array.isArray(body?.races) ? body.races : []
+            // The listings API returns a plain array of open races.
+            const list = Array.isArray(body) ? body : []
             return list.length > 0 ? { races: list.length } : {}
           })
           .catch(() => ({}))

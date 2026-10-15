@@ -58,6 +58,8 @@ export type LeaderboardEntry = {
 
 export async function getLeaderboard(
   since: Date | null,
+  /** Top N only: the table grows with every race; nobody scrolls past 100. */
+  limit = 100,
   db: Database = getDatabase()
 ): Promise<LeaderboardEntry[]> {
   const conditions = [
@@ -79,6 +81,7 @@ export async function getLeaderboard(
     .where(and(...conditions))
     .groupBy(raceResults.userId, users.displayName, users.avatarUrl)
     .orderBy(desc(sql`sum(case ${raceResults.position} when 1 then 3 when 2 then 2 when 3 then 1 else 0 end)`), desc(sql`sum(case when ${raceResults.position} = 1 then 1 else 0 end)`))
+    .limit(limit)
 
   return rows.map((row) => ({
     userId: row.userId as string,

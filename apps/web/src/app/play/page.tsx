@@ -7,12 +7,7 @@ import { useRouter } from "next/navigation"
 import type maplibregl from "maplibre-gl"
 import { KAMPALA_ZONE, SPRINT_MULTIPLIER, haversineDistanceMeters } from "@tiral/game-core"
 import { useColyseusContext } from "@/components/ColyseusProvider"
-import {
-  buildRoadGraph,
-  getRoadHeading,
-  type OverpassResponse,
-  type RoadGraph
-} from "@tiral/road-graph"
+import { getRoadHeading, type RoadGraph } from "@tiral/road-graph"
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
 import { useStartPlacement } from "@/lib/useStartPlacement"
 import { useMyLoadout } from "@/lib/useMyLoadout"
@@ -24,6 +19,7 @@ import { FirstRunIntro, useFirstRun } from "@/components/hub/FirstRunIntro"
 import { AdaptivePanel } from "@/components/ui/AdaptivePanel"
 import { ServerUnreachable } from "@/components/ui"
 import { usePlayer } from "@/lib/player"
+import { loadRoadGraph } from "@/lib/roadGraph"
 import { TopBar } from "@/components/game/TopBar"
 import { ControlDeck } from "@/components/game/ControlDeck"
 import { BillboardLayer, type BillboardPin } from "@/components/BillboardLayer"
@@ -356,27 +352,21 @@ export default function Home() {
   }, [roomState, placement.effectivePin, sessionId])
 
   useEffect(() => {
-    const controller = new AbortController()
-
-    fetch("/api/roads", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) {
-          const body = await response.json().catch(() => null) as { error?: string } | null
-          throw new Error(body?.error ?? `Road request failed with ${response.status}`)
-        }
-        return response.json() as Promise<OverpassResponse>
-      })
-      .then((data) => {
-        setGraph(buildRoadGraph(data))
+    let cancelled = false
+    loadRoadGraph()
+      .then((loaded) => {
+        if (cancelled) return
+        setGraph(loaded)
         setLoadingRoads(false)
       })
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return
+        if (cancelled) return
         setRoadError(error instanceof Error ? error.message : "Could not load roads")
         setLoadingRoads(false)
       })
-
-    return () => controller.abort()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const [billboardSlots, setBillboardSlots] = useState<BillboardSlot[]>([])

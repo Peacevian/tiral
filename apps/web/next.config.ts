@@ -15,6 +15,20 @@ const nextConfig: NextConfig = {
     "@tiral/db",
     "@tiral/avatars",
   ],
+  async headers() {
+    return [
+      {
+        // 3D models have versioned file names (runner-v2.glb): cache for a year.
+        source: "/models/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
+      },
+      {
+        // Landing images are versioned too (hero-phone-v1.webp).
+        source: "/landing/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
+      }
+    ]
+  },
   webpack: (config) => {
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js", ".jsx"],

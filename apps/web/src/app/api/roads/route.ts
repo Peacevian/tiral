@@ -8,5 +8,10 @@ import roads from "@tiral/road-graph/kampala-roads.json" with { type: "json" }
 export const dynamic = "force-static"
 
 export function GET() {
-  return NextResponse.json({ elements: roads.elements })
+  // Changes only with a deploy: let phones keep it a day (and use a stale copy
+  // while revalidating) instead of downloading it on every visit.
+  return NextResponse.json(
+    { elements: roads.elements },
+    { headers: { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" } }
+  )
 }
