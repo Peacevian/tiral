@@ -948,7 +948,7 @@ breakdowns, Zembo E) → H2b customisation shop → H2c app delivery.
 | H2a Own a bike (buy/lease, wear, service, breakdowns) | shipped |
 | H2b Customisation shop | shipped |
 | **H2c App delivery** | **parked** — spec in §16.12, ready to build |
-| H3 Rolex stand + car wash | in progress — design in §16.13 |
+| H3 Rolex stand + car wash | shipped (car wash as a 3D bay; 3D rolex stand next) |
 | H4 Mobile money booth + renting out your bike | next |
 
 ### 16.12 H2c — App delivery ("TiralEats", parked)

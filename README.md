@@ -1,102 +1,152 @@
-# Tiral — Kampala Treasure Race
+# Tiral: Kampala Hustle
 
-A multiplayer, map-based 3D treasure-hunting game. Players join a lobby from a mobile browser, pick a starting point in Kampala, wait for the countdown, then race along real roads to find a server-revealed bounty.
+<p align="center">
+  <img src="apps/web/public/tiral-icon-1024.png" alt="Tiral" width="120" />
+</p>
 
-Web-first: no installs, join from a link and play.
+A multiplayer browser game set on the real streets of Kampala. You arrive in
+the city with 10,000 in your pocket and bills everywhere. Race other players
+for treasure, work hustles (porter, boda rider, car washer, rolex seller), pay
+rent, look after your family, and save up for your own boda.
 
-## How a race works
+Web-first: no installs. Open a link on your phone and play.
 
-1. **Join** — open the game, click Join Race to enter the lobby.
-2. **Choose your start** — pick one of 5 starting points (Kampala Road, Nakasero, Nasser Road, Jinja Road, Parliament). Taken starts are marked.
-3. **Countdown** — starts automatically with 2+ players, or solo via Start now.
-4. **Lock + reveal** — at zero, positions lock and the bounty location is revealed (one of 5 spots, picked at random each race).
-5. **Race** — walk the real road network, take shortcuts at junctions, chase the glowing treasure chest.
-6. **Finish** — first arrival wins; 2nd/3rd places recorded; Play again resets to a fresh lobby.
+![Landing page: "10K in your pocket. Bills everywhere."](docs/images/landing.jpg)
 
-Movement is constrained to walkable OpenStreetMap roads (streets, footways, paths, steps). You steer with left/straight/right turn requests at junctions — there are no predefined routes, so shortcuts are fair game. All movement and arrival is validated by the authoritative server.
+## What you can do
+
+### 🏁 Treasure races
+Join a lobby, pick a starting point, and when the countdown hits zero the
+bounty is revealed somewhere in town. Run the real OpenStreetMap road network.
+There are no set routes, so shortcuts are fair game. The first to arrive wins
+Banange Coins (BNG). The server checks every step and every finish.
+
+### 🛵 Hustles: simulated gigs
+Gigs never wait for other players. Passengers, customers and cars are
+simulated, so there's always work.
+
+| Hustle | What you do | Pay (BNG) |
+|---|---|---|
+| 📦 **Kikuubo porter** | Pick up goods at a pin on the map and carry them to the shop | per job, by distance |
+| 🛵 **Boda passengers** | Collect passengers at stages and ride them across town on a 3D boda | fare by distance, tips for speed, minus fuel |
+| 🍳 **Rolex stand** | Buy stock, cook to order, flip the egg at the right moment, and run when KCCA raids | 2,000 a rolex (+500 if perfect) |
+| 🚗 **Car wash** | Soap, scrub and rinse every panel of a muddy car in a 3D washing bay | 8,000 to 15,000 a car |
+
+![The 3D car wash](docs/images/car-wash.jpg)
+
+### 🏍️ Own a boda
+Start on a rented stage bike. Then buy or lease-to-own one of five models.
+Each has its own speed, fuel use and wear. Bikes need servicing and break down
+if neglected. Decorate them in the customisation shop with paint, seat covers,
+stickers, tassels, crash bars, underglow and plate slogans. Parts carry over
+between bikes.
+
+![A boda with rider and passenger](docs/images/boda.jpg)
+
+### 🏠 Life in the city
+- **Needs:** energy and health. Sprinting drains energy. Eat gonja, chapati,
+  rolex or a full plate to recover, and rest at home.
+- **Rent** is due every week. Miss it and you move down to a cheaper place.
+- **Stress** goes up with bad shifts and debt, and down with good days.
+- **Family requests and shocks:** school fees, a hospital bill, a burst pipe.
+- **Wallet:** every coin goes into an append-only ledger. No real money ever
+  buys BNG.
 
 ## Tech stack
 
 | Layer | Choice |
 |---|---|
-| Game client | Next.js + React + TypeScript + Tailwind |
-| Map | MapLibre GL JS + OpenStreetMap (restricted to greater Kampala) |
-| 3D layer | Three.js + React Three Fiber (avatars, glowing treasure beacon) |
-| Multiplayer | Colyseus + WebSockets (authoritative rooms, 10 Hz movement tick) |
-| Road data | OpenStreetMap pedestrian graph, shared via `@tiral/road-graph` |
-| Database | PostgreSQL + PostGIS + Redis (planned, not yet wired) |
-| Package manager | pnpm workspaces |
+| Web client | Next.js 15, React, TypeScript, Tailwind |
+| Map | MapLibre GL JS + OpenStreetMap (greater Kampala) |
+| 3D | Three.js + React Three Fiber + drei (avatars, bikes, car wash bay) |
+| Multiplayer | Colyseus 0.18, authoritative rooms: `race`, `hustle`, `stall` |
+| Database | PostgreSQL with Drizzle ORM (postgres.js) |
+| Sign-in | Guest accounts and TikTok login, signed session cookie |
+| Tests | Vitest for the game rules in `game-core` |
+| Deploy | Docker Compose on a VPS behind nginx |
 
 ## Project structure
 
 ```txt
 apps/
-  web/            # Next.js game client (map, 3D overlay, HUD, lobby)
-  game-server/    # Colyseus server (rooms, countdown, movement, results)
+  web/            # Next.js client: landing, hub, map, races, hustles, home, wallet
+  game-server/    # Colyseus server: RaceRoom, HustleRoom, StallRoom
 packages/
-  game-core/      # Shared types, Kampala zone, starts, bounties
+  game-core/      # Pure, tested rules: races, economy, needs, life, hustles, bikes, stalls
+  db/             # Drizzle schema, migrations, coin ledger, garage, life settlement
+  avatars/        # Avatar looks and loadouts
+  houses/         # House catalogue and rent tiers
   road-graph/     # OSM graph build, snapping, traversal, turn classification
-  map/            # Mercator projection + map↔3D camera sync
-  routing/        # Route utilities (OSRM)
+  map/            # Mercator projection and map↔3D camera sync
+  routing/        # Route utilities
   config/         # Shared TypeScript configs
 data/map/         # Prepared local map assets
-infrastructure/   # Docker / deployment (planned)
-docs/             # Architecture and game-rules notes (planned)
+infrastructure/   # Dockerfiles, docker-compose, nginx config
+docs/             # Economy design and progress tracker (docs/economy-progress.md)
 ```
 
 ## Quickstart
 
-Requirements: Node 20+, pnpm 9.
+Requirements: Node 20+, pnpm 9, and a PostgreSQL database.
 
 ```bash
 pnpm install
 
-# terminal 0 — database tunnel (required for login, profiles, leaderboard).
-# Keep it running alongside the dev servers. It auto-reconnects if the
-# connection drops; if DB features fail with connection errors, check it here first.
-while true; do
-  ssh -N -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
-    -o ExitOnForwardFailure=yes -o BatchMode=yes \
-    -L 55433:127.0.0.1:5433 tiral-vps
-  sleep 5
-done
+# Database: point DATABASE_URL at Postgres (in apps/web/.env.local), then migrate
+pnpm --filter @tiral/db db:migrate
 
-# terminal 1 — game server (ws://localhost:2567, listings http://localhost:2568/races)
+# Game server (ws://localhost:2567, race listings on http://localhost:2568/races)
 pnpm --filter @tiral/game-server dev
 
-# terminal 2 — web client (http://localhost:3000)
+# Web client (http://localhost:3000)
 pnpm --filter @tiral/web dev
 ```
 
-Open `http://localhost:3000` in two browsers, join in both, pick different starts, and race.
+Or run both servers with `pnpm dev`. The game server reads the same
+`apps/web/.env.local` (`DATABASE_URL`, `SESSION_SECRET`).
 
-### Environment variables (game server)
+### Environment variables
 
-| Variable | Default | Purpose |
+| Variable | Used by | Purpose |
 |---|---|---|
-| `PORT` | `2567` | WebSocket port |
-| `RACE_COUNTDOWN_SECONDS` | `20` | Lobby countdown in seconds |
-| `RACE_ARRIVAL_RADIUS` | `25` | Finish radius in meters |
+| `DATABASE_URL` | web, game | Postgres connection |
+| `SESSION_SECRET` | web, game | Signs session cookies; the game server checks them on join |
+| `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI` | web | TikTok login |
+| `NEXT_PUBLIC_GAME_URL`, `NEXT_PUBLIC_RACES_API_URL` | web | Where the client finds the game server |
+| `PORT` (2567), `API_PORT` (2568) | game | WebSocket and HTTP ports |
+| `RACE_COUNTDOWN_SECONDS` (20) | game | Lobby countdown |
+| `RACE_ARRIVAL_RADIUS`, `HUSTLE_ARRIVAL_RADIUS` | game | Arrival radius in metres |
+
+See `infrastructure/docker/server-env.example` for a full production example.
+
+### Checks
+
+```bash
+pnpm --filter @tiral/game-core test   # game rules
+pnpm typecheck
+```
 
 ## Controls
 
-- **Walk** (hold) / **Auto walk** (toggle) — move along the current road
-- **Left / Straight / Right** — request a turn at the upcoming junction
-- **Turn around** — reverse direction anywhere on a road
-- Desktop: `W/↑` walk · `A/←` left · `D/→` right · `S/↓` turn around · `Space` stop
+- **Walk** (hold) or **Auto walk** (toggle) moves you along the current road.
+- **Left / Straight / Right** asks for a turn at the next junction.
+- **Turn around** reverses direction anywhere on a road.
+- **Sprint** goes faster but burns energy.
+- Desktop: `W/↑` walk · `A/←` left · `D/→` right · `S/↓` turn around ·
+  `Shift` sprint · `Space` stop.
+- Car wash: pick Soap, Scrub or Rinse and drag on the car. ↺ ↻ walk around it.
 
-## Current status
+## Status
 
-- [x] Monorepo, Next.js client, Colyseus server
-- [x] Kampala map with 3D avatars synced to coordinates
-- [x] Free road-constrained movement with junction choices
-- [x] Server-authoritative positions, remote avatars, smoothing
-- [x] Start selection, position lock, random bounty reveal
-- [x] Arrival validation, finish order, play again
-- [x] Reconnect handling, race HUD (distance + rank), solo start
-- [x] Matchmaking: one room per race, lobby list, join codes, quick play, locked reveals
-- [ ] Accounts, TikTok login, profiles
-- [ ] Leaderboards, rewards, admin
-- [ ] Sponsorships, launch hardening
+- [x] Real-road races with matchmaking, join codes, results and leaderboard
+- [x] Guest and TikTok sign-in, profiles, avatars, houses
+- [x] Coin ledger, wallet history, food shop, energy and health
+- [x] Rent, stress, family requests and shocks
+- [x] Hustles: porter, boda passengers, rolex stand, 3D car wash
+- [x] Bike ownership (buy, lease, upkeep, breakdowns) and customisation shop
+- [ ] 3D rolex stand
+- [ ] H4: mobile money booth, renting out your bike
+- [ ] App delivery gig (spec ready in `docs/economy-progress.md` §16.12)
 
-See `implementation-plan.md` for the full roadmap.
+The full design, research and build log live in
+[`docs/economy-progress.md`](docs/economy-progress.md).
