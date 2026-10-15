@@ -9,7 +9,13 @@ import { PlayerAvatar } from "@/components/shell/PlayerBar"
 export function AccountMenu({ showName = false }: { showName?: boolean }) {
   const { player, busy, logout } = usePlayer()
   const [open, setOpen] = useState(false)
+  // Guests can't sign back in, so logging out loses everything: ask first.
+  const [confirmGuestLogout, setConfirmGuestLogout] = useState(false)
   const root = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) setConfirmGuestLogout(false)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -66,17 +72,47 @@ export function AccountMenu({ showName = false }: { showName?: boolean }) {
           >
             Edit my look
           </Link>
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() => {
-              setOpen(false)
-              void logout()
-            }}
-            className="flex min-h-[44px] items-center rounded-xl px-3 text-left text-sm font-bold text-slate-300 hover:bg-white/5 disabled:opacity-40"
-          >
-            Log out
-          </button>
+          {confirmGuestLogout ? (
+            <div role="alert" className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-3">
+              <p className="text-sm font-black text-white">Log out of a guest account?</p>
+              <p className="mt-1 text-xs leading-snug text-rose-100">
+                You can&apos;t sign back in. Your coins, house and bike are lost for good. Connect TikTok first to keep them.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmGuestLogout(false)}
+                  className="min-h-[44px] flex-1 rounded-lg bg-white/10 px-2 text-sm font-bold text-white"
+                >
+                  Keep playing
+                </button>
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    setOpen(false)
+                    void logout()
+                  }}
+                  className="min-h-[44px] flex-1 rounded-lg bg-rose-500 px-2 text-sm font-black text-white disabled:opacity-40"
+                >
+                  Log out anyway
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => {
+                if (!user.tiktokLinked) return setConfirmGuestLogout(true)
+                setOpen(false)
+                void logout()
+              }}
+              className="flex min-h-[44px] items-center rounded-xl px-3 text-left text-sm font-bold text-slate-300 hover:bg-white/5 disabled:opacity-40"
+            >
+              Log out
+            </button>
+          )}
         </div>
       )}
     </div>

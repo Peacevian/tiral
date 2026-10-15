@@ -1,5 +1,5 @@
 import { Room, Client, ServerError } from "@colyseus/core"
-import { KAMPALA_ZONE, STRESS, haversineDistanceMeters } from "@tiral/game-core"
+import { KAMPALA_ZONE, STRESS, chooseBounty, distinctRacers, haversineDistanceMeters } from "@tiral/game-core"
 import {
   findNearestEdge,
   getRoadCoordinate,
@@ -220,6 +220,15 @@ export class RaceRoom extends Room {
       existing.loadout = sanitizeLoadout(options?.loadout)
     } else {
       const verified = auth && !auth.guest ? auth : null
+      // One racer per account: a second tab would count as a second person
+      // (more pay, podium spots) and can't be told apart on the map.
+      const twin = verified ? Object.values(this.players).find((player) => player.userId === verified.userId) : undefined
+      if (twin?.connected) throw new ServerError(409, "You're already in this race in another tab")
+      // A tab that dropped (closed, lost signal) hands its seat to this one.
+      if (twin) {
+        void this.body.flush([twin])
+        delete this.players[twin.id]
+      }
       const name =
         verified?.displayName && verified.displayName.length > 0
           ? verified.displayName
@@ -409,7 +418,7 @@ export class RaceRoom extends Room {
     const finishedAt = new Date()
     // Winning a real race (someone to beat) takes the edge off.
     const winner = this.players[this.finishOrder[0] ?? ""]
-    const field = Object.values(this.players).filter((player) => player.roadPosition).length
+    const field = this.fieldSize()
     if (winner && field >= 2) winner.pendingStress += STRESS.raceWin
     void this.body.flush(Object.values(this.players))
     this.broadcast("roomState", this.getRoomState())
@@ -422,7 +431,7 @@ export class RaceRoom extends Room {
       }))
     )
     // Everyone who actually raced (had a start), finished or not.
-    const fieldSize = Object.values(this.players).filter((player) => player.roadPosition).length
+    const fieldSize = this.fieldSize()
     void this.persistResults(finishedAt, fieldSize)
   }
 
@@ -540,6 +549,15 @@ export class RaceRoom extends Room {
     }, 1000)
   }
 
+  /** People racing (with a start): one account in several tabs counts once. */
+  private fieldSize() {
+    return distinctRacers(
+      Object.values(this.players)
+        .filter((player) => player.roadPosition)
+        .map((player) => player.userId)
+    )
+  }
+
   private launchRace() {
     this.phase = "racing"
     // Anyone who never dropped a pin gets the default start so they can race.
@@ -556,6 +574,11 @@ export class RaceRoom extends Room {
       const referenceEdges = Object.values(this.players)
         .map((player) => player.roadPosition?.edgeId)
         .filter((edgeId): edgeId is string => edgeId !== undefined && edgeId !== null)
+      // Every reachable spot, with how close the nearest racer starts to it.
+      const starts = Object.values(this.players)
+        .map((player) => player.coordinate)
+        .filter((coordinate): coordinate is NonNullable<typeof coordinate> => coordinate !== null)
+      const candidates: Array<{ item: { pick: (typeof options)[number]; edgeId: string; distanceAlongEdge: number }; nearestStartMeters: number }> = []
       for (const pick of options) {
         const nearest = findNearestEdge(this.roadGraph, pick.position)
         if (!nearest) continue
@@ -563,18 +586,25 @@ export class RaceRoom extends Room {
           referenceEdges.length === 0 ||
           referenceEdges.every((edgeId) => isEdgeReachable(this.roadGraph!, edgeId, nearest.edgeId))
         if (!reachable) continue
-        this.destinationId = pick.id
+        candidates.push({
+          item: { pick, edgeId: nearest.edgeId, distanceAlongEdge: nearest.distanceAlongEdge },
+          nearestStartMeters: starts.length ? Math.min(...starts.map((start) => haversineDistanceMeters(start, pick.position))) : Infinity
+        })
+      }
+      // Never a finish someone is already standing on.
+      const chosen = chooseBounty(candidates, Math.random())
+      if (chosen) {
+        this.destinationId = chosen.pick.id
         this.bounty = {
-          destinationId: pick.id,
-          edgeId: nearest.edgeId,
-          distanceAlongEdge: nearest.distanceAlongEdge,
+          destinationId: chosen.pick.id,
+          edgeId: chosen.edgeId,
+          distanceAlongEdge: chosen.distanceAlongEdge,
           coordinate: getRoadCoordinate(this.roadGraph, {
-            edgeId: nearest.edgeId,
-            distanceAlongEdge: nearest.distanceAlongEdge,
+            edgeId: chosen.edgeId,
+            distanceAlongEdge: chosen.distanceAlongEdge,
             direction: 1
-          }) ?? pick.position
+          }) ?? chosen.pick.position
         }
-        break
       }
       if (!this.bounty) {
         const nearest = findNearestEdge(this.roadGraph, fallback.position)

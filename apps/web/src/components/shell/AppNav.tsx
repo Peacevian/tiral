@@ -67,8 +67,8 @@ export function AppNav() {
           </nav>
           <div className="ml-auto flex min-w-0 items-center gap-2 md:ml-0">
             {offline && (
-              <span className="hidden text-[11px] font-bold text-rose-300 sm:inline" title="Can't reach the server">
-                Offline
+              <span role="status" className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-bold text-rose-300" title="Can't reach the server">
+                ⚠ Offline
               </span>
             )}
             <PlayerStats />

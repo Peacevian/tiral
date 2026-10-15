@@ -131,6 +131,12 @@ export function ControlDeck({
               <div className="shrink-0 text-[11px] font-bold text-slate-400">🔒</div>
             )}
           </div>
+          {/* Mouse-and-keyboard players have no thumb sticks: show the keys. */}
+          <div className="tiral-keyboard-hint border-t border-white/5 px-2.5 py-1.5 text-[11px] text-slate-400">
+            <kbd className="font-bold text-slate-200">Hold W</kbd>/↑ walk · <kbd className="font-bold text-slate-200">A</kbd>/← left ·{" "}
+            <kbd className="font-bold text-slate-200">D</kbd>/→ right · <kbd className="font-bold text-slate-200">S</kbd>/↓ turn around ·{" "}
+            <kbd className="font-bold text-slate-200">Shift</kbd> sprint · <kbd className="font-bold text-slate-200">Space</kbd> stop
+          </div>
         </div>
       </div>
       ) : (

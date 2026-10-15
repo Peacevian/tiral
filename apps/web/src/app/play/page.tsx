@@ -22,6 +22,7 @@ import { SignInGate } from "@/components/SignInGate"
 import { Hub } from "@/components/hub/Hub"
 import { FirstRunIntro, useFirstRun } from "@/components/hub/FirstRunIntro"
 import { AdaptivePanel } from "@/components/ui/AdaptivePanel"
+import { ServerUnreachable } from "@/components/ui"
 import { usePlayer } from "@/lib/player"
 import { TopBar } from "@/components/game/TopBar"
 import { ControlDeck } from "@/components/game/ControlDeck"
@@ -122,7 +123,8 @@ export default function Home() {
     joinByCode,
     quickPlay
   } = useColyseusContext()
-  const { ready: authReady, player, busy: authBusy, error: authFailure, playAsGuest } = usePlayer()
+  const { ready: authReady, player, offline, refresh: refreshPlayer, busy: authBusy, error: authFailure, playAsGuest } = usePlayer()
+  const [retryingPlayer, setRetryingPlayer] = useState(false)
   const firstRun = useFirstRun(player?.user.id ?? null)
   // TikTok sign-in failures come back as ?auth_error=…; read once, then tidy the URL.
   const [authError, setAuthError] = useState<string | null>(null)
@@ -502,7 +504,15 @@ export default function Home() {
             </Link>
             <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 pt-3 shadow-2xl backdrop-blur-md">
-                {authReady ? (
+                {authReady && offline ? (
+                  <ServerUnreachable
+                    retrying={retryingPlayer}
+                    onRetry={() => {
+                      setRetryingPlayer(true)
+                      void refreshPlayer().finally(() => setRetryingPlayer(false))
+                    }}
+                  />
+                ) : authReady ? (
                   <SignInGate busy={authBusy === "guest"} error={authFailure} authError={authError} onGuest={playAsGuest} />
                 ) : (
                   <p className="px-4 pb-5 pt-2 text-center text-sm text-slate-400">Checking who you are…</p>
@@ -603,7 +613,7 @@ export default function Home() {
         </div>
       )}
       {canSprint && (
-        <div className="absolute bottom-[max(12.5rem,calc(env(safe-area-inset-bottom)+12rem))] right-[max(0.75rem,env(safe-area-inset-right))] z-30 md:bottom-[7.5rem]">
+        <div className="tiral-sprint-slot absolute right-[max(0.75rem,env(safe-area-inset-right))] z-30">
           <SprintButton
             active={sprinting}
             disabled={collapsed}
@@ -627,15 +637,21 @@ export default function Home() {
 
       {connected && phase === "finished" && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-[min(92vw,380px)] rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl">
+          {/* Scrolls on short screens (landscape phones, 10 racers) so the buttons stay reachable. */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Race results"
+            className="max-h-[calc(100dvh-2rem)] w-[min(92vw,380px)] overflow-y-auto overscroll-contain rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl"
+          >
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
               Race finished
             </div>
             <div className="mt-1 text-2xl font-black">
               {results?.[0]?.sessionId === sessionId
                 ? "You won!"
-                : results
-                  ? `Winner: ${results[0]!.name}`
+                : results?.[0]
+                  ? `Winner: ${results[0].name}`
                   : "Finished"}
             </div>
             {results && results.length > 0 && (

@@ -15,6 +15,7 @@ import { WalletPanel } from "@/components/WalletPanel"
 import { GaragePanel } from "@/components/bike/GaragePanel"
 import { NeedsPanel } from "@/components/NeedsPanel"
 import { usePlayer } from "@/lib/player"
+import { ServerUnreachable } from "@/components/ui"
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
 
 const BikeShowroom = dynamic(
@@ -96,11 +97,16 @@ export default function HomePage() {
     }
   }, [])
 
+  // A failed load is "can't reach the server", never "signed out".
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
+
   useEffect(() => {
     let cancelled = false
-    fetch("/api/profile")
+    setLoadFailed(false)
+    fetch("/api/profile", { signal: AbortSignal.timeout(10_000) })
       .then(async (response) => {
-        if (!response.ok) return null
+        if (!response.ok) throw new Error(String(response.status))
         return (await response.json()) as {
           user: ProfileUser | null
           stats: ProfileStats
@@ -116,14 +122,16 @@ export default function HomePage() {
         setDraftLoadout(body.user.loadout)
         setDraftHouse(body.user.house ?? DEFAULT_HOUSE)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true)
+      })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loadAttempt])
 
   const save = useCallback(async () => {
     if (!user) return
@@ -175,6 +183,20 @@ export default function HomePage() {
     return (
       <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-white">
         <div className="text-center text-sm text-slate-400">Loading your home…</div>
+      </main>
+    )
+  }
+
+  if (!user && loadFailed) {
+    return (
+      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-white">
+        <ServerUnreachable
+          retrying={loading}
+          onRetry={() => {
+            setLoading(true)
+            setLoadAttempt((attempt) => attempt + 1)
+          }}
+        />
       </main>
     )
   }
