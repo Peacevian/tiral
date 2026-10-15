@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui"
 import { SHELL_CHANGE_EVENT } from "@/components/ui/AdaptivePanel"
 import { AccountMenu } from "@/components/shell/AccountMenu"
 import { PlayerStats } from "@/components/shell/PlayerBar"
+import { MusicToggle } from "@/components/shell/MusicToggle"
 import { useShellVisible } from "@/components/shell/useShellVisible"
 
 const DESTINATIONS = [
@@ -71,6 +72,7 @@ export function AppNav() {
                 ⚠ Offline
               </span>
             )}
+            <MusicToggle />
             <PlayerStats />
             <AccountMenu showName />
           </div>
