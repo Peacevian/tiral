@@ -4,7 +4,7 @@ import { useState } from "react"
 import { HOUSING_TIERS, STRESSED_THRESHOLD } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
 import { usePlayer, type Life, type LifeEvent } from "@/lib/player"
-import { ActionButton, Card, EmptyState, SectionLabel, Skeleton, StatMeter, untilText } from "@/components/ui"
+import { ActionButton, Card, ConfirmButton, EmptyState, SectionLabel, Skeleton, StatMeter, untilText } from "@/components/ui"
 
 const STATUS_LABEL: Partial<Record<LifeEvent["status"], string>> = {
   paid: "Sent",
@@ -109,6 +109,7 @@ export function MessageList({ events, empty = "Quiet for now." }: { events: Life
 
 export function MoveHouse({ life }: { life: Life }) {
   const { busy, moveHouse } = usePlayer()
+  const [notice, setNotice] = useState<string | null>(null)
   return (
     <div>
       <SectionLabel>Move house</SectionLabel>
@@ -117,25 +118,39 @@ export function MoveHouse({ life }: { life: Life }) {
           const current = tier.id === life.tier.id
           return (
             <li key={tier.id}>
-              <button
-                type="button"
+              <ConfirmButton
                 disabled={busy !== null || current}
-                onClick={() => void moveHouse(tier.id)}
+                onConfirm={() => {
+                  setNotice(null)
+                  void moveHouse(tier.id).then(setNotice)
+                }}
+                confirmLabel={
+                  <>
+                    <span className="font-bold text-white">Move to {tier.name}? Tap again</span>
+                    <span className="font-mono font-bold text-amber-200">{formatCoins(tier.rent)} rent</span>
+                  </>
+                }
                 className={`flex min-h-[44px] w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs transition ${
                   current ? "border-amber-300/60 bg-amber-300/10" : "border-white/10 bg-white/5 hover:bg-white/10"
                 }`}
+                armedClassName="!border-amber-300 !bg-amber-300/20"
               >
                 <span className="font-bold text-white">
                   {tier.name}
                   {current && <span className="ml-1 text-amber-300">· you</span>}
                 </span>
                 <span className="font-mono font-bold text-amber-200">{formatCoins(tier.rent)}</span>
-              </button>
+              </ConfirmButton>
             </li>
           )
         })}
       </ul>
       <p className="mt-1 text-[11px] text-slate-400">New rent applies from your next due date.</p>
+      {notice && (
+        <p role="alert" className="mt-1 text-xs font-bold text-rose-300">
+          {notice}
+        </p>
+      )}
     </div>
   )
 }

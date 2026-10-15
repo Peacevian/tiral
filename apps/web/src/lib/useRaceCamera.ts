@@ -48,7 +48,8 @@ export function useRaceCamera(
       pitch: RACE_PITCH,
       bearing: toBearingDegrees(headingRef.current),
       duration: START_FLIGHT_MS,
-      essential: true
+      // Not "essential": with Reduce Motion on, MapLibre jumps instead of flying.
+      essential: false
     })
     return true
   }, [map])
@@ -118,7 +119,7 @@ export function useRaceCamera(
           [Math.min(...lngs), Math.min(...lats)],
           [Math.max(...lngs), Math.max(...lats)]
         ],
-        { padding, maxZoom: RACE_ZOOM, duration: 900, essential: true }
+        { padding, maxZoom: RACE_ZOOM, duration: 900, essential: false }
       )
       overviewTimer.current = setTimeout(() => {
         overviewTimer.current = null

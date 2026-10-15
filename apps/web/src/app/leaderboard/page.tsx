@@ -108,7 +108,7 @@ export default function LeaderboardPage() {
         </ol>
       )}
 
-      <p className="mt-4 text-center text-[11px] text-slate-500">
+      <p className="mt-4 text-center text-[11px] text-slate-400">
         1st = 3 pts · 2nd = 2 pts · 3rd = 1 pt
       </p>
     </main>

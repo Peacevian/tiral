@@ -1,5 +1,6 @@
 "use client"
 
+import { colorName, skinToneName } from "@/lib/colorName"
 import {
   BACKPACK_COLORS,
   GLASSES_STYLES,
@@ -51,7 +52,7 @@ function Options<T extends string>({
     <div>
       <div className="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
         {label}
-        {hint && <span className="normal-case tracking-normal text-slate-500">{hint}</span>}
+        {hint && <span className="normal-case tracking-normal text-slate-400">{hint}</span>}
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
@@ -61,6 +62,7 @@ function Options<T extends string>({
               key={option}
               type="button"
               onClick={() => onSelect(option)}
+              aria-pressed={selected === option}
               title={`${optionLabel(option)} · ${rarity}`}
               className={`flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-bold transition ${
                 selected === option
@@ -88,12 +90,15 @@ function Swatches({
   label,
   colors,
   selected,
-  onSelect
+  onSelect,
+  nameOf = colorName
 }: {
   label: string
   colors: readonly string[]
   selected: string
   onSelect(color: string): void
+  /** How to name a colour for screen readers and tooltips (default: its hue). */
+  nameOf?: (color: string, index: number) => string
 }) {
   return (
     <div>
@@ -101,19 +106,27 @@ function Swatches({
         {label}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {colors.map((color) => (
+        {colors.map((color, index) => (
           <button
             key={color}
             type="button"
             onClick={() => onSelect(color)}
-            aria-label={`${label} ${color}`}
-            className={`h-11 w-11 rounded-full border-2 transition ${
+            aria-label={`${label}: ${nameOf(color, index)}`}
+            aria-pressed={selected === color}
+            title={nameOf(color, index)}
+            className={`inline-flex h-11 w-11 items-center justify-center rounded-full border-2 transition ${
               selected === color
                 ? "scale-110 border-amber-300"
                 : "border-white/20 hover:border-white/50"
             }`}
             style={{ backgroundColor: color }}
-          />
+          >
+            {selected === color && (
+              <span aria-hidden className="text-base font-black text-white [text-shadow:0_0_3px_#000,0_0_2px_#000]">
+                ✓
+              </span>
+            )}
+          </button>
         ))}
       </div>
     </div>
@@ -133,6 +146,7 @@ export function ProfileCustomizer({
       <Swatches
         label="Skin"
         colors={SKIN_TONES}
+        nameOf={(color, index) => `${skinToneName(color)} (${index + 1} of ${SKIN_TONES.length})`}
         selected={loadout.skin}
         onSelect={(skin) => onChange({ ...loadout, skin })}
       />

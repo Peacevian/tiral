@@ -137,8 +137,13 @@ export function AdaptivePanel({
     >
       <button
         type="button"
-        aria-label={snap === "full" ? "Collapse panel" : "Expand panel"}
+        aria-label={snap === "full" ? `Collapse ${label}` : `Expand ${label}`}
+        aria-expanded={snap !== "peek"}
         onPointerDown={onPointerDown}
+        // Keyboard Enter/Space (a click with no pointer): same as a tap.
+        onClick={(event) => {
+          if (event.detail === 0) setSnap(SNAPS[(SNAPS.indexOf(snap) + 1) % SNAPS.length]!)
+        }}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
@@ -146,7 +151,7 @@ export function AdaptivePanel({
           if (event.key === "ArrowUp") setSnap(snap === "peek" ? "half" : "full")
           if (event.key === "ArrowDown") setSnap(snap === "full" ? "half" : "peek")
         }}
-        className="flex min-h-[28px] w-full shrink-0 touch-none items-center justify-center md:hidden"
+        className="flex min-h-[44px] w-full shrink-0 touch-none items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-amber-300 md:hidden"
       >
         <span aria-hidden className="h-1.5 w-10 rounded-full bg-white/25" />
       </button>

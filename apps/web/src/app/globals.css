@@ -151,7 +151,7 @@ body.has-shell {
   border-radius: 3px;
   background: rgba(15, 23, 42, 0.75);
   color: #fde68a;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 13px;
@@ -161,9 +161,9 @@ body.has-shell {
   padding: 2px 6px 3px;
   background: #fbbf24;
   color: #0f172a;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  line-height: 13px;
+  line-height: 14px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -206,7 +206,7 @@ body.has-shell {
   border: 1.5px dashed rgba(71, 85, 105, 0.7);
   background: rgba(255, 255, 255, 0.82);
   color: #334155;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -353,6 +353,16 @@ body.has-shell {
 @media (prefers-reduced-motion: reduce) {
   .tiral-bill__pop {
     transition: none;
+  }
+  /* Reduce Motion: no pulsing, pinging or bouncing anywhere (badges, pins,
+     live dots, toasts). Animations finish at once; state still shows. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

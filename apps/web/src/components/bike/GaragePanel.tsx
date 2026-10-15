@@ -48,7 +48,7 @@ function Stats({ stats }: { stats: BikeStats }) {
     <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
       {STAT_LABELS.map((stat) => (
         <div key={stat.key}>
-          <div className="flex justify-between text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          <div className="flex justify-between text-[11px] font-bold uppercase tracking-wide text-slate-400">
             <span>{stat.label}</span>
             <span>{stats[stat.key]}/5</span>
           </div>
@@ -87,7 +87,7 @@ function Row({
         <span className="min-w-0">
           <span className="block truncate text-sm font-black text-white">
             {title}
-            {tag && <span className="ml-1.5 rounded bg-emerald-400/20 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase text-emerald-200">{tag}</span>}
+            {tag && <span className="ml-1.5 rounded bg-emerald-400/20 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-emerald-200">{tag}</span>}
           </span>
           <span className="block truncate text-[11px] text-slate-400">{detail}</span>
         </span>

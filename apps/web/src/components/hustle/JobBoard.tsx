@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { PORTER_LOADS, bodaGiveUpSeconds, findHustle, findPlace } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
 import type { HustleOffer, HustleState } from "@/lib/useColyseus"
-import { ActionButton, SectionLabel } from "@/components/ui"
+import { ActionButton, ConfirmButton, SectionLabel, actionButtonClass } from "@/components/ui"
 
 /** Re-render every `ms` (for countdowns). */
 export function useNow(ms = 1000) {
@@ -55,18 +55,18 @@ function OfferCard({
           <div className="text-sm font-black text-white">
             {offerTitle(offer)}
             {offer.kind === "porter" && offer.heavy && (
-              <span className="ml-1.5 rounded bg-rose-400/20 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase text-rose-200">
+              <span className="ml-1.5 rounded bg-rose-400/20 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-rose-200">
                 heavy
               </span>
             )}
             {offer.kind === "boda" && offer.rush && (
-              <span className="ml-1.5 rounded bg-amber-400/20 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase text-amber-200">
+              <span className="ml-1.5 rounded bg-amber-400/20 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-amber-200">
                 rush ×1.5
               </span>
             )}
           </div>
           <div className="mt-0.5 text-xs leading-snug text-slate-300">
-            {spotName(offer.pickupId)} <span className="text-slate-500">→</span> {spotName(offer.dropoffId)}
+            {spotName(offer.pickupId)} <span className="text-slate-400">→</span> {spotName(offer.dropoffId)}
           </div>
         </div>
         <div className="shrink-0 text-right font-mono text-base font-black text-amber-200">+{formatCoins(offerPay(offer))}</div>
@@ -120,15 +120,15 @@ function JobCard({
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-black/20 py-2">
           <div className="font-mono text-lg font-black">{distanceToTarget === null ? "…" : `${distanceToTarget}m`}</div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-400">away</div>
+          <div className="text-[11px] uppercase tracking-wide text-slate-400">away</div>
         </div>
         <div className="rounded-xl bg-black/20 py-2">
           <div className={`font-mono text-lg font-black ${job.deadline - now < 15_000 ? "text-rose-300" : ""}`}>{clock(job.deadline - now)}</div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-400">{boda && carrying ? "patience" : "left"}</div>
+          <div className="text-[11px] uppercase tracking-wide text-slate-400">{boda && carrying ? "patience" : "left"}</div>
         </div>
         <div className="rounded-xl bg-black/20 py-2">
           <div className="font-mono text-lg font-black text-amber-200">{formatCoins(offerPay(offer))}</div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-400">{boda ? "fare" : "pay"}</div>
+          <div className="text-[11px] uppercase tracking-wide text-slate-400">{boda ? "fare" : "pay"}</div>
         </div>
       </div>
       {patience !== null && (
@@ -149,9 +149,14 @@ function JobCard({
       {carrying && offer.kind === "porter" && offer.heavy && (
         <p className="mt-2 text-[11px] text-slate-300">Heavy load: sprinting drains energy much faster.</p>
       )}
-      <ActionButton variant="danger" className="mt-3 w-full text-xs" onClick={onAbandon}>
+      <ConfirmButton
+        className={`${actionButtonClass("danger")} mt-3 w-full text-xs`}
+        armedClassName="!bg-rose-500 !text-white"
+        confirmLabel="Tap again: no pay, and it stresses you"
+        onConfirm={onAbandon}
+      >
         {boda && carrying ? "Drop the passenger" : "Drop this job"}
-      </ActionButton>
+      </ConfirmButton>
     </div>
   )
 }

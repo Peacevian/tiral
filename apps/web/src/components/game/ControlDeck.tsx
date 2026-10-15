@@ -71,7 +71,7 @@ export function ControlDeck({
             type="button"
             onClick={() => setDeckOpen(false)}
             aria-label="Collapse controls"
-            className="flex min-h-[28px] w-full items-center justify-center text-[10px] font-bold tracking-[0.25em] text-slate-500"
+            className="flex min-h-[28px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-slate-400"
           >
             ▾
           </button>

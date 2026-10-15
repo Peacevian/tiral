@@ -118,19 +118,19 @@ export function ThumbStick({
     >
       {axis === "vertical" ? (
         <>
-          <span className={`absolute left-1/2 top-1 -translate-x-1/2 text-sm font-black ${activeZone === "up" ? "text-cyan-300" : "text-slate-500"}`}>
+          <span className={`absolute left-1/2 top-1 -translate-x-1/2 text-sm font-black ${activeZone === "up" ? "text-cyan-300" : "text-slate-400"}`}>
             ▲
           </span>
-          <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 text-sm font-black ${activeZone === "down" ? "text-cyan-300" : "text-slate-500"}`}>
+          <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 text-sm font-black ${activeZone === "down" ? "text-cyan-300" : "text-slate-400"}`}>
             ▼
           </span>
         </>
       ) : (
         <>
-          <span className={`absolute left-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "left" ? "text-cyan-300" : "text-slate-500"}`}>
+          <span className={`absolute left-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "left" ? "text-cyan-300" : "text-slate-400"}`}>
             ◀
           </span>
-          <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "right" ? "text-cyan-300" : "text-slate-500"}`}>
+          <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "right" ? "text-cyan-300" : "text-slate-400"}`}>
             ▶
           </span>
         </>

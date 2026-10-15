@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { HOUSING_TIERS, WELCOME_GRANT } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
 import { usePlayer } from "@/lib/player"
+import { Modal } from "@/components/ui/Modal"
 import { ActionButton } from "@/components/ui"
 
 const key = (userId: string) => `tiral:first-run:${userId}`
@@ -146,25 +147,29 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
   const current = steps[step]!
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center" role="dialog" aria-modal aria-labelledby="intro-title">
-      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950 p-5 text-white shadow-2xl">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1.5" aria-label={`Step ${step + 1} of ${steps.length}`}>
-            {steps.map((_, index) => (
-              <span key={index} className={`h-1.5 w-6 rounded-full ${index <= step ? "bg-amber-400" : "bg-white/15"}`} />
-            ))}
-          </div>
-          <button type="button" onClick={onDone} className="min-h-[36px] px-2 text-xs font-bold text-slate-400">
-            Skip
-          </button>
+    <Modal
+      labelledBy="intro-title"
+      onClose={onDone}
+      closeOnBackdrop={false}
+      backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center"
+      className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950 p-5 text-white shadow-2xl"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5" aria-label={`Step ${step + 1} of ${steps.length}`}>
+          {steps.map((_, index) => (
+            <span key={index} className={`h-1.5 w-6 rounded-full ${index <= step ? "bg-amber-400" : "bg-white/15"}`} />
+          ))}
         </div>
-        <h2 id="intro-title" className="mt-4 text-xl font-black">
-          {current.title}
-        </h2>
-        {current.body}
-        {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
-        <div className="mt-5">{current.action}</div>
+        <button type="button" onClick={onDone} className="min-h-[44px] px-3 text-xs font-bold text-slate-400">
+          Skip
+        </button>
       </div>
-    </div>
+      <h2 id="intro-title" className="mt-4 text-xl font-black">
+        {current.title}
+      </h2>
+      {current.body}
+      {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
+      <div className="mt-5">{current.action}</div>
+    </Modal>
   )
 }

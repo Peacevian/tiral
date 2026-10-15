@@ -40,6 +40,7 @@ import { RaceEarningsSummary } from "@/components/game/RaceEarningsSummary"
 import { NeedsHud } from "@/components/game/NeedsHud"
 import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
+import { Modal } from "@/components/ui/Modal"
 import type { RaceListing } from "@/lib/useColyseus"
 
 type BillboardSlot = {
@@ -372,6 +373,10 @@ export default function Home() {
   const [billboardSlots, setBillboardSlots] = useState<BillboardSlot[]>([])
   const [billboardCampaigns, setBillboardCampaigns] = useState<BillboardCampaign[]>([])
   const [brandCardPin, setBrandCardPin] = useState<BillboardPin | null>(null)
+  // A race needs the whole map: no ad card over it.
+  useEffect(() => {
+    if (phase === "racing") setBrandCardPin(null)
+  }, [phase])
   const [rotationTick, setRotationTick] = useState(() => Date.now())
 
   // Tick once per rotation boundary (not every second) so the page only
@@ -575,6 +580,7 @@ export default function Home() {
           map={map}
           pins={billboardPins}
           showEmpty={!connected || phase === "lobby" || phase === "countdown"}
+          interactive={phase !== "racing"}
           onPinClick={setBrandCardPin}
         />
       )}
@@ -636,70 +642,69 @@ export default function Home() {
       )}
 
       {connected && phase === "finished" && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          {/* Scrolls on short screens (landscape phones, 10 racers) so the buttons stay reachable. */}
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Race results"
-            className="max-h-[calc(100dvh-2rem)] w-[min(92vw,380px)] overflow-y-auto overscroll-contain rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl"
-          >
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-              Race finished
-            </div>
-            <div className="mt-1 text-2xl font-black">
-              {results?.[0]?.sessionId === sessionId
-                ? "You won!"
-                : results?.[0]
-                  ? `Winner: ${results[0].name}`
-                  : "Time's up: nobody reached the treasure"}
-            </div>
-            {results && results.length > 0 && (
-              <ol className="mt-3 flex flex-col gap-1">
-                {results.map((result) => (
-                  <li
-                    key={result.sessionId}
-                    className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-                      result.sessionId === sessionId
-                        ? "bg-amber-300/20 font-bold text-amber-100"
-                        : "bg-white/5 text-slate-200"
-                    }`}
-                  >
-                    <span>
-                      {result.position}. {result.name}
-                      {result.sessionId === sessionId ? " (you)" : ""}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
-            <RaceEarningsSummary earnings={earnings} soloRace={playerCount < 2} />
-            {earnings && player && !player.user.tiktokLinked && (
-              <a
-                href="/api/auth/tiktok"
-                className="mt-3 block rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs leading-snug text-slate-200"
-              >
-                <span className="font-bold text-white">Connect TikTok</span> so you never lose these coins. Guest
-                accounts live on this device only. →
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={sendPlayAgain}
-              className="mt-4 min-h-[48px] w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
-            >
-              Race again
-            </button>
-            <button
-              type="button"
-              onClick={leaveRoom}
-              className="mt-2 min-h-[48px] w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
-            >
-              Back to base
-            </button>
-            <ActiveSponsors campaigns={billboardCampaigns} />
+        <Modal
+          label="Race results"
+          // It pops up mid-race: a held Space or Enter must not press "Race again".
+          focus="panel"
+          backdropClassName="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
+          // Scrolls on short screens (landscape phones, 10 racers) so the buttons stay reachable.
+          className="max-h-[calc(100dvh-2rem)] w-[min(92vw,380px)] overflow-y-auto overscroll-contain rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl"
+        >
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+            Race finished
           </div>
-        </div>
+          <div className="mt-1 text-2xl font-black">
+            {results?.[0]?.sessionId === sessionId
+              ? "You won!"
+              : results?.[0]
+                ? `Winner: ${results[0].name}`
+                : "Time's up: nobody reached the treasure"}
+          </div>
+          {results && results.length > 0 && (
+            <ol className="mt-3 flex flex-col gap-1">
+              {results.map((result) => (
+                <li
+                  key={result.sessionId}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+                    result.sessionId === sessionId
+                      ? "bg-amber-300/20 font-bold text-amber-100"
+                      : "bg-white/5 text-slate-200"
+                  }`}
+                >
+                  <span>
+                    {result.position}. {result.name}
+                    {result.sessionId === sessionId ? " (you)" : ""}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+          <RaceEarningsSummary earnings={earnings} soloRace={playerCount < 2} />
+          {earnings && player && !player.user.tiktokLinked && (
+            <a
+              href="/api/auth/tiktok"
+              className="mt-3 block rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs leading-snug text-slate-200"
+            >
+              <span className="font-bold text-white">Connect TikTok</span> so you never lose these coins. Guest
+              accounts live on this device only. →
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={sendPlayAgain}
+            className="mt-4 min-h-[48px] w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+          >
+            Race again
+          </button>
+          <button
+            type="button"
+            onClick={leaveRoom}
+            className="mt-2 min-h-[48px] w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
+          >
+            Back to base
+          </button>
+          <ActiveSponsors campaigns={billboardCampaigns} />
+        </Modal>
       )}
 
       <ControlDeck

@@ -36,7 +36,7 @@ export function WalletPanel() {
               <li key={entry.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
                 <span className="min-w-0">
                   <span className="block truncate text-slate-100">{entryLabel(entry)}</span>
-                  <span className="text-[11px] text-slate-500">{agoText(entry.createdAt)}</span>
+                  <span className="text-[11px] text-slate-400">{agoText(entry.createdAt)}</span>
                 </span>
                 <span className={`font-mono font-black ${entry.delta >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
                   {entry.delta >= 0 ? "+" : ""}
