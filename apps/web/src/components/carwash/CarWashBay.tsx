@@ -326,11 +326,11 @@ function CameraRig({ step, showcase }: { step: number; showcase?: boolean }) {
   useEffect(() => {
     const lens = camera as THREE.PerspectiveCamera
     lens.fov = aspect < 1 ? 60 : 42
-    // The start screen's card covers the bottom (phones) or the left (wide
+    // The start screen's card covers the bottom (phones) or the right (wide
     // screens), so slide the view to keep the car in the open part.
     if (showcase) {
       if (aspect < 1) lens.setViewOffset(size.width, size.height, 0, -size.height * 0.26, size.width, size.height)
-      else lens.setViewOffset(size.width, size.height, -size.width * 0.16, 0, size.width, size.height)
+      else lens.setViewOffset(size.width, size.height, size.width * 0.16, 0, size.width, size.height)
     } else lens.clearViewOffset()
     lens.updateProjectionMatrix()
   }, [camera, aspect, showcase, size.width, size.height])
@@ -401,7 +401,8 @@ function Scene({
   }, [carId])
   useFrame(() => {
     if (!carGroup.current) return
-    const t = Math.min(1, (performance.now() - arrivedAt.current) / 1200)
+    // On the start screen the car is already parked.
+    const t = showcase ? 1 : Math.min(1, (performance.now() - arrivedAt.current) / 1200)
     carGroup.current.position.z = -9 * (1 - t) * (1 - t)
   })
 

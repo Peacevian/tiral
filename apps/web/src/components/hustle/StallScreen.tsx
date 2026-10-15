@@ -1,13 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import {
   CAR_TYPES,
   ROLEX_FLIP_WINDOW,
   ROLEX_PACKS,
-  ROLEX_PATIENCE_SECONDS,
   ROLEX_SPOTS,
   findCarType,
   findHustle,
@@ -18,9 +17,12 @@ import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import type { StallState } from "@/lib/useColyseus"
 import { ActionButton, Card, SectionLabel } from "@/components/ui"
+import { AdaptivePanel } from "@/components/ui/AdaptivePanel"
 import { useMyLoadout } from "@/lib/useMyLoadout"
+import type { AvatarLoadout } from "@tiral/avatars"
 import { WASH_RINSE_DIRT, type WashTool } from "@tiral/game-core"
 import { carLayout } from "@/components/carwash/carLayout"
+import type { RolexFlip, RolexPrep, RolexStep, RolexTarget } from "@/components/rolex/RolexStall3D"
 
 const CarWashBay = dynamic(() => import("@/components/carwash/CarWashBay").then((module) => ({ default: module.CarWashBay })), {
   ssr: false
@@ -73,6 +75,26 @@ function BackToBase() {
 
 const CAR_ICONS: Record<string, string> = { saloon: "🚗", suv: "🚙", taxi: "🚐" }
 
+const NO_CUSTOMERS: never[] = []
+const noop = () => {}
+
+/**
+ * The 3D scene behind the start card. Memoised: the screen re-renders on a
+ * fast clock, and a canvas re-rendered with fresh props that often never
+ * finishes setting up its renderer.
+ */
+const StartBackdrop = memo(function StartBackdrop({ gig, loadout }: { gig: "rolex" | "carwash"; loadout: AvatarLoadout }) {
+  return gig === "carwash" ? (
+    <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_70%_60%,#334155,#0f172a_70%)]">
+      <CarWashBay showcase carId="showcase" carType="saloon" zones={NO_CUSTOMERS} tool="soap" loadout={loadout} onWash={noop} />
+    </div>
+  ) : (
+    <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(to_bottom,#7dd3fc,#bae6fd_45%,#8a5a3c_55%,#6b4430)]">
+      <RolexStall3D showcase customers={NO_CUSTOMERS} received={0} prep={EMPTY_PREP} next={null} cooking={null} flip={null} loadout={loadout} onPick={noop} onTap={noop} />
+    </div>
+  )
+})
+
 /** Before a shift: the bay (or stall) behind, and a card to start from. */
 function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; onStart(spot: string, pack: string): void; busy: boolean; error: string | null }) {
   const { player } = usePlayer()
@@ -83,18 +105,12 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
   const packPrice = ROLEX_PACKS.find((candidate) => candidate.id === pack)?.price ?? 0
   const energy = player ? Math.round(player.needs.energy) : 0
   return (
-    <div className="fixed inset-0 z-10 overflow-y-auto">
-      {gig === "carwash" ? (
-        <div className="fixed inset-0">
-          <CarWashBay showcase carId="showcase" carType="saloon" zones={[]} tool="soap" loadout={loadout} onWash={() => {}} />
-        </div>
-      ) : (
-        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.18),transparent_60%),linear-gradient(to_bottom,#0f172a,#020617)]" />
-      )}
-      {/* Fade the scene behind the card: from the bottom on phones, from the left on wide screens. */}
-      <div className="pointer-events-none fixed inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent md:bg-gradient-to-r md:from-slate-950/95 md:via-slate-950/40" />
-      <div className="relative flex min-h-full items-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[45vh] md:items-center md:px-12 md:py-10">
-        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950/80 p-5 shadow-2xl backdrop-blur-xl">
+    <div className="fixed inset-0 z-10">
+      <StartBackdrop gig={gig} loadout={loadout} />
+      {/* The same panel as every other screen: docked on the right on wide
+          screens, a bottom sheet on phones. */}
+      <AdaptivePanel label={info.name} initial="half" peekHeight={260}>
+        <div className="flex flex-col pb-1">
           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
             Hustle{gig === "carwash" ? " · Nakivubo washing bay" : ""}
           </div>
@@ -107,7 +123,9 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                 Buy ingredients, then cook rolexes to order: flip the egg at the right moment. Unsold stock spoils, and KCCA
                 raids stalls. 2 shifts a day.
               </p>
-              <SectionLabel>Where</SectionLabel>
+              <div className="mt-4">
+                <SectionLabel>Where</SectionLabel>
+              </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {ROLEX_SPOTS.map((candidate) => (
                   <button
@@ -115,7 +133,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                     type="button"
                     onClick={() => setSpot(candidate.id)}
                     aria-pressed={spot === candidate.id}
-                    className={`rounded-xl border p-2 text-left text-xs ${spot === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
+                    className={`min-w-0 rounded-xl border p-2 text-left text-xs ${spot === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
                   >
                     <span className="block font-black text-white">{candidate.name}</span>
                     <span className="block text-[10px] text-slate-400">
@@ -125,7 +143,9 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                   </button>
                 ))}
               </div>
-              <SectionLabel>Stock</SectionLabel>
+              <div className="mt-4">
+                <SectionLabel>Stock</SectionLabel>
+              </div>
               <div className="grid grid-cols-2 gap-1.5">
                 {ROLEX_PACKS.map((candidate) => (
                   <button
@@ -160,7 +180,9 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                   </li>
                 ))}
               </ol>
-              <SectionLabel>Cars</SectionLabel>
+              <div className="mt-4">
+                <SectionLabel>Cars</SectionLabel>
+              </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {CAR_TYPES.map((car) => (
                   <div key={car.id} className="rounded-2xl border border-white/10 bg-white/5 p-2 text-center">
@@ -202,7 +224,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
             <BackToBase />
             <ActionButton
               variant="primary"
-              className="flex-[2]"
+              className="min-w-0 flex-[2] whitespace-normal"
               disabled={busy || !player || (gig === "rolex" && player.balance < packPrice)}
               onClick={() => onStart(spot, pack)}
             >
@@ -210,95 +232,172 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
             </ActionButton>
           </div>
         </div>
-      </div>
+      </AdaptivePanel>
     </div>
   )
 }
 
+const RolexStall3D = dynamic(() => import("@/components/rolex/RolexStall3D").then((module) => ({ default: module.RolexStall3D })), {
+  ssr: false
+})
+
+const EMPTY_PREP: RolexPrep = { customerId: null, eggs: 0, veg: false, whisked: false, crackAt: 0, vegAt: 0, whiskAt: 0 }
+
+const STEP_TEXT: Record<RolexStep, { icon: string; label: string; hint: string }> = {
+  pick: { icon: "🧑🏾", label: "Take an order", hint: "Tap a customer at the counter" },
+  crack: { icon: "🥚", label: "Crack an egg", hint: "Two eggs into the bowl" },
+  veg: { icon: "🍅", label: "Add the veg", hint: "Tomato, onion and cabbage" },
+  whisk: { icon: "🥄", label: "Whisk it", hint: "Beat the eggs and veg together" },
+  pour: { icon: "🍳", label: "Pour on the pan", hint: "Fry it on the hot plate" },
+  wait: { icon: "⏳", label: "Pan's busy", hint: "Flip the egg that's cooking first" },
+  flip: { icon: "🔄", label: "Flip & roll", hint: "Flip when it turns golden" },
+  empty: { icon: "📦", label: "Out of stock", hint: "Close up and count your money" }
+}
+
+/** The 3D rolex stand with its HUD: take an order, prep the egg, fry, flip, roll. */
 function RolexStand({ state, now, send }: { state: StallState; now: number; send(type: string, payload?: unknown): void }) {
-  const cookingSeconds = state.cooking ? (state.cooking.elapsedMs + (now - state.receivedAt)) / 1000 : 0
+  const loadout = useMyLoadout()
+  const [prep, setPrep] = useState<RolexPrep>(EMPTY_PREP)
+  const [hint, setHint] = useState<{ text: string; at: number } | null>(null)
+  const customers = state.customers
+
+  // Drop the order if that customer walked off.
+  const selected = customers.find((customer) => customer.id === prep.customerId) ?? null
+  useEffect(() => {
+    if (prep.customerId && !customers.some((customer) => customer.id === prep.customerId)) {
+      setPrep((current) => ({ ...current, customerId: null }))
+    }
+  }, [customers, prep.customerId])
+
+  // Remember who the egg on the plate is for, so the rolled rolex goes to them.
+  const lastCooking = useRef<string | null>(null)
+  if (state.cooking) lastCooking.current = state.cooking.customerId
+  const [flip, setFlip] = useState<RolexFlip | null>(null)
+  useEffect(() => {
+    const last = state.lastFlip
+    if (!last || last.agoMs > 3000) return
+    const at = state.receivedAt - last.agoMs
+    setFlip((current) => (current && Math.abs(current.at - at) < 400 ? current : { result: last.result, at, customerId: lastCooking.current }))
+  }, [state.lastFlip, state.receivedAt])
+
+  const cookingSince = state.cooking ? state.receivedAt - state.cooking.elapsedMs : null
+  const cookingSeconds = cookingSince === null ? 0 : (now - cookingSince) / 1000
   const progress = Math.min(1, cookingSeconds / COOK_TOTAL)
   const windowStart = ROLEX_FLIP_WINDOW.start / COOK_TOTAL
   const windowEnd = ROLEX_FLIP_WINDOW.end / COOK_TOTAL
   const inWindow = cookingSeconds >= ROLEX_FLIP_WINDOW.start && cookingSeconds <= ROLEX_FLIP_WINDOW.end
-  const flip = state.lastFlip && state.lastFlip.agoMs + (now - state.receivedAt) < 2500 ? FLIP_TEXT[state.lastFlip.result] : null
+  const flipText = flip && now - flip.at < 2500 ? FLIP_TEXT[flip.result] : null
+
+  // What the bowl needs next (you can prep the next rolex while one fries).
+  const prepStep: RolexStep =
+    state.stock <= 0 ? "empty" : prep.eggs < 2 ? "crack" : !prep.veg ? "veg" : !prep.whisked ? "whisk" : state.cooking ? "wait" : "pour"
+  const step: RolexStep = state.cooking ? "flip" : prepStep === "pour" && !selected && customers.length !== 1 ? "pick" : prepStep
+  const target: RolexTarget | null =
+    step === "flip" || step === "pour" ? "pan" : step === "crack" ? "tray" : step === "veg" ? "board" : step === "whisk" ? "bowl" : null
+
+  const say = (text: string) => setHint({ text, at: Date.now() })
+
+  const pour = () => {
+    const customer = selected ?? (customers.length === 1 ? customers[0]! : null)
+    if (!customer) return say("Tap the customer you're cooking for.")
+    send("cook", customer.id)
+    // Keep their order open if they asked for two.
+    const stillWants = customer.wants - customer.served - 1 > 0
+    setPrep({ ...EMPTY_PREP, customerId: stillWants ? customer.id : null })
+  }
+
+  const doStep = (wanted: RolexTarget) => {
+    const at = Date.now()
+    if (wanted === "pan") {
+      if (state.cooking) return send("flip")
+      if (prepStep === "pour") return pour()
+      return say(prepStep === "empty" ? "You're out of stock." : `First: ${STEP_TEXT[prepStep].label.toLowerCase()}.`)
+    }
+    if (state.stock <= 0) return say("You're out of stock.")
+    if (wanted === "tray") {
+      if (prep.eggs >= 2) return say("Two eggs is enough.")
+      return setPrep((current) => ({ ...current, eggs: current.eggs + 1, crackAt: at }))
+    }
+    if (wanted === "board") {
+      if (prep.eggs < 2) return say("Crack two eggs first.")
+      if (prep.veg) return say("The veg is in.")
+      return setPrep((current) => ({ ...current, veg: true, vegAt: at }))
+    }
+    if (prep.eggs < 2 || !prep.veg) return say(prep.eggs < 2 ? "Crack two eggs first." : "Add the veg first.")
+    setPrep((current) => ({ ...current, whisked: true, whiskAt: at }))
+  }
+
+  const pick = (customerId: string) => setPrep((current) => ({ ...current, customerId }))
+  const shownStep = STEP_TEXT[step]
+  const hintText = hint && now - hint.at < 2200 ? hint.text : null
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <SectionLabel aside={<span>tap someone to cook for them</span>}>Customers</SectionLabel>
-        {state.customers.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-white/15 px-3 py-4 text-center text-xs text-slate-400">Waiting for customers…</p>
-        ) : (
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {state.customers.map((customer) => {
-              const left = Math.max(0, customer.leavesInMs - (now - state.receivedAt))
-              const active = state.cooking?.customerId === customer.id
-              return (
-                <li key={customer.id}>
-                  <button
-                    type="button"
-                    disabled={state.cooking !== null || state.stock <= 0}
-                    onClick={() => send("cook", customer.id)}
-                    className={`flex w-full flex-col items-center gap-1 rounded-2xl border p-2 text-center transition disabled:cursor-default ${
-                      active ? "border-amber-300 bg-amber-300/15" : "border-white/10 bg-white/5 hover:bg-white/10"
-                    }`}
-                  >
-                    <span aria-hidden className="text-2xl">🧑🏾</span>
-                    <span className="text-xs font-black text-white">
-                      {customer.served}/{customer.wants} rolex{customer.wants > 1 ? "es" : ""}
-                    </span>
-                    <span className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                      <span
-                        className="block h-full rounded-full"
-                        style={{ width: `${(left / (ROLEX_PATIENCE_SECONDS * 1000)) * 100}%`, background: left < 10_000 ? "#f43f5e" : "#34d399" }}
-                      />
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-
-      <Card className="flex flex-col items-center gap-3">
-        <div
-          aria-hidden
-          className="relative grid h-32 w-32 place-items-center rounded-full border-4 border-slate-600 bg-slate-800 shadow-inner"
-        >
-          {state.cooking ? (
-            <span
-              className="grid h-20 w-20 place-items-center rounded-full text-3xl transition-colors"
-              style={{ background: progress > windowEnd ? "#7c2d12" : progress > windowStart ? "#facc15" : "#fef3c7" }}
-            >
-              🍳
+    <div className="fixed inset-0 z-10">
+      <RolexStall3D
+        customers={customers}
+        received={state.receivedAt}
+        prep={prep}
+        next={target}
+        cooking={state.cooking && cookingSince !== null ? { since: cookingSince, customerId: state.cooking.customerId } : null}
+        flip={flip}
+        loadout={loadout}
+        onPick={pick}
+        onTap={doStep}
+      />
+      {/* Top: what to do next. */}
+      <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+3.5rem)] mx-auto w-[min(94vw,40rem)] px-1">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span aria-hidden className="text-2xl">
+              {shownStep.icon}
             </span>
-          ) : (
-            <span className="text-xs text-slate-500">pan</span>
-          )}
-        </div>
-        <div className="w-full">
-          <div className="relative h-4 w-full overflow-hidden rounded-full bg-white/10">
-            <span
-              className="absolute inset-y-0 bg-emerald-400/40"
-              style={{ left: `${windowStart * 100}%`, width: `${(windowEnd - windowStart) * 100}%` }}
-            />
-            <span className="absolute inset-y-0 left-0 bg-amber-300/80" style={{ width: `${progress * 100}%` }} />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-black text-white">{shownStep.label}</div>
+              <div className="text-[11px] text-slate-300">{hintText ?? (customers.length === 0 && step !== "flip" ? "Prep while you wait for customers" : shownStep.hint)}</div>
+            </div>
+            {flipText && <span className={`text-right text-xs font-black ${flipText.tone}`}>{flipText.text}</span>}
           </div>
-          <p className="mt-1 text-center text-[11px] text-slate-400">Flip when the bar is in the green.</p>
+          {/* The bowl: two eggs, veg, whisked */}
+          <div className="mt-2 flex items-center gap-1.5 text-[11px] font-bold">
+            {[
+              { done: prep.eggs >= 1, label: "🥚" },
+              { done: prep.eggs >= 2, label: "🥚" },
+              { done: prep.veg, label: "🍅🧅🥬" },
+              { done: prep.whisked, label: "🥄" }
+            ].map((item, index) => (
+              <span key={index} className={`rounded-full px-2 py-0.5 ${item.done ? "bg-emerald-400/20 text-emerald-200" : "bg-white/5 text-slate-500 grayscale"}`}>
+                {item.label}
+              </span>
+            ))}
+            <span className="ml-auto text-slate-400">
+              {selected ? `Cooking for 🧑🏾 ${selected.served}/${selected.wants}` : customers.length ? `${customers.length} waiting` : "No customers yet"}
+            </span>
+          </div>
         </div>
-        <ActionButton
-          variant="primary"
-          size="lg"
-          className={`w-full ${inWindow ? "ring-4 ring-emerald-300/50" : ""}`}
-          disabled={!state.cooking}
-          onClick={() => send("flip")}
-        >
-          {state.cooking ? "🔄 Flip & roll" : "Pick a customer"}
-        </ActionButton>
-        {flip && <p className={`text-sm font-black ${flip.tone}`}>{flip.text}</p>}
-      </Card>
+      </div>
+      {/* Bottom: the timing bar and the next action. */}
+      <div className="absolute inset-x-0 bottom-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex w-[min(100%,40rem)] flex-col gap-2">
+          {state.cooking && (
+            <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-2 backdrop-blur-md">
+              <div className="relative h-4 w-full overflow-hidden rounded-full bg-white/10">
+                <span className="absolute inset-y-0 bg-emerald-400/40" style={{ left: `${windowStart * 100}%`, width: `${(windowEnd - windowStart) * 100}%` }} />
+                <span className="absolute inset-y-0 left-0 bg-amber-300/80" style={{ width: `${progress * 100}%` }} />
+              </div>
+              <p className="mt-1 text-center text-[11px] text-slate-300">Flip when the bar is in the green and the egg is golden.</p>
+            </div>
+          )}
+          <ActionButton
+            variant="primary"
+            size="lg"
+            className={`w-full ${inWindow ? "ring-4 ring-emerald-300/60" : ""}`}
+            disabled={step === "empty" || step === "wait"}
+            onClick={() => (step === "pick" ? say("Tap a customer at the counter.") : target && doStep(target))}
+          >
+            {shownStep.icon} {step === "crack" ? `${shownStep.label} (${prep.eggs}/2)` : shownStep.label}
+          </ActionButton>
+        </div>
+      </div>
     </div>
   )
 }
@@ -561,7 +660,7 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
         )}
 
         {toast && stall?.phase !== "closed" && (
-          <div role="status" className="fixed inset-x-0 top-6 z-50 mx-auto w-[min(90vw,340px)] rounded-2xl border border-white/15 bg-slate-950/95 px-4 py-3 text-center text-sm font-bold shadow-2xl">
+          <div role="status" className="pointer-events-none fixed inset-x-0 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+9.5rem)] z-50 mx-auto w-[min(90vw,340px)] rounded-2xl border border-white/15 bg-slate-950/95 px-4 py-3 text-center text-sm font-bold shadow-2xl">
             {toast.kind === "sale" ? (
               <span className="text-emerald-300">
                 +{formatCoins(toast.amount)} BNG · {toast.rolexes} rolex{toast.rolexes === 1 ? "" : "es"} sold

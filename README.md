@@ -29,7 +29,7 @@ simulated, so there's always work.
 |---|---|---|
 | 📦 **Kikuubo porter** | Pick up goods at a pin on the map and carry them to the shop | per job, by distance |
 | 🛵 **Boda passengers** | Collect passengers at stages and ride them across town on a 3D boda | fare by distance, tips for speed, minus fuel |
-| 🍳 **Rolex stand** | Buy stock, cook to order, flip the egg at the right moment, and run when KCCA raids | 2,000 a rolex (+500 if perfect) |
+| 🍳 **Rolex stand** | Buy stock, then crack eggs, add veg, whisk, fry, flip and roll rolexes for customers at a 3D street stall. Run when KCCA raids | 2,000 a rolex (+500 if perfect) |
 | 🚗 **Car wash** | Soap, scrub and rinse every panel of a muddy car in a 3D washing bay | 8,000 to 15,000 a car |
 
 ![The 3D car wash](docs/images/car-wash.jpg)
@@ -144,7 +144,7 @@ pnpm typecheck
 - [x] Rent, stress, family requests and shocks
 - [x] Hustles: porter, boda passengers, rolex stand, 3D car wash
 - [x] Bike ownership (buy, lease, upkeep, breakdowns) and customisation shop
-- [ ] 3D rolex stand
+- [x] 3D rolex stand
 - [ ] H4: mobile money booth, renting out your bike
 - [ ] App delivery gig (spec ready in `docs/economy-progress.md` §16.12)
 
