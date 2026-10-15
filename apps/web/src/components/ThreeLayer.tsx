@@ -1,7 +1,7 @@
 "use client"
 
-import { createContext, useContext, useMemo, useRef, type MutableRefObject } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { createContext, useContext, useEffect, useMemo, useRef, type MutableRefObject } from "react"
+import { Canvas, advance, useFrame, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import { buildMercatorViewProjectionMatrix, lngLatToMercator } from "@tiral/map"
 import type { MapTransformLike } from "@tiral/map"
@@ -54,6 +54,54 @@ function CameraSync({ map, origin }: { map: maplibregl.Map | null; origin: Mutab
   return null
 }
 
+/**
+ * Draws the overlay in step with the map instead of on a loop of its own:
+ *  - while the map is drawing (panning, easing, loading tiles), right after
+ *    each map frame, so avatars don't swim a frame behind the roads;
+ *  - otherwise on a light loop of our own, for the avatars' animations: every
+ *    other frame on low-end phones, and not at all while there's nothing but
+ *    lights in the scene (the lobby).
+ */
+function MapDriver({ map }: { map: maplibregl.Map | null }) {
+  const get = useThree((state) => state.get)
+  useEffect(() => {
+    const lite = isLiteDevice()
+    let raf = 0
+    let tick = 0
+    let lastMapDraw = -Infinity
+    let drewEmpty = false
+    const draw = () => {
+      const state = get()
+      const empty = !state.scene.children.some((child) => !(child as THREE.Light).isLight)
+      // One last frame clears what was there; then rest until something shows up.
+      if (empty && drewEmpty) return
+      drewEmpty = empty
+      advance(performance.now() / 1000, false, state)
+    }
+    const onMapRender = () => {
+      lastMapDraw = performance.now()
+      draw()
+    }
+    map?.on("render", onMapRender)
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop)
+      tick++
+      // The map has drawn this frame, or will (a repaint is queued): its
+      // render event covers us.
+      const mapFrame = map && ((map as unknown as { _frameRequest?: unknown })._frameRequest || lastMapDraw >= now - 1)
+      if (mapFrame) return
+      if (lite && tick % 2) return
+      draw()
+    }
+    raf = requestAnimationFrame(loop)
+    return () => {
+      cancelAnimationFrame(raf)
+      map?.off("render", onMapRender)
+    }
+  }, [map, get])
+  return null
+}
+
 export function ThreeLayer({ map, children }: ThreeLayerProps) {
   const origin = useRef<Origin>({ x: 0, y: 0, worldSize: 512 })
   return (
@@ -69,10 +117,13 @@ export function ThreeLayer({ map, children }: ThreeLayerProps) {
         // edges are too small to see anyway.
         dpr={isLiteDevice() ? 1 : [1, 1.5]}
         gl={{ alpha: true, antialias: !isLiteDevice() && (typeof window === "undefined" || window.devicePixelRatio < 2) }}
+        // Drawn by MapDriver, in step with the map.
+        frameloop="never"
         onCreated={({ gl }) => {
           gl.setClearColor(0x000000, 0)
         }}
       >
+        <MapDriver map={map} />
         <CameraSync map={map} origin={origin} />
         <OriginContext.Provider value={origin}>{children}</OriginContext.Provider>
       </Canvas>

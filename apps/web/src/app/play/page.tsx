@@ -492,12 +492,12 @@ export default function Home() {
           <>
             <Link
               href="/"
-              className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl bg-slate-950/80 px-3 py-2 text-sm font-black text-white shadow-xl backdrop-blur-md"
+              className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl bg-slate-950/80 px-3 py-2 text-sm font-black text-white shadow-xl md:backdrop-blur-md"
             >
               Tiral
             </Link>
             <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-              <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 pt-3 shadow-2xl backdrop-blur-md">
+              <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 pt-3 shadow-2xl md:backdrop-blur-md">
                 {authReady && offline ? (
                   <ServerUnreachable
                     retrying={retryingPlayer}
@@ -626,7 +626,7 @@ export default function Home() {
       {connected && collapsed && needs?.collapsedUntil && <CollapseOverlay until={needs.collapsedUntil} />}
 
       {connected && phase === "racing" && ownFinishPosition !== null && (
-        <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl backdrop-blur-md">
+        <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl md:backdrop-blur-md">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
             You finished {ownFinishPosition}
             {ownFinishPosition === 1 ? "st" : ownFinishPosition === 2 ? "nd" : ownFinishPosition === 3 ? "rd" : "th"}!

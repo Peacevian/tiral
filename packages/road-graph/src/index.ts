@@ -292,6 +292,57 @@ export function chooseBestEdge(candidates: ClassifiedRoad[], intent: RoadDirecti
   }, null as ClassifiedRoad | null)
 }
 
+/** The junction a runner just went through (straight by default), for a late turn. */
+export type PassedJunction = {
+  nodeId: string
+  candidates: ClassifiedRoad[]
+  chosenEdgeId: string
+  /** The turn the runner had asked for there (null = went straight by default). */
+  intent: RoadDirection | null
+}
+
+/** A turn tapped up to this far past a junction still counts at that junction. */
+export const LATE_TURN_METERS = 10
+
+/** Enter `edgeId` from `nodeId`, `overflow` metres along it. */
+export function enterEdgeFrom(graph: RoadGraph, edgeId: string, nodeId: string, overflow: number): RoadPosition | null {
+  const edge = graph.edges[edgeId]
+  if (!edge) return null
+  const direction: 1 | -1 = edge.fromNodeId === nodeId ? 1 : -1
+  return {
+    edgeId,
+    distanceAlongEdge: direction === 1 ? Math.min(overflow, edge.lengthMeters) : Math.max(edge.lengthMeters - overflow, 0),
+    direction
+  }
+}
+
+/**
+ * A turn asked for just after a junction the runner went straight through (on
+ * a slow network the phone runs a little ahead of the server, so taps land
+ * "late"): move the runner onto that turn, as far along it as it has gone
+ * since the junction. Returns null when it doesn't apply (too far past, the
+ * runner had asked for a turn there, or that turn doesn't exist there).
+ */
+export function lateTurn(
+  graph: RoadGraph,
+  position: RoadPosition,
+  passed: PassedJunction | null,
+  direction: RoadDirection
+): RoadPosition | null {
+  if (!passed || passed.intent || position.edgeId !== passed.chosenEdgeId) return null
+  const edge = graph.edges[position.edgeId]
+  if (!edge) return null
+  // Only while still heading away from that junction on the road we took.
+  const leftFromStart = edge.fromNodeId === passed.nodeId && position.direction === 1
+  const leftFromEnd = edge.toNodeId === passed.nodeId && position.direction === -1
+  if (!leftFromStart && !leftFromEnd) return null
+  const travelled = leftFromStart ? position.distanceAlongEdge : edge.lengthMeters - position.distanceAlongEdge
+  if (travelled > LATE_TURN_METERS) return null
+  const turn = chooseBestEdge(passed.candidates, direction)
+  if (!turn || turn.edgeId === passed.chosenEdgeId) return null
+  return enterEdgeFrom(graph, turn.edgeId, passed.nodeId, travelled)
+}
+
 export function graphToGeoJSON(graph: RoadGraph): GeoJSONFeatureCollection {
   return {
     type: "FeatureCollection",

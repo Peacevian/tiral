@@ -315,7 +315,7 @@ function MapHustle() {
       {!inShift ? (
         // Start screen.
         <div className="absolute inset-x-0 bottom-0 z-30 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:inset-auto md:right-3 md:top-3 md:w-[24rem] md:p-0">
-          <Card className="!bg-slate-950/95 shadow-2xl backdrop-blur-md">
+          <Card className="!bg-slate-950/95 shadow-2xl md:backdrop-blur-md">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">Hustle</div>
             <h1 className="mt-1 text-xl font-black">
               {gigInfo.icon} {gigInfo.name}
@@ -350,7 +350,7 @@ function MapHustle() {
         <>
           {/* Top bar: what to do now, and End shift. */}
           <div className="absolute inset-x-0 top-0 z-30 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-[max(0.5rem,env(safe-area-inset-top))] md:right-[25rem]">
-            <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/85 py-1 pl-3 pr-1 shadow-xl backdrop-blur-md">
+            <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/85 py-1 pl-3 pr-1 shadow-xl md:backdrop-blur-md">
               <div className="min-w-0 flex-1">
                 {hustle.job ? (
                   <>
@@ -424,7 +424,7 @@ function MapHustle() {
           {showPickedUp && hustle.job && (
             <div
               role="status"
-              className="absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border border-amber-300/40 bg-amber-950/90 px-4 py-3 text-center shadow-2xl backdrop-blur-md md:left-[calc(50%-12.5rem)]"
+              className="absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border border-amber-300/40 bg-amber-950/90 px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)]"
             >
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
                 {onBike ? "🛵 Passenger on" : "📦 Picked up"}
@@ -438,7 +438,7 @@ function MapHustle() {
           {toast && (
             <div
               role="status"
-              className={`absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border px-4 py-3 text-center shadow-2xl backdrop-blur-md md:left-[calc(50%-12.5rem)] ${
+              className={`absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)] ${
                 toast.kind === "receipt" && toast.receipt.paid
                   ? "border-emerald-300/40 bg-emerald-950/90"
                   : toast.kind === "rented"

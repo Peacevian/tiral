@@ -47,7 +47,7 @@ export function TopBar({
 
   return (
     <div className="absolute inset-x-0 top-0 z-20 pt-[max(0.5rem,env(safe-area-inset-top))] px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
-      <div className="flex min-h-[44px] items-center justify-between gap-1.5 rounded-2xl border border-white/10 bg-slate-950/80 py-1 pl-2.5 pr-1 shadow-xl backdrop-blur-md">
+      <div className="flex min-h-[44px] items-center justify-between gap-1.5 rounded-2xl border border-white/10 bg-slate-950/80 py-1 pl-2.5 pr-1 shadow-xl md:backdrop-blur-md">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="relative flex h-2.5 w-2.5 shrink-0">
             <span
@@ -103,7 +103,7 @@ export function TopBar({
         </div>
       </div>
       {menuOpen && (
-        <div className="ml-auto mt-1.5 flex w-[min(72vw,240px)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-md">
+        <div className="ml-auto mt-1.5 flex w-[min(72vw,240px)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl md:backdrop-blur-md">
           <p className="px-2 py-1 text-[11px] leading-snug text-slate-400">
             {phase === "racing" ? "Leaving now means no pay for this race." : "Back to the hub."}
           </p>

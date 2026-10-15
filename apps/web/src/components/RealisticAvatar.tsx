@@ -5,6 +5,7 @@ import { createPortal, useFrame } from "@react-three/fiber"
 import { useAnimations, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js"
+import { MergeStatic } from "@/components/MergeStatic"
 import {
   resolveLoadout,
   type AvatarLoadout,
@@ -534,10 +535,13 @@ function setColor(materials: THREE.MeshStandardMaterial[], color: string | THREE
 function OnBone({
   rig,
   bone,
+  version,
   children
 }: {
   rig: ReturnType<typeof instantiate>
   bone: string
+  /** Changes whenever the parts change (they're merged into one mesh per material). */
+  version: string
   children: ReactNode
 }) {
   const target = rig.bones.get(bone)
@@ -545,7 +549,7 @@ function OnBone({
   if (!target || !inverse) return null
   return createPortal(
     <group matrix={inverse} matrixAutoUpdate={false}>
-      {children}
+      <MergeStatic version={version}>{children}</MergeStatic>
     </group>,
     target
   )
@@ -620,8 +624,8 @@ const RIDE_AIMS: Record<RidePose, Aim[]> = {
 }
 
 const scratch = {
-  rootInverse: new THREE.Matrix4(),
   matrix: new THREE.Matrix4(),
+  parentMatrix: new THREE.Matrix4(),
   position: new THREE.Vector3(),
   childPosition: new THREE.Vector3(),
   scale: new THREE.Vector3(),
@@ -632,30 +636,41 @@ const scratch = {
   target: new THREE.Vector3()
 }
 
-/** Bone position/rotation relative to the rig root (immune to any mirroring above it). */
-function relative(object: THREE.Object3D, rootInverse: THREE.Matrix4, position: THREE.Vector3, quaternion: THREE.Quaternion) {
-  scratch.matrix.multiplyMatrices(rootInverse, object.matrixWorld)
-  scratch.matrix.decompose(position, quaternion, scratch.scale)
+/**
+ * An object's transform relative to the rig root, from the local transforms
+ * along its parent chain (a handful of bones). Cheaper than refreshing the
+ * world matrices of the whole rig and its accessories every frame, and immune
+ * to whatever rotates and mirrors the model above the root.
+ */
+function rootSpace(object: THREE.Object3D, root: THREE.Object3D, out: THREE.Matrix4) {
+  out.identity()
+  for (let node: THREE.Object3D | null = object; node && node !== root; node = node.parent) {
+    node.updateMatrix()
+    out.premultiply(node.matrix)
+  }
+  return out
+}
+
+/** Bone position/rotation relative to the rig root. */
+function relative(object: THREE.Object3D, root: THREE.Object3D, position: THREE.Vector3, quaternion: THREE.Quaternion) {
+  rootSpace(object, root, scratch.matrix).decompose(position, quaternion, scratch.scale)
 }
 
 function applyRidePose(rig: ReturnType<typeof instantiate>, pose: RidePose) {
   const { root, bones } = rig
-  root.updateMatrixWorld(true)
-  scratch.rootInverse.copy(root.matrixWorld).invert()
   for (const aim of RIDE_AIMS[pose]) {
     const bone = bones.get(aim.bone)
     const child = bones.get(aim.toward)
     if (!bone || !child || !bone.parent) continue
-    relative(bone, scratch.rootInverse, scratch.position, scratch.quaternion)
-    relative(child, scratch.rootInverse, scratch.childPosition, scratch.delta)
+    relative(bone, root, scratch.position, scratch.quaternion)
+    relative(child, root, scratch.childPosition, scratch.delta)
     scratch.current.subVectors(scratch.childPosition, scratch.position).normalize()
     scratch.target.set(...aim.direction).normalize()
     scratch.delta.setFromUnitVectors(scratch.current, scratch.target)
     // New root-space rotation, expressed in the parent's frame.
     scratch.quaternion.premultiply(scratch.delta)
-    relative(bone.parent, scratch.rootInverse, scratch.position, scratch.parentQuaternion)
+    relative(bone.parent, root, scratch.position, scratch.parentQuaternion)
     bone.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
-    bone.updateMatrixWorld(true)
   }
   attachFeet(rig)
 }
@@ -665,22 +680,20 @@ function applyRidePose(rig: ReturnType<typeof instantiate>, pose: RidePose) {
  * with its shin's end, keeping the bind-pose gap so the shoe isn't stretched.
  * Clips that don't animate the feet (Idle, Wave, …) would otherwise leave them
  * where the T-pose put them, 12–19 cm from the ankles.
+ * World matrices are left to the renderer, which refreshes them before drawing.
  */
 function attachFeet(rig: ReturnType<typeof instantiate>) {
   const { root, bones } = rig
-  root.updateMatrixWorld(true)
   for (const side of ["L", "R"] as const) {
     const foot = bones.get(`Foot${side}`)
     const end = bones.get(`LowerLeg${side}_end`)
     const offset = rig.footOffset.get(side)
     if (!foot || !end || !foot.parent || !offset) continue
-    // The offset is in model space: add it there, then back out to world space
-    // (the map rotates and mirrors the model).
-    end.getWorldPosition(scratch.childPosition)
-    root.worldToLocal(scratch.childPosition).add(offset)
-    root.localToWorld(scratch.childPosition)
-    foot.position.copy(foot.parent.worldToLocal(scratch.childPosition))
-    foot.updateMatrixWorld(true)
+    // The offset is in model (root) space: add it there, then express the
+    // point in the foot's parent frame.
+    scratch.childPosition.setFromMatrixPosition(rootSpace(end, root, scratch.matrix)).add(offset)
+    rootSpace(foot.parent, root, scratch.parentMatrix).invert()
+    foot.position.copy(scratch.childPosition.applyMatrix4(scratch.parentMatrix))
   }
 }
 
@@ -797,12 +810,14 @@ function HumanAvatar({
   })
 
   const robe = outfit === "kanzu" ? KANZU_COLOR : outfit === "gomesi" ? shirt : null
+  // Everything the bone-mounted parts depend on.
+  const partsKey = JSON.stringify([loadout, !!ride])
 
   return (
     <group ref={spinRef}>
       <primitive object={rig.root} />
 
-      <OnBone rig={rig} bone="Head">
+      <OnBone rig={rig} version={partsKey} bone="Head">
         {hair !== "short" && hat !== "helmet" && (
           <group position={HEAD_CENTER} scale={HEAD_SCALE}>
             <Hair style={hair} color={hairColor} hat={hat} />
@@ -816,7 +831,7 @@ function HumanAvatar({
         </group>
       </OnBone>
 
-      <OnBone rig={rig} bone="Chest">
+      <OnBone rig={rig} version={partsKey} bone="Chest">
         {/* Seated on a boda, a backpack would push into whoever sits behind. */}
         {!ride && <Backpack color={resolved.backpack} />}
         {outfit === "jersey" && numberTexture && (
@@ -840,7 +855,7 @@ function HumanAvatar({
       </OnBone>
 
       {outfit === "hoodie" && (
-        <OnBone rig={rig} bone="Neck">
+        <OnBone rig={rig} version={partsKey} bone="Neck">
           <mesh position={[0, 1.53, -0.075]} scale={[1.35, 0.85, 1.1]} castShadow>
             <sphereGeometry args={[0.09, 16, 12]} />
             <meshStandardMaterial color={shirt} roughness={0.85} />
@@ -849,7 +864,7 @@ function HumanAvatar({
       )}
 
       {robe && (
-        <OnBone rig={rig} bone="Hips">
+        <OnBone rig={rig} version={partsKey} bone="Hips">
           <mesh position={[0, 0.58, 0.05]} castShadow>
             <cylinderGeometry args={[0.19, outfit === "gomesi" ? 0.36 : 0.3, 0.95, 28, 1, true]} />
             <meshStandardMaterial color={robe} roughness={0.85} side={THREE.DoubleSide} />
@@ -874,7 +889,7 @@ function HumanAvatar({
       {outfit === "gomesi" &&
         (["UpperArmL", "UpperArmR"] as const).map((bone, i) => (
           // Gomesi's signature puffed, peaked shoulders.
-          <OnBone key={bone} rig={rig} bone={bone}>
+          <OnBone key={bone} rig={rig} version={partsKey} bone={bone}>
             <group position={[(i === 0 ? 1 : -1) * 0.2, 1.46, 0.06]}>
               <mesh>
                 <sphereGeometry args={[0.085, 14, 12]} />

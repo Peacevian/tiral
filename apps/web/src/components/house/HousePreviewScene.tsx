@@ -294,7 +294,8 @@ export function HousePreviewScene({
   selection = null,
   onSelectTile,
   onSelectAvatar,
-  onSelectSurface
+  onSelectSurface,
+  paused = false
 }: {
   house: HouseLoadout
   showRoof?: boolean
@@ -306,6 +307,7 @@ export function HousePreviewScene({
   onSelectTile?(x: number, z: number): void
   onSelectAvatar?(): void
   onSelectSurface?(kind: "wall" | "roof"): void
+  paused?: boolean
 }) {
   const inside = view === "inside"
   // Lighter on low-end / slow phones (no shadows, 1× pixels): lib/deviceTier.ts
@@ -317,6 +319,7 @@ export function HousePreviewScene({
       gl={{ antialias: quality.antialias, alpha: true }}
       dpr={quality.dpr}
       shadows={quality.shadows}
+      frameloop={paused ? "never" : "always"}
     >
       <CameraRig view={view} follow={avatarLoadout ? avatarSpot : null} />
       <hemisphereLight args={["#fff4d6", "#293548", 0.6]} />

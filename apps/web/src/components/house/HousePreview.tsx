@@ -24,7 +24,8 @@ export function HousePreview({
   onSelectAvatar,
   onSelectSurface,
   hero = false,
-  fill = false
+  fill = false,
+  paused = false
 }: {
   house: HouseLoadout
   showRoof?: boolean
@@ -39,6 +40,8 @@ export function HousePreview({
   hero?: boolean
   /** Edge-to-edge fill for full-bleed pages (no rounding, parent positions). */
   fill?: boolean
+  /** Stop drawing (scene kept alive, e.g. while another view covers it). */
+  paused?: boolean
 }) {
   return (
     <div
@@ -58,6 +61,7 @@ export function HousePreview({
         onSelectTile={onSelectTile}
         onSelectAvatar={onSelectAvatar}
         onSelectSurface={onSelectSurface}
+        paused={paused}
       />
     </div>
   )

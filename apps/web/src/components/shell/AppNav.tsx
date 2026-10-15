@@ -40,7 +40,7 @@ export function AppNav() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-slate-950/90 pt-[env(safe-area-inset-top)] backdrop-blur-md">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-slate-950/90 pt-[env(safe-area-inset-top)] md:backdrop-blur-md">
         <div className="mx-auto flex h-14 w-full items-center gap-2 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:gap-4 md:px-4">
           <Link
             href="/"
@@ -79,7 +79,7 @@ export function AppNav() {
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] md:backdrop-blur-md md:hidden"
       >
         <div className="grid h-16 grid-cols-4">
           {DESTINATIONS.map((item) => (

@@ -311,7 +311,17 @@ export function Avatar3D({
   const rarity = loadoutRarity(loadout)
   const celebrating = finishPosition !== null && !moving
 
-  useFrame(() => {
+  // Remote runners: each new position (≈10 a second) is reached at a steady
+  // pace over about one update interval, the same at 30 or 120 fps.
+  const track = useRef<{ fromX: number; fromY: number; to: { x: number; y: number } | null; at: number; span: number }>({
+    fromX: 0,
+    fromY: 0,
+    to: null,
+    at: 0,
+    span: 100
+  })
+
+  useFrame((_, delta) => {
     const group = groupRef.current
     if (!group) return
     const now = live?.current
@@ -322,13 +332,24 @@ export function Avatar3D({
       display.x = target.x
       display.y = target.y
     } else {
-      const blend = 0.16
-      display.x += (target.x - display.x) * blend
-      display.y += (target.y - display.y) * blend
+      const t = performance.now()
+      const glide = track.current
+      if (glide.to !== target) {
+        // A new position arrived: glide from where we're drawn now.
+        glide.span = glide.to ? Math.min(250, Math.max(50, t - glide.at)) : 100
+        glide.fromX = display.x
+        glide.fromY = display.y
+        glide.to = target
+        glide.at = t
+      }
+      const k = Math.min(1, (t - glide.at) / glide.span)
+      display.x = glide.fromX + (target.x - glide.fromX) * k
+      display.y = glide.fromY + (target.y - glide.fromY) * k
     }
     group.position.set(display.x - origin.current.x, display.y - origin.current.y, 0)
     group.scale.setScalar(avatarScale(origin.current.worldSize))
-    group.rotation.z = dampAngle(group.rotation.z, now ? now.heading : heading, 0.18)
+    // Same turning speed at any frame rate (≈0.18 per frame at 60 fps).
+    group.rotation.z = dampAngle(group.rotation.z, now ? now.heading : heading, 1 - Math.exp(-delta * 12))
   })
 
   return (

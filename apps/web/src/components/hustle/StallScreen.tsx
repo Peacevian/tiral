@@ -1,6 +1,18 @@
 "use client"
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ComponentProps
+} from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import {
@@ -25,6 +37,10 @@ import { carLayout } from "@/components/carwash/carLayout"
 import type { RolexFlip, RolexPrep, RolexStep, RolexTarget } from "@/components/rolex/RolexStall3D"
 
 const CarWashBay = dynamic(() => import("@/components/carwash/CarWashBay").then((module) => ({ default: module.CarWashBay })), {
+  ssr: false
+})
+
+const RolexStall3D = dynamic(() => import("@/components/rolex/RolexStall3D").then((module) => ({ default: module.RolexStall3D })), {
   ssr: false
 })
 
@@ -80,21 +96,97 @@ const NO_ZONES: never[] = []
 const noop = () => {}
 
 /**
- * The 3D scene behind the start card. Memoised: the screen re-renders on a
- * fast clock, and a canvas re-rendered with fresh props that often never
- * finishes setting up its renderer.
+ * One 3D scene for the whole stall: the start card shows it as a backdrop and
+ * the shift plays in it, so starting a shift doesn't throw away the canvas and
+ * build a new one (WebGL context, shaders, the avatar) on a slow phone.
+ * Each screen publishes the scene it wants with useStage() and draws its HUD
+ * into the stage's layer.
  */
-const StartBackdrop = memo(function StartBackdrop({ gig, loadout }: { gig: "rolex" | "carwash"; loadout: AvatarLoadout }) {
-  return gig === "carwash" ? (
-    <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_70%_60%,#334155,#0f172a_70%)]">
-      <CarWashBay showcase carId="showcase" carType="saloon" zones={NO_CUSTOMERS} tool="soap" loadout={loadout} onWash={noop} />
-    </div>
-  ) : (
-    <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(to_bottom,#7dd3fc,#bae6fd_45%,#8a5a3c_55%,#6b4430)]">
-      <RolexStall3D showcase customers={NO_CUSTOMERS} received={0} prep={EMPTY_PREP} next={null} cooking={null} flip={null} loadout={loadout} onPick={noop} onTap={noop} />
+type StageScene =
+  | { kind: "carwash"; backdrop?: string; props: ComponentProps<typeof CarWashBay> }
+  | { kind: "rolex"; backdrop?: string; props: ComponentProps<typeof RolexStall3D> }
+
+function shallowEqual(a: object, b: object) {
+  const left = a as Record<string, unknown>
+  const right = b as Record<string, unknown>
+  const keys = Object.keys(left)
+  return keys.length === Object.keys(right).length && keys.every((key) => Object.is(left[key], right[key]))
+}
+
+function createStageStore() {
+  let scene: StageScene | null = null
+  const listeners = new Set<() => void>()
+  return {
+    get: () => scene,
+    set(next: StageScene | null) {
+      // The screens re-render on a fast clock: only redraw the scene when its
+      // props actually change (a canvas re-rendered too often can stall setup).
+      if (scene === next) return
+      if (scene && next && scene.kind === next.kind && scene.backdrop === next.backdrop && shallowEqual(scene.props, next.props)) return
+      scene = next
+      for (const listener of listeners) listener()
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    }
+  }
+}
+
+type StageStore = ReturnType<typeof createStageStore>
+const StageContext = createContext<{ store: StageStore; host: HTMLElement | null } | null>(null)
+
+/** Show this scene on the stall stage; returns the layer to portal the HUD into. */
+function useStage(scene: StageScene) {
+  const stage = useContext(StageContext)
+  useLayoutEffect(() => {
+    stage?.store.set(scene)
+  })
+  return stage?.host ?? null
+}
+
+function StallStage({ store, onHost }: { store: StageStore; onHost(element: HTMLElement | null): void }) {
+  const scene = useSyncExternalStore(store.subscribe, store.get, () => null)
+  useEffect(() => () => store.set(null), [store])
+  return (
+    <div className="fixed inset-0 z-10">
+      {scene && (
+        <div key={scene.kind} className={`absolute inset-0 ${scene.backdrop ?? ""}`}>
+          {scene.kind === "carwash" ? <CarWashBay {...scene.props} /> : <RolexStall3D {...scene.props} />}
+        </div>
+      )}
+      <div ref={onHost} className="contents" />
     </div>
   )
-})
+}
+
+/** The start card's backdrop: the bay (or stall), empty and slowly turning. */
+function startScene(gig: "rolex" | "carwash", loadout: AvatarLoadout): StageScene {
+  return gig === "carwash"
+    ? {
+        kind: "carwash",
+        backdrop: "bg-[radial-gradient(ellipse_at_70%_60%,#334155,#0f172a_70%)]",
+        props: { showcase: true, carId: "showcase", carType: "saloon", zones: NO_CUSTOMERS, tool: "soap", loadout, onWash: noop }
+      }
+    : {
+        kind: "rolex",
+        backdrop: "pointer-events-none bg-[linear-gradient(to_bottom,#7dd3fc,#bae6fd_45%,#8a5a3c_55%,#6b4430)]",
+        props: {
+          showcase: true,
+          customers: NO_CUSTOMERS,
+          received: 0,
+          prep: EMPTY_PREP,
+          next: null,
+          cooking: null,
+          flip: null,
+          loadout,
+          onPick: noop,
+          onTap: noop
+        }
+      }
+}
 
 /** Before a shift: the bay (or stall) behind, and a card to start from. */
 function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; onStart(spot: string, pack: string): void; busy: boolean; error: string | null }) {
@@ -105,9 +197,10 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
   const [pack, setPack] = useState<string>(ROLEX_PACKS[1].id)
   const packPrice = ROLEX_PACKS.find((candidate) => candidate.id === pack)?.price ?? 0
   const energy = player ? Math.round(player.needs.energy) : 0
-  return (
-    <div className="fixed inset-0 z-10">
-      <StartBackdrop gig={gig} loadout={loadout} />
+  const host = useStage(startScene(gig, loadout))
+  if (!host) return null
+  return createPortal(
+    <>
       {/* The same panel as every other screen: docked on the right on wide
           screens, a bottom sheet on phones. */}
       <AdaptivePanel label={info.name} initial="half" peekHeight={260}>
@@ -234,13 +327,10 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
           </div>
         </div>
       </AdaptivePanel>
-    </div>
+    </>,
+    host
   )
 }
-
-const RolexStall3D = dynamic(() => import("@/components/rolex/RolexStall3D").then((module) => ({ default: module.RolexStall3D })), {
-  ssr: false
-})
 
 const EMPTY_PREP: RolexPrep = { customerId: null, eggs: 0, veg: false, whisked: false, crackAt: 0, vegAt: 0, whiskAt: 0 }
 
@@ -332,22 +422,26 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
   const shownStep = STEP_TEXT[step]
   const hintText = hint && now - hint.at < 2200 ? hint.text : null
 
-  return (
-    <div className="fixed inset-0 z-10">
-      <RolexStall3D
-        customers={customers}
-        received={state.receivedAt}
-        prep={prep}
-        next={target}
-        cooking={state.cooking && cookingSince !== null ? { since: cookingSince, customerId: state.cooking.customerId } : null}
-        flip={flip}
-        loadout={loadout}
-        onPick={pick}
-        onTap={doStep}
-      />
+  const host = useStage({
+    kind: "rolex",
+    props: {
+      customers,
+      received: state.receivedAt,
+      prep,
+      next: target,
+      cooking: state.cooking && cookingSince !== null ? { since: cookingSince, customerId: state.cooking.customerId } : null,
+      flip,
+      loadout,
+      onPick: pick,
+      onTap: doStep
+    }
+  })
+  if (!host) return null
+  return createPortal(
+    <>
       {/* Top: what to do next. */}
       <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+3.5rem)] mx-auto w-[min(94vw,40rem)] px-1">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 backdrop-blur-md">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 md:backdrop-blur-md">
           <div className="flex items-center gap-2">
             <span aria-hidden className="text-2xl">
               {shownStep.icon}
@@ -380,7 +474,7 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
       <div className="absolute inset-x-0 bottom-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto flex w-[min(100%,40rem)] flex-col gap-2">
           {state.cooking && (
-            <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-2 backdrop-blur-md">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-2 md:backdrop-blur-md">
               <div className="relative h-4 w-full overflow-hidden rounded-full bg-white/10">
                 <span className="absolute inset-y-0 bg-emerald-400/40" style={{ left: `${windowStart * 100}%`, width: `${(windowEnd - windowStart) * 100}%` }} />
                 <span className="absolute inset-y-0 left-0 bg-amber-300/80" style={{ width: `${progress * 100}%` }} />
@@ -399,7 +493,8 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
           </ActionButton>
         </div>
       </div>
-    </div>
+    </>,
+    host
   )
 }
 
@@ -431,20 +526,17 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
     },
     [send]
   )
-  return (
-    <div className="fixed inset-0 z-10">
-      <CarWashBay
-        carId={car?.id ?? null}
-        carType={car?.type ?? null}
-        zones={car?.zones ?? NO_ZONES}
-        tool={tool}
-        loadout={loadout}
-        onWash={onWash}
-      />
+  const host = useStage({
+    kind: "carwash",
+    props: { carId: car?.id ?? null, carType: car?.type ?? null, zones: car?.zones ?? NO_ZONES, tool, loadout, onWash }
+  })
+  if (!host) return null
+  return createPortal(
+    <>
       {/* Top: the car, the clock and how clean it is. */}
       <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+3.5rem)] mx-auto w-[min(94vw,40rem)] px-1">
         {car && type ? (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 backdrop-blur-md">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 md:backdrop-blur-md">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-black text-white">
                 {car.type === "taxi" ? "🚐" : car.type === "suv" ? "🚙" : "🚗"} {type.name}
@@ -469,7 +561,7 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
             {focused && focus !== null && <PanelStatus label={labels[focus] ?? "Panel"} zone={focused} />}
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 text-center text-sm text-slate-300 backdrop-blur-md">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 text-center text-sm text-slate-300 md:backdrop-blur-md">
             🚿 Bay is empty. Next car coming… <span className="block text-[11px] text-slate-500">{state.carsDone} washed this shift</span>
           </div>
         )}
@@ -499,7 +591,8 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
           </ActionButton>
         </div>
       </div>
-    </div>
+    </>,
+    host
   )
 }
 
@@ -584,6 +677,9 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
   const [error, setError] = useState<string | null>(null)
   // The spot/pack chosen on the start card, sent once the room is open.
   const [pending, setPending] = useState<{ spot: string; pack: string } | null>(null)
+  const [stageStore] = useState(createStageStore)
+  const [stageHost, setStageHost] = useState<HTMLElement | null>(null)
+  const stage = useMemo(() => ({ store: stageStore, host: stageHost }), [stageStore, stageHost])
 
   useEffect(() => {
     if (pending && stall?.phase === "setup") {
@@ -623,94 +719,100 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
   const toast = stallEvent && now - stallEvent.at < 3000 ? stallEvent : null
   const spot = stall ? findRolexSpot(stall.spot) : null
 
+  const starting = !connected || !stall || stall.phase === "setup" || (stall.phase === "closed" && stall.stall !== gig)
+
   return (
-    <main className="tiral-game relative min-h-dvh w-screen overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 text-white">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))]">
-        {!connected || !stall || stall.phase === "setup" || (stall.phase === "closed" && stall.stall !== gig) ? (
-          <div className="pt-6">
-            <StartCard gig={gig} onStart={(s, p) => void start(s, p)} busy={busy} error={error} />
-          </div>
-        ) : stall.phase === "closed" ? (
-          <div className="pt-6">
-            <Summary
-              state={stall}
-              onAgain={() => {
-                leaveRoom()
-                setError(null)
-              }}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="relative z-20 flex min-h-[48px] items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/85 py-1 pl-3 pr-1">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-black">
-                  {info.icon} {info.name}
-                  {spot && stall.stall === "rolex" ? ` · ${spot.name}` : ""}
-                </div>
-                <div className="truncate font-mono text-[11px] text-cyan-300">
-                  {stall.stall === "rolex" ? `${stall.stock} rolexes of stock left · ` : `${stall.carsDone} cars · `}+
-                  {formatCoins(stall.summary.earned)} BNG
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => sendStall("close")}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-rose-300/30 px-3 text-xs font-bold text-rose-200"
-              >
-                {stall.stall === "rolex" ? "Close stall" : "End shift"}
-              </button>
+    <StageContext.Provider value={stage}>
+      <main className="tiral-game relative min-h-dvh w-screen overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 text-white">
+        {/* Kept across the start card and the shift (not the summary). */}
+        {(starting || stall?.phase !== "closed") && <StallStage store={stageStore} onHost={setStageHost} />}
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))]">
+          {starting ? (
+            <div className="pt-6">
+              <StartCard gig={gig} onStart={(s, p) => void start(s, p)} busy={busy} error={error} />
             </div>
-            {stall.stall === "rolex" ? <RolexStand state={stall} now={now} send={sendStall} /> : <CarWash state={stall} now={now} send={sendStall} />}
-          </>
-        )}
+          ) : stall.phase === "closed" ? (
+            <div className="pt-6">
+              <Summary
+                state={stall}
+                onAgain={() => {
+                  leaveRoom()
+                  setError(null)
+                }}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="relative z-20 flex min-h-[48px] items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/85 py-1 pl-3 pr-1">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-black">
+                    {info.icon} {info.name}
+                    {spot && stall.stall === "rolex" ? ` · ${spot.name}` : ""}
+                  </div>
+                  <div className="truncate font-mono text-[11px] text-cyan-300">
+                    {stall.stall === "rolex" ? `${stall.stock} rolexes of stock left · ` : `${stall.carsDone} cars · `}+
+                    {formatCoins(stall.summary.earned)} BNG
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => sendStall("close")}
+                  className="inline-flex min-h-[44px] items-center rounded-xl border border-rose-300/30 px-3 text-xs font-bold text-rose-200"
+                >
+                  {stall.stall === "rolex" ? "Close stall" : "End shift"}
+                </button>
+              </div>
+              {stall.stall === "rolex" ? <RolexStand state={stall} now={now} send={sendStall} /> : <CarWash state={stall} now={now} send={sendStall} />}
+            </>
+          )}
 
-        {toast && stall?.phase !== "closed" && (
-          <div role="status" className="pointer-events-none fixed inset-x-0 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+9.5rem)] z-50 mx-auto w-[min(90vw,340px)] rounded-2xl border border-white/15 bg-slate-950/95 px-4 py-3 text-center text-sm font-bold shadow-2xl">
-            {toast.kind === "sale" ? (
-              <span className="text-emerald-300">
-                +{formatCoins(toast.amount)} BNG · {toast.rolexes} rolex{toast.rolexes === 1 ? "" : "es"} sold
-              </span>
-            ) : toast.kind === "customer_left" ? (
-              <span className="text-rose-300">A customer got tired of waiting and left.</span>
-            ) : toast.kind === "car_done" ? (
-              toast.paid ? (
+          {toast && stall?.phase !== "closed" && (
+            <div role="status" className="pointer-events-none fixed inset-x-0 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+9.5rem)] z-50 mx-auto w-[min(90vw,340px)] rounded-2xl border border-white/15 bg-slate-950/95 px-4 py-3 text-center text-sm font-bold shadow-2xl">
+              {toast.kind === "sale" ? (
                 <span className="text-emerald-300">
-                  +{formatCoins(toast.net)} BNG
-                  <span className="block text-[11px] font-normal text-slate-300">
-                    {formatCoins(toast.pay)} wash{toast.tip ? ` + ${formatCoins(toast.tip)} tip` : ""} − {formatCoins(toast.soap)} soap
-                  </span>
+                  +{formatCoins(toast.amount)} BNG · {toast.rolexes} rolex{toast.rolexes === 1 ? "" : "es"} sold
                 </span>
-              ) : toast.limit ? (
-                <span className="text-amber-300">That&apos;s 4 cars today: no more paid washes until tomorrow.</span>
-              ) : toast.unpaid === "guest" ? (
-                <span className="text-amber-300">Sign in to get paid for washes.</span>
-              ) : toast.unpaid === "error" ? (
-                <span className="text-rose-300">The driver was happy, but the payment didn&apos;t go through. Try the next car.</span>
+              ) : toast.kind === "customer_left" ? (
+                <span className="text-rose-300">A customer got tired of waiting and left.</span>
+              ) : toast.kind === "car_done" ? (
+                toast.paid ? (
+                  <span className="text-emerald-300">
+                    +{formatCoins(toast.net)} BNG
+                    <span className="block text-[11px] font-normal text-slate-300">
+                      {formatCoins(toast.pay)} wash{toast.tip ? ` + ${formatCoins(toast.tip)} tip` : ""} − {formatCoins(toast.soap)} soap
+                    </span>
+                  </span>
+                ) : toast.limit ? (
+                  <span className="text-amber-300">That&apos;s 4 cars today: no more paid washes until tomorrow.</span>
+                ) : toast.unpaid === "guest" ? (
+                  <span className="text-amber-300">Sign in to get paid for washes.</span>
+                ) : toast.unpaid === "error" ? (
+                  <span className="text-rose-300">The driver was happy, but the payment didn&apos;t go through. Try the next car.</span>
+                ) : (
+                  <span className="text-rose-300">Only {Math.round(toast.cleanShare * 100)}% clean: the driver refused to pay.</span>
+                )
               ) : (
-                <span className="text-rose-300">Only {Math.round(toast.cleanShare * 100)}% clean: the driver refused to pay.</span>
-              )
-            ) : (
-              <span className="text-amber-200">{toast.text}</span>
-            )}
+                <span className="text-amber-200">{toast.text}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {stall?.phase === "raid" && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-rose-950/85 p-6 text-center">
+            <div>
+              <div className="text-5xl">🚨</div>
+              <div className="mt-2 text-3xl font-black">KCCA! Pack up!</div>
+              <p className="mt-1 text-sm text-rose-100">
+                Run now or lose your stall and pay a fine. {Math.ceil(Math.max(0, (stall.raidInMs ?? 0) - (now - stall.receivedAt)) / 1000)}s
+              </p>
+              <ActionButton variant="primary" size="lg" className="mt-5 w-56" onClick={() => sendStall("run")}>
+                🏃 RUN
+              </ActionButton>
+            </div>
           </div>
         )}
-      </div>
-
-      {stall?.phase === "raid" && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-rose-950/85 p-6 text-center">
-          <div>
-            <div className="text-5xl">🚨</div>
-            <div className="mt-2 text-3xl font-black">KCCA! Pack up!</div>
-            <p className="mt-1 text-sm text-rose-100">
-              Run now or lose your stall and pay a fine. {Math.ceil(Math.max(0, (stall.raidInMs ?? 0) - (now - stall.receivedAt)) / 1000)}s
-            </p>
-            <ActionButton variant="primary" size="lg" className="mt-5 w-56" onClick={() => sendStall("run")}>
-              🏃 RUN
-            </ActionButton>
-          </div>
-        </div>
-      )}
-    </main>
+      </main>
+    </StageContext.Provider>
   )
 }

@@ -66,7 +66,7 @@ export function ControlDeck({
     <>
       {deckOpen ? (
       <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-slate-950/80 shadow-2xl backdrop-blur-md">
+        <div className="mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-slate-950/80 shadow-2xl md:backdrop-blur-md">
           <button
             type="button"
             onClick={() => setDeckOpen(false)}
@@ -145,7 +145,7 @@ export function ControlDeck({
           type="button"
           onClick={() => setDeckOpen(true)}
           aria-label="Show controls"
-          className="rounded-full border border-white/15 bg-slate-950/80 px-5 py-2 text-[11px] font-bold tracking-[0.2em] text-slate-300 shadow-xl backdrop-blur-md"
+          className="rounded-full border border-white/15 bg-slate-950/80 px-5 py-2 text-[11px] font-bold tracking-[0.2em] text-slate-300 shadow-xl md:backdrop-blur-md"
         >
           ▴ CONTROLS
         </button>

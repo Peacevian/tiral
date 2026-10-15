@@ -48,7 +48,7 @@ export function AccountMenu({ showName = false }: { showName?: boolean }) {
         <PlayerAvatar name={user.displayName} url={user.avatarUrl} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1.5 flex w-64 max-w-[calc(100vw-1rem)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-md">
+        <div className="absolute right-0 top-full z-50 mt-1.5 flex w-64 max-w-[calc(100vw-1rem)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl md:backdrop-blur-md">
           <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2">
             <PlayerAvatar name={user.displayName} url={user.avatarUrl} size={32} />
             <div className="min-w-0">

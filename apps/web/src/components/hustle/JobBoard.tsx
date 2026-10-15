@@ -185,7 +185,7 @@ export function JobBoard({
   return (
     <section
       aria-label="Jobs"
-      className={`fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] flex-col overflow-hidden rounded-t-3xl border border-b-0 border-white/10 bg-slate-950/95 text-white shadow-2xl backdrop-blur-md md:bottom-2 md:left-auto md:right-2 md:top-2 md:flex md:max-h-none md:w-[24rem] md:rounded-2xl md:border-b ${
+      className={`fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] flex-col overflow-hidden rounded-t-3xl border border-b-0 border-white/10 bg-slate-950/95 text-white shadow-2xl md:backdrop-blur-md md:bottom-2 md:left-auto md:right-2 md:top-2 md:flex md:max-h-none md:w-[24rem] md:rounded-2xl md:border-b ${
         openOnPhone ? "flex" : "hidden"
       }`}
     >
