@@ -40,6 +40,8 @@ import type { RoadDirection, RoadGraph } from "@tiral/road-graph"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
 import { addBikeWear, chargeBreakdown, chargeFuel, getRideBike, payHustle, rentBikeToday, type BikeView } from "@tiral/db"
 import { loadRoadGraph } from "../roads.js"
+import { withRetry } from "../retry.js"
+import { testOverride } from "../testOverrides.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import {
   BodySync,
@@ -51,6 +53,7 @@ import {
   freshBody,
   requestTurn,
   snapToRoad,
+  tiredReason,
   spendEnergy,
   stepRunner,
   turnAround,
@@ -60,7 +63,7 @@ import {
 const TICK_MS = 100
 const RECONNECT_SECONDS = 30
 /** Tests widen this (like RACE_ARRIVAL_RADIUS) to complete jobs without walking. */
-const ARRIVAL_METERS = Number(process.env.HUSTLE_ARRIVAL_RADIUS ?? HUSTLE_ARRIVAL_METERS)
+const ARRIVAL_METERS = testOverride("HUSTLE_ARRIVAL_RADIUS") ?? HUSTLE_ARRIVAL_METERS
 
 type Gig = "porter" | "boda"
 
@@ -285,9 +288,8 @@ export class HustleRoom extends Room {
     if (!worker || this.job || this.accepting) return
     const offer = this.offers.find((candidate) => candidate.id === offerId)
     if (!offer) return client.send("notice", "That job was taken. Pick another one.")
-    if (worker.energy < offer.energy) {
-      return client.send("notice", "You're too tired for this job. Eat something or rest first.")
-    }
+    const tired = tiredReason(worker, offer.energy)
+    if (tired) return client.send("notice", tired)
     if (this.gig === "boda" && !this.bikeLoaded) {
       return client.send("notice", "Getting your bike ready…")
     }
@@ -431,7 +433,8 @@ export class HustleRoom extends Room {
       receipt = { jobId: offer.id, paid: false, title, reason: "error", meters: offer.meters }
     } else {
       try {
-        const result = await payHustle({ userId: worker.userId, hustle: this.gig, jobId: offer.id, net, meta, dailyLimit })
+        const userId = worker.userId
+        const result = await withRetry("Hustle pay", () => payHustle({ userId, hustle: this.gig, jobId: offer.id, net, meta, dailyLimit }))
         receipt = result.ok
           ? { jobId: offer.id, paid: true, title, lines, net, meters: offer.meters, balance: result.balance }
           : { jobId: offer.id, paid: false, title, reason: result.reason, meters: offer.meters }
@@ -460,11 +463,8 @@ export class HustleRoom extends Room {
     }
     if (!worker.userId) return
     try {
-      const charged = await chargeBreakdown({
-        userId: worker.userId,
-        refId: `${this.roomId}:breakdown:${++this.breakdowns}`,
-        model: this.ownBike?.model ?? "rental"
-      })
+      const input = { userId: worker.userId, refId: `${this.roomId}:breakdown:${++this.breakdowns}`, model: this.ownBike?.model ?? "rental" }
+      const charged = await withRetry("Breakdown charge", () => chargeBreakdown(input))
       this.clients.find((candidate) => candidate.sessionId === worker.id)?.send("breakdown", { charged })
     } catch (error) {
       console.error("Failed to charge breakdown:", error)
@@ -499,7 +499,12 @@ export class HustleRoom extends Room {
     this.sendState()
   }
 
+  /** onDrop (reconnection failed) and onLeave can both end the shift: only the first counts. */
+  private shiftEnded = false
+
   private async endShift() {
+    if (this.shiftEnded) return
+    this.shiftEnded = true
     if (this.job && this.job.stage === "carrying") this.failJob("abandoned")
     const worker = this.worker
     if (!worker) return
@@ -510,7 +515,8 @@ export class HustleRoom extends Room {
     this.fuelMeters = 0
     if (fuel > 0 && worker.userId) {
       try {
-        await chargeFuel({ userId: worker.userId, amount: fuel, refId: `${this.roomId}:fuel:${++this.fuelCharges}` })
+        const input = { userId: worker.userId, amount: fuel, refId: `${this.roomId}:fuel:${++this.fuelCharges}` }
+        await withRetry("Fuel charge", () => chargeFuel(input))
       } catch (error) {
         console.error("Failed to charge fuel:", error)
       }

@@ -19,7 +19,8 @@ const gameServer = new Server({
   transport: new WebSocketTransport()
 })
 
-gameServer.define("race", RaceRoom).filterBy(["phase"])
+// Races lock themselves when they start, so matchmaking only finds lobbies.
+gameServer.define("race", RaceRoom)
 // Solo hustle shifts (simulated jobs); private, so never in the race list.
 gameServer.define("hustle", HustleRoom)
 // Mini-game hustles at a stall (rolex stand, car wash); private, solo.

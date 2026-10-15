@@ -82,6 +82,17 @@ export function snapToRoad(graph: RoadGraph, point: LatLng, maxMeters = Infinity
 }
 
 /** Spend energy outside of sprinting (e.g. carrying a load). */
+/**
+ * Why this runner can't do work costing `amount` energy, or null if they can.
+ * Signed-in runners start at full energy until the DB answers, so wait for it
+ * (a player at zero could otherwise work in the first moments of a shift).
+ */
+export function tiredReason(runner: Runner, amount: number): string | null {
+  if (runner.userId && !runner.needsLoaded) return "One moment, checking your energy…"
+  if (runner.energy < amount) return "You're too tired. Eat something or rest first."
+  return null
+}
+
 export function spendEnergy(runner: Runner, amount: number) {
   const next = Math.max(0, runner.energy - amount)
   runner.pendingEnergy += next - runner.energy

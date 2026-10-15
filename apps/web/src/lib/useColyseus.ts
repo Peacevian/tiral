@@ -224,6 +224,10 @@ export function useColyseus({
   const manualLeaveRef = useRef(false)
   // Rooms we left on purpose: their late onLeave must be ignored.
   const leftRoomsRef = useRef(new WeakSet<Room>())
+  // Bumped by every join and leave: a join or reconnect that resolves after a
+  // newer one started is stale, and its room is closed instead of attached
+  // (otherwise it could overwrite the current room and linger, orphaned).
+  const opRef = useRef(0)
 
   const getClient = useCallback(async () => {
     if (!clientRef.current) {
@@ -380,14 +384,16 @@ export function useColyseus({
       return
     }
     setReconnecting(true)
+    const op = opRef.current
+    const stale = () => manualLeaveRef.current || roomRef.current !== null || op !== opRef.current
     for (let attempt = 0; attempt < RECONNECT_ATTEMPTS; attempt++) {
-      // Stop if the player left, or has since joined another room.
-      if (manualLeaveRef.current || roomRef.current) return
+      // Stop if the player left, or has since joined (or is joining) another room.
+      if (stale()) return
       try {
         await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY_MS))
-        if (manualLeaveRef.current || roomRef.current) return
+        if (stale()) return
         const nextRoom = await client.reconnect(token)
-        if (manualLeaveRef.current || roomRef.current) {
+        if (stale()) {
           leftRoomsRef.current.add(nextRoom)
           nextRoom.leave()
           return
@@ -415,6 +421,7 @@ export function useColyseus({
   }, [attachRoom])
 
   const leaveRoom = useCallback(() => {
+    opRef.current++
     manualLeaveRef.current = true
     clearReconnectToken()
     setReconnecting(false)
@@ -449,71 +456,69 @@ export function useColyseus({
     }
   }, [getClient])
 
-  const connect = useCallback(async (loadout?: AvatarLoadout) => {
-    if (roomRef.current) return
-    manualLeaveRef.current = false
-    try {
+  /** Join through `open`, unless a newer join or a leave happens meanwhile. */
+  const joinWith = useCallback(
+    async (open: (client: Client) => Promise<Room>) => {
+      if (roomRef.current) return
+      manualLeaveRef.current = false
+      const op = ++opRef.current
       await authorize()
-      const room = await (await getClient()).joinOrCreate("race", loadout ? { loadout } : undefined)
+      const room = await open(await getClient())
+      if (op !== opRef.current || roomRef.current) {
+        leftRoomsRef.current.add(room)
+        room.leave()
+        return
+      }
       attachRoom(room)
+    },
+    [getClient, attachRoom, authorize]
+  )
+
+  const connect = useCallback(async (loadout?: AvatarLoadout) => {
+    try {
+      await joinWith((client) => client.joinOrCreate("race", loadout ? { loadout } : undefined))
     } catch (err) {
       console.error("Failed to connect to Colyseus server:", err)
     }
-  }, [getClient, attachRoom, authorize])
+  }, [joinWith])
 
   const quickPlay = useCallback(async (loadout?: AvatarLoadout) => {
-    if (roomRef.current) return
-    manualLeaveRef.current = false
     try {
-      await authorize()
-      const room = await (await getClient()).joinOrCreate("race", loadout ? { loadout } : undefined)
-      attachRoom(room)
+      await joinWith((client) => client.joinOrCreate("race", loadout ? { loadout } : undefined))
     } catch (err) {
       console.error("Quick play failed:", err)
       throw toFriendlyJoinError(err)
     }
-  }, [getClient, attachRoom, authorize])
+  }, [joinWith])
 
   const createRace = useCallback(async (loadout?: AvatarLoadout) => {
-    if (roomRef.current) return
-    manualLeaveRef.current = false
     try {
-      await authorize()
-      const room = await (await getClient()).create("race", loadout ? { loadout } : undefined)
-      attachRoom(room)
+      await joinWith((client) => client.create("race", loadout ? { loadout } : undefined))
     } catch (err) {
       console.error("Create race failed:", err)
       throw toFriendlyJoinError(err)
     }
-  }, [getClient, attachRoom, authorize])
+  }, [joinWith])
 
   /** Start a solo hustle shift (simulated jobs; no other players needed). */
   const startHustle = useCallback(async (hustleId: string, loadout?: AvatarLoadout) => {
-    if (roomRef.current) return
-    manualLeaveRef.current = false
     try {
-      await authorize()
-      const room = await (await getClient()).create("hustle", { hustle: hustleId, ...(loadout ? { loadout } : {}) })
-      attachRoom(room)
+      await joinWith((client) => client.create("hustle", { hustle: hustleId, ...(loadout ? { loadout } : {}) }))
     } catch (err) {
       console.error("Start hustle failed:", err)
       throw toFriendlyJoinError(err)
     }
-  }, [getClient, attachRoom, authorize])
+  }, [joinWith])
 
   /** Start a stall shift (rolex stand or car wash). */
   const startStall = useCallback(async (kind: "rolex" | "carwash") => {
-    if (roomRef.current) return
-    manualLeaveRef.current = false
     try {
-      await authorize()
-      const room = await (await getClient()).create("stall", { stall: kind })
-      attachRoom(room)
+      await joinWith((client) => client.create("stall", { stall: kind }))
     } catch (err) {
       console.error("Start stall failed:", err)
       throw toFriendlyJoinError(err)
     }
-  }, [getClient, attachRoom, authorize])
+  }, [joinWith])
 
   /** Any stall action: buyStock, cook, flip, run, scrub, rinse, close. */
   const sendStall = useCallback((type: string, payload?: unknown) => {
@@ -529,16 +534,12 @@ export function useColyseus({
   }, [])
 
   const joinRace = useCallback(async (id: string, loadout?: AvatarLoadout) => {
-    if (roomRef.current) return
-    manualLeaveRef.current = false
     try {
-      await authorize()
-      const room = await (await getClient()).joinById(id, loadout ? { loadout } : undefined)
-      attachRoom(room)
+      await joinWith((client) => client.joinById(id, loadout ? { loadout } : undefined))
     } catch (err) {
       throw toFriendlyJoinError(err)
     }
-  }, [getClient, attachRoom, authorize])
+  }, [joinWith])
 
   const listRaces = useCallback(async (): Promise<RaceListing[]> => {
     const baseUrl =
@@ -635,10 +636,12 @@ export function useColyseus({
     if (!token) return
     manualLeaveRef.current = false
     setReconnecting(true)
+    const op = opRef.current
     getClient()
       .then((client) => client.reconnect(token))
       .then((room) => {
-        if (manualLeaveRef.current) {
+        if (manualLeaveRef.current || op !== opRef.current || roomRef.current) {
+          leftRoomsRef.current.add(room)
           room.leave()
           return
         }

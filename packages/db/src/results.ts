@@ -10,6 +10,8 @@ export type RecordedPlacement = {
 
 export async function recordRaceResults(
   input: {
+    /** Chosen by the caller so a retry after a lost reply records the race once. */
+    raceId: string
     roomCode: string
     destinationId: string
     startedAt: Date
@@ -23,15 +25,18 @@ export async function recordRaceResults(
     const created = await tx
       .insert(races)
       .values({
+        id: input.raceId,
         roomCode: input.roomCode,
         destinationId: input.destinationId,
         startedAt: input.startedAt,
         finishedAt: input.finishedAt,
         playerCount: input.playerCount
       })
+      .onConflictDoNothing({ target: races.id })
       .returning({ id: races.id })
-    const race = created[0]
-    if (!race) throw new Error("Failed to record race")
+    // Already recorded by an earlier attempt (its results with it).
+    if (created.length === 0) return input.raceId
+    const race = created[0]!
     if (input.placements.length > 0) {
       await tx.insert(raceResults).values(
         input.placements.map((placement) => ({

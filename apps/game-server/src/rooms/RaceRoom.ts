@@ -11,7 +11,10 @@ import {
 import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
+import { randomUUID } from "node:crypto"
 import { awardRaceEarnings, recordRaceResults } from "@tiral/db"
+import { withRetry } from "../retry.js"
+import { configNumber } from "../testOverrides.js"
 import {
   BodySync,
   MAX_MESSAGES_PER_SECOND,
@@ -28,9 +31,11 @@ import {
 } from "./runner.js"
 
 const TICK_MS = 100
-const COUNTDOWN_SECONDS = Number(process.env.RACE_COUNTDOWN_SECONDS ?? 20)
-const ARRIVAL_RADIUS_METERS = Number(process.env.RACE_ARRIVAL_RADIUS ?? 25)
+const COUNTDOWN_SECONDS = configNumber("RACE_COUNTDOWN_SECONDS", 20, 1)
+const ARRIVAL_RADIUS_METERS = configNumber("RACE_ARRIVAL_RADIUS", 25, 1)
 const FINISH_WINDOW_MS = 30_000
+/** A race nobody can finish (lost bounty, everyone idle) ends after this. */
+const MAX_RACE_MS = configNumber("RACE_MAX_MINUTES", 15, 1) * 60_000
 
 type PlayerInfo = Runner & {
   name: string
@@ -156,25 +161,25 @@ export class RaceRoom extends Room {
 
     this.onMessage("walk", (client, on: boolean) => {
       const player = this.players[client.sessionId]
-      if (!player || this.phase !== "racing") return
+      if (!player || this.phase !== "racing" || player.finishPosition !== null) return
       player.moving = on === true
     })
 
     this.onMessage("sprint", (client, on: boolean) => {
       const player = this.players[client.sessionId]
-      if (!player) return
+      if (!player || player.finishPosition !== null) return
       player.sprinting = on === true
     })
 
     this.onMessage("turn", (client, direction: RoadDirection) => {
       const player = this.players[client.sessionId]
-      if (!player || !this.roadGraph || this.phase !== "racing") return
+      if (!player || !this.roadGraph || this.phase !== "racing" || player.finishPosition !== null) return
       requestTurn(this.roadGraph, player, direction, Date.now())
     })
 
     this.onMessage("turnAround", (client) => {
       const player = this.players[client.sessionId]
-      if (!player || !player.roadPosition || this.phase !== "racing") return
+      if (!player || !player.roadPosition || this.phase !== "racing" || player.finishPosition !== null) return
       turnAround(player)
       this.broadcast("roomState", this.getRoomState())
     })
@@ -384,6 +389,8 @@ export class RaceRoom extends Room {
           continue
         }
       }
+      // Finished runners stay at the treasure.
+      if (player.finishPosition !== null) continue
       const step = stepRunner(this.roadGraph, player, now, deltaSeconds)
       if (step.changed) changed = true
       if (step.collapsedNow) this.body.send(player, now)
@@ -401,6 +408,9 @@ export class RaceRoom extends Room {
     const racers = Object.values(this.players).filter((player) => player.roadPosition)
     const allFinished = racers.length > 0 && racers.every((player) => player.finishPosition !== null)
     if (this.finishOrder.length > 0 && (allFinished || (this.finishDeadline !== null && now >= this.finishDeadline))) {
+      this.finishRace()
+    } else if (this.startedAt !== null && now - this.startedAt >= MAX_RACE_MS) {
+      // Time's up: whoever arrived keeps their place; nobody else is ranked.
       this.finishRace()
     }
   }
@@ -442,7 +452,8 @@ export class RaceRoom extends Room {
   }
 
   private async persistResults(finishedAt: Date, fieldSize: number) {
-    if (!this.destinationId || !this.startedAt) return
+    // A race that timed out with nobody at the treasure has nothing to record.
+    if (!this.destinationId || !this.startedAt || this.finishOrder.length === 0) return
     const placements = this.finishOrder.map((sessionId, index) => ({
       sessionId,
       userId: this.players[sessionId]?.userId ?? null,
@@ -450,21 +461,24 @@ export class RaceRoom extends Room {
     }))
     let raceId: string
     try {
-      raceId = await recordRaceResults({
+      // Captured once: the room may reset while a retry waits.
+      const input = {
+        raceId: randomUUID(),
         roomCode: this.roomCode,
         destinationId: this.destinationId,
         startedAt: new Date(this.startedAt),
         finishedAt,
         playerCount: Object.keys(this.players).length,
         placements: placements.map(({ userId, position }) => ({ userId, position, finishedAt }))
-      })
+      }
+      raceId = await withRetry("Race results", () => recordRaceResults(input))
     } catch (error) {
       console.error("Failed to persist race results:", error)
       return
     }
     // Coins are paid separately so a ledger problem never loses the results.
     try {
-      const payouts = await awardRaceEarnings({ raceId, finishedAt, fieldSize, placements })
+      const payouts = await withRetry("Race earnings", () => awardRaceEarnings({ raceId, finishedAt, fieldSize, placements }))
       for (const payout of payouts) {
         const sessionId = placements.find((placement) => placement.userId === payout.userId)?.sessionId
         const client = this.clients.find((candidate) => candidate.sessionId === sessionId)

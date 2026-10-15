@@ -17,7 +17,7 @@ import {
   type HousingTierId
 } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
-import { balanceOf, insertEntry, lockUser, type Tx } from "./ledger.js"
+import { balanceOf, insertEntry, lockUser, lockUserRow, type Tx } from "./ledger.js"
 import { coinLedger, lifeEvents, users } from "./schema.js"
 import { settleLeases } from "./garage.js"
 
@@ -148,6 +148,8 @@ export async function readLife(userId: string, db: Database = getDatabase()): Pr
 export async function syncLife(userId: string, db: Database = getDatabase()): Promise<LifeState | null> {
   return db.transaction(async (tx) => {
     await lockUser(tx, userId)
+    // Stress is read here and written back below.
+    await lockUserRow(tx, userId)
     const row = await readLifeRow(tx, userId)
     if (!row) return null
     const now = new Date()
@@ -275,6 +277,8 @@ export async function resolveLifeEvent(
       .where(and(eq(lifeEvents.id, input.eventId), eq(lifeEvents.userId, input.userId)))
       .limit(1)
     if (!event || event.status !== "pending") return { ok: false, reason: "not_pending" }
+    // Stress is read here and written back below.
+    await lockUserRow(tx, input.userId)
     const row = await readLifeRow(tx, input.userId)
     const now = new Date()
     let stress = row ? currentStress(row.stress, row.stressAt, now) : STRESS_START
@@ -303,17 +307,23 @@ export async function resolveLifeEvent(
 
 /** Move house: the new rent applies from the next due date. */
 export async function moveHouse(userId: string, tierId: HousingTierId, db: Database = getDatabase()): Promise<void> {
-  await db.update(users).set({ houseTier: findTier(tierId).id }).where(eq(users.id, userId))
+  // Rent is settled against the house tier under the coin lock (syncLife): move under it too.
+  await db.transaction(async (tx) => {
+    await lockUser(tx, userId)
+    await tx.update(users).set({ houseTier: findTier(tierId).id }).where(eq(users.id, userId))
+  })
 }
 
 export type HustlePayResult =
   | { ok: true; balance: number }
-  | { ok: false; reason: "daily_limit" | "duplicate" }
+  | { ok: false; reason: "daily_limit" }
 
 /**
  * Pay one completed hustle job (once per job id). `dailyLimit` caps paid jobs
  * of this kind per Kampala day; omit it for gigs limited by energy alone.
  * `meta` carries the receipt (gross, costs, tip) for the wallet history.
+ * Safe to retry: a job that's already in the ledger reports ok again (a retry
+ * after a lost reply must not look unpaid, or hit the daily limit it filled).
  */
 export async function payHustle(
   input: {
@@ -329,6 +339,12 @@ export async function payHustle(
   const reason = `hustle_${input.hustle}`
   return db.transaction(async (tx) => {
     await lockUser(tx, input.userId)
+    const [already] = await tx
+      .select({ id: coinLedger.id })
+      .from(coinLedger)
+      .where(and(eq(coinLedger.userId, input.userId), eq(coinLedger.reason, reason), eq(coinLedger.refId, input.jobId)))
+      .limit(1)
+    if (already) return { ok: true, balance: await balanceOf(tx, input.userId) }
     if (input.dailyLimit !== undefined) {
       const dayStart = kampalaDayStart(kampalaDay(new Date()))
       const [today] = await tx
@@ -344,7 +360,7 @@ export async function payHustle(
       refId: input.jobId,
       meta: input.meta
     })
-    if (!inserted) return { ok: false, reason: "duplicate" }
+    if (!inserted) throw new Error(`payHustle: ledger refused ${reason}/${input.jobId}`)
     return { ok: true, balance: await balanceOf(tx, input.userId) }
   })
 }

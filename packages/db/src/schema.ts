@@ -117,7 +117,7 @@ export const coinLedger = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     delta: integer("delta").notNull(),
     reason: text("reason").notNull(),
     refId: text("ref_id").notNull(),
