@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Client } from "@colyseus/sdk"
-import type { Room } from "@colyseus/sdk"
+// Types only: the SDK itself (~66 KB gz) is imported on first use, so pages
+// that never open a room (landing, legal, leaderboard) don't download it.
+import type { Client, Room } from "@colyseus/sdk"
 import type { RoadDirection } from "@tiral/road-graph"
 import type { AvatarLoadout } from "@tiral/avatars"
 import type { BikeLook } from "@tiral/game-core"
@@ -224,9 +225,10 @@ export function useColyseus({
   // Rooms we left on purpose: their late onLeave must be ignored.
   const leftRoomsRef = useRef(new WeakSet<Room>())
 
-  const getClient = useCallback(() => {
+  const getClient = useCallback(async () => {
     if (!clientRef.current) {
-      clientRef.current = new Client(serverUrl)
+      const { Client } = await import("@colyseus/sdk")
+      clientRef.current ??= new Client(serverUrl)
     }
     return clientRef.current
   }, [serverUrl])
@@ -439,7 +441,8 @@ export function useColyseus({
       if (!response.ok) return
       const body = (await response.json()) as { token: string | null }
       if (body.token) {
-        getClient().auth.token = body.token
+        const client = await getClient()
+        client.auth.token = body.token
       }
     } catch {
       // unsigned requests join as guests
@@ -451,7 +454,7 @@ export function useColyseus({
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().joinOrCreate("race", loadout ? { loadout } : undefined)
+      const room = await (await getClient()).joinOrCreate("race", loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       console.error("Failed to connect to Colyseus server:", err)
@@ -463,7 +466,7 @@ export function useColyseus({
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().joinOrCreate("race", loadout ? { loadout } : undefined)
+      const room = await (await getClient()).joinOrCreate("race", loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       console.error("Quick play failed:", err)
@@ -476,7 +479,7 @@ export function useColyseus({
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().create("race", loadout ? { loadout } : undefined)
+      const room = await (await getClient()).create("race", loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       console.error("Create race failed:", err)
@@ -490,7 +493,7 @@ export function useColyseus({
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().create("hustle", { hustle: hustleId, ...(loadout ? { loadout } : {}) })
+      const room = await (await getClient()).create("hustle", { hustle: hustleId, ...(loadout ? { loadout } : {}) })
       attachRoom(room)
     } catch (err) {
       console.error("Start hustle failed:", err)
@@ -504,7 +507,7 @@ export function useColyseus({
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().create("stall", { stall: kind })
+      const room = await (await getClient()).create("stall", { stall: kind })
       attachRoom(room)
     } catch (err) {
       console.error("Start stall failed:", err)
@@ -530,7 +533,7 @@ export function useColyseus({
     manualLeaveRef.current = false
     try {
       await authorize()
-      const room = await getClient().joinById(id, loadout ? { loadout } : undefined)
+      const room = await (await getClient()).joinById(id, loadout ? { loadout } : undefined)
       attachRoom(room)
     } catch (err) {
       throw toFriendlyJoinError(err)
@@ -633,7 +636,7 @@ export function useColyseus({
     manualLeaveRef.current = false
     setReconnecting(true)
     getClient()
-      .reconnect(token)
+      .then((client) => client.reconnect(token))
       .then((room) => {
         if (manualLeaveRef.current) {
           room.leave()

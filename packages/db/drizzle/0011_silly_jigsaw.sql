@@ -1,0 +1,2 @@
+CREATE INDEX "race_results_user_finished_idx" ON "race_results" USING btree ("user_id","finished_at");--> statement-breakpoint
+CREATE INDEX "race_results_finished_idx" ON "race_results" USING btree ("finished_at");

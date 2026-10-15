@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import { buildMercatorViewProjectionMatrix, lngLatToMercator } from "@tiral/map"
 import type { MapTransformLike } from "@tiral/map"
+import { isLiteDevice } from "@/lib/deviceTier"
 
 // worldSize: CSS px across the whole mercator world at the current zoom.
 type Origin = { x: number; y: number; worldSize: number }
@@ -66,8 +67,8 @@ export function ThreeLayer({ map, children }: ThreeLayerProps) {
         // A full-screen layer redrawn every frame over the map: cap its
         // resolution, and skip antialiasing on dense screens where jagged
         // edges are too small to see anyway.
-        dpr={[1, 1.5]}
-        gl={{ alpha: true, antialias: typeof window === "undefined" || window.devicePixelRatio < 2 }}
+        dpr={isLiteDevice() ? 1 : [1, 1.5]}
+        gl={{ alpha: true, antialias: !isLiteDevice() && (typeof window === "undefined" || window.devicePixelRatio < 2) }}
         onCreated={({ gl }) => {
           gl.setClearColor(0x000000, 0)
         }}

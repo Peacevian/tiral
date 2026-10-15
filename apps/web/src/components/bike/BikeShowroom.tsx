@@ -5,11 +5,14 @@ import { ContactShadows, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import type { BikeLook } from "@tiral/game-core"
 import { Bike3D } from "./Bike3D"
+import { sceneQuality } from "@/lib/deviceTier"
 
 /** Home → Bike: the selected bike, big, on a turntable you can spin. */
 export function BikeShowroom({ look }: { look: BikeLook }) {
+  // Lighter on low-end / slow phones (no shadows, 1× pixels): lib/deviceTier.ts
+  const quality = sceneQuality()
   return (
-    <Canvas camera={{ position: [3.3, 1.7, 3.0], fov: 36 }} gl={{ antialias: true, alpha: true }} dpr={[1, 2]} shadows>
+    <Canvas camera={{ position: [3.3, 1.7, 3.0], fov: 36 }} gl={{ antialias: quality.antialias, alpha: true }} dpr={quality.dpr} shadows={quality.shadows}>
       <hemisphereLight args={["#fff4d6", "#293548", 0.9]} />
       <directionalLight position={[3, 6, 4]} intensity={2.4} castShadow shadow-mapSize={[1024, 1024]} />
       <directionalLight position={[-4, 2, -3]} intensity={0.7} color="#bcd3ff" />
