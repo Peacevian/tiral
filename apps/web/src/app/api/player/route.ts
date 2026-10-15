@@ -6,10 +6,22 @@ import {
   hasTikTokLink,
   listCoinLedger,
   loadNeeds,
+  readLife,
   syncLife,
   touchLastSeen
 } from "@tiral/db"
 import { readSessionCookie, verifySession } from "@/lib/session"
+
+// The app polls this every minute and after every payout, from every open tab.
+// Settling life (rent, requests, shocks) takes a lock and writes, so it runs at
+// most every SYNC_EVERY_MS per player; in between we only read. The welcome
+// grant is checked once per player per server process (the ledger refuses a
+// second grant anyway), and last-seen is written at most every SEEN_EVERY_MS.
+const SYNC_EVERY_MS = 2 * 60 * 1000
+const SEEN_EVERY_MS = 5 * 60 * 1000
+const lastSync = new Map<string, number>()
+const lastSeen = new Map<string, number>()
+const granted = new Set<string>()
 
 // Everything the app shell shows about the signed-in player, in one request:
 // who they are, coins, body, and life (catching up rent/requests on the way).
@@ -26,15 +38,24 @@ export async function GET(request: NextRequest) {
       hasTikTokLink(userId),
       loadNeeds(userId),
       (async () => {
-        await ensureWelcomeGrant(userId)
-        const life = await syncLife(userId)
+        if (!granted.has(userId)) {
+          await ensureWelcomeGrant(userId)
+          granted.add(userId)
+        }
+        const now = Date.now()
+        const syncDue = now - (lastSync.get(userId) ?? 0) >= SYNC_EVERY_MS
+        const life = syncDue ? await syncLife(userId) : await readLife(userId)
+        if (syncDue) lastSync.set(userId, now)
         const [balance, entries] = await Promise.all([getCoinBalance(userId), listCoinLedger(userId, 30)])
         return { life, balance, entries }
       })()
     ])
     if (!user) return NextResponse.json({ user: null })
     const { life, balance, entries } = money
-    void touchLastSeen(user.id).catch(() => {})
+    if (Date.now() - (lastSeen.get(user.id) ?? 0) >= SEEN_EVERY_MS) {
+      lastSeen.set(user.id, Date.now())
+      void touchLastSeen(user.id).catch(() => {})
+    }
     return NextResponse.json({
       user: { id: user.id, displayName: user.displayName, avatarUrl: user.avatarUrl, tiktokLinked, loadout: user.avatarLoadout },
       balance,

@@ -8,6 +8,7 @@ import type { AvatarLoadout } from "@tiral/avatars"
 import { ROLEX_FLIP_WINDOW, ROLEX_PATIENCE_SECONDS } from "@tiral/game-core"
 import { RealisticAvatar } from "@/components/RealisticAvatar"
 import { passengerDummy } from "@/components/bike/BikeRider"
+import { sceneQuality } from "@/lib/deviceTier"
 
 // A rolex stall on a Kampala street, in metres. The counter runs along X; you
 // cook behind it (z < 0) and customers queue in front (z > 0).
@@ -691,9 +692,11 @@ export function RolexStall3D({
     () => (cookingSince !== null && cookingFor !== null ? { since: cookingSince, customerId: cookingFor } : null),
     [cookingSince, cookingFor]
   )
+  // Lighter on low-end / slow phones (no shadows, 1× pixels): lib/deviceTier.ts
+  const quality = sceneQuality()
   return (
     <div className="absolute inset-0">
-      <Canvas shadows camera={{ position: [0.5, 2.8, -3.4], fov: 44 }} gl={{ antialias: true }} dpr={[1, 2]}>
+      <Canvas shadows={quality.shadows} camera={{ position: [0.5, 2.8, -3.4], fov: 44 }} gl={{ antialias: quality.antialias }} dpr={quality.dpr}>
         <color attach="background" args={["#7dd3fc"]} />
         <fog attach="fog" args={["#bae6fd", 12, 26]} />
         <hemisphereLight args={["#fff7e6", "#6b4f3a", 1.1]} />

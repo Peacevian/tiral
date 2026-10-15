@@ -7,6 +7,7 @@ import type { AvatarLoadout } from "@tiral/avatars"
 import type { WashTool } from "@tiral/game-core"
 import { RealisticAvatar } from "@/components/RealisticAvatar"
 import { carLayout, type CarLayout, type ZonePanel } from "./carLayout"
+import { sceneQuality } from "@/lib/deviceTier"
 
 export type BayZone = { id: number; soap: number; dirt: number; clean: boolean }
 
@@ -497,9 +498,17 @@ export const CarWashBay = memo(function CarWashBay(props: {
 }) {
   // Camera position around the car, in 45° steps (front-left to start).
   const [step, setStep] = useState(1)
+  // Lighter on low-end / slow phones (no shadows, 1× pixels): lib/deviceTier.ts
+  const quality = sceneQuality()
   return (
     <div className={`absolute inset-0 ${props.showcase ? "pointer-events-none" : ""}`}>
-      <Canvas shadows camera={{ position: [5.2, 3.2, 5.6], fov: 42 }} gl={{ antialias: true }} dpr={[1, 2]} style={{ touchAction: "none" }}>
+      <Canvas
+        shadows={quality.shadows}
+        camera={{ position: [5.2, 3.2, 5.6], fov: 42 }}
+        gl={{ antialias: quality.antialias }}
+        dpr={quality.dpr}
+        style={{ touchAction: "none" }}
+      >
         <color attach="background" args={["#0f172a"]} />
         <fog attach="fog" args={["#0f172a", 14, 26]} />
         <Scene {...props} step={step} />

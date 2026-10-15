@@ -59,7 +59,13 @@ export const raceResults = pgTable("race_results", {
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   position: integer("position").notNull(),
   finishedAt: timestamp("finished_at", { withTimezone: true }).notNull()
-})
+},
+  // Leaderboard (by period) and profile stats/recent races (by player).
+  (table) => [
+    index("race_results_user_finished_idx").on(table.userId, table.finishedAt),
+    index("race_results_finished_idx").on(table.finishedAt)
+  ]
+)
 
 export type Race = typeof races.$inferSelect
 export type RaceResult = typeof raceResults.$inferSelect

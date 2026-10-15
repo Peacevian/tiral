@@ -6,6 +6,7 @@ import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import { loadMapStyle } from "@/lib/mapStyle"
 import type { LatLng, GeoBounds } from "@tiral/game-core"
+import { isLiteDevice } from "@/lib/deviceTier"
 
 export type MapHandle = {
   getMap(): maplibregl.Map | null
@@ -79,7 +80,8 @@ function MapView(
         renderWorldCopies: false,
         // Many Android phones are 3× density: drawing the map at 9× the pixels
         // costs GPU time and battery for detail nobody can see. 2× is plenty.
-        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        // Low-end phones: 1.5× is still sharp enough for labels.
+        pixelRatio: Math.min(window.devicePixelRatio || 1, isLiteDevice() ? 1.5 : 2),
         attributionControl: false
       })
       created = map

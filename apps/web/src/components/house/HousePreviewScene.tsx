@@ -12,6 +12,7 @@ import { RealisticAvatar } from "../RealisticAvatar"
 import { makeMaterialTexture, materialSurface } from "./houseTextures"
 
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "./roomSpots"
+import { sceneQuality } from "@/lib/deviceTier"
 
 export { AVATAR_HOME, type HouseView, type RoomSpot }
 
@@ -307,12 +308,15 @@ export function HousePreviewScene({
   onSelectSurface?(kind: "wall" | "roof"): void
 }) {
   const inside = view === "inside"
+  // Lighter on low-end / slow phones (no shadows, 1× pixels): lib/deviceTier.ts
+  const quality = sceneQuality()
   return (
     <Canvas
       style={{ width: "100%", height: "100%" }}
       camera={{ position: OUTSIDE_CAMERA, fov: 42 }}
-      gl={{ antialias: true, alpha: true }}
-      shadows
+      gl={{ antialias: quality.antialias, alpha: true }}
+      dpr={quality.dpr}
+      shadows={quality.shadows}
     >
       <CameraRig view={view} follow={avatarLoadout ? avatarSpot : null} />
       <hemisphereLight args={["#fff4d6", "#293548", 0.6]} />

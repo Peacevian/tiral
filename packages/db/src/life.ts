@@ -101,7 +101,7 @@ function viewEvent(row: typeof lifeEvents.$inferSelect): LifeEventView {
   }
 }
 
-async function readLifeRow(tx: Tx, userId: string) {
+async function readLifeRow(tx: Tx | Database, userId: string) {
   const rows = await tx
     .select({
       houseTier: users.houseTier,
@@ -114,6 +114,30 @@ async function readLifeRow(tx: Tx, userId: string) {
     .where(eq(users.id, userId))
     .limit(1)
   return rows[0] ?? null
+}
+
+/**
+ * The player's life as it stands, without settling anything: no lock, no
+ * writes. Same shape as syncLife; the app shell polls this between syncs.
+ */
+export async function readLife(userId: string, db: Database = getDatabase()): Promise<LifeState | null> {
+  const row = await readLifeRow(db, userId)
+  if (!row) return null
+  const now = new Date()
+  const [balance, events] = await Promise.all([
+    balanceOf(db, userId),
+    db.select().from(lifeEvents).where(eq(lifeEvents.userId, userId)).orderBy(desc(lifeEvents.createdAt)).limit(20)
+  ])
+  const tier = findTier(row.houseTier)
+  const rentDueAt = row.rentDueAt ?? new Date(now.getTime() + RENT_PERIOD_HOURS * HOUR_MS)
+  return {
+    tier: { id: tier.id, name: tier.name, rent: tier.rent },
+    rentDueAt: rentDueAt.toISOString(),
+    stress: currentStress(row.stress ?? STRESS_START, row.stressAt, now),
+    balance,
+    pending: events.filter((event) => event.status === "pending").length,
+    events: events.map(viewEvent)
+  }
 }
 
 /**
