@@ -335,14 +335,19 @@ function CameraRig({ step, showcase }: { step: number; showcase?: boolean }) {
     } else lens.clearViewOffset()
     lens.updateProjectionMatrix()
   }, [camera, aspect, showcase, size.width, size.height])
+  const wasShowcase = useRef(showcase)
   useFrame((_, delta) => {
     if (showcase) angle.current += delta * 0.12
     else {
       const target = step * (Math.PI / 4)
+      // Leaving the start screen's slow spin (same canvas): take the short way
+      // round to the working view instead of unwinding every turn.
+      if (wasShowcase.current) angle.current = target + THREE.MathUtils.euclideanModulo(angle.current - target + Math.PI, Math.PI * 2) - Math.PI
       angle.current += (target - angle.current) * Math.min(1, delta * 5)
     }
     camera.position.set(Math.sin(angle.current) * radius, 3.8 + (radius - 7.4) * 0.3, Math.cos(angle.current) * radius)
     camera.lookAt(0, 0.9, 0)
+    wasShowcase.current = showcase
   })
   return null
 }

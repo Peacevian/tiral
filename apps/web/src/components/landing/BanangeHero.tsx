@@ -204,7 +204,7 @@ export function BanangeHero() {
         <button
           type="button"
           onClick={() => setLive(true)}
-          className="absolute bottom-4 right-4 z-20 rounded-full border border-white/20 bg-slate-950/70 px-3 py-2 text-xs font-bold text-[#f6efe0] backdrop-blur-sm"
+          className="absolute bottom-4 right-4 z-20 rounded-full border border-white/20 bg-slate-950/70 px-3 py-2 text-xs font-bold text-[#f6efe0] md:backdrop-blur-sm"
         >
           ▶ Watch the story <span className="font-normal text-[#cfc6b0]">(~1 MB)</span>
         </button>

@@ -7,6 +7,8 @@ import {
   classifyConnectedEdges,
   findNearestEdge,
   getRoadCoordinate,
+  lateTurn,
+  type PassedJunction,
   type RoadDirection,
   type RoadGraph,
   type RoadPosition
@@ -27,6 +29,8 @@ export type Runner = {
   coordinate: LatLng | null
   moving: boolean
   turnIntent: { direction: RoadDirection; expiresAt: number } | null
+  /** The junction just passed (for a turn tapped a moment too late). */
+  lastJunction?: PassedJunction | null
   // Body: loaded from the DB for signed-in players, saved back as deltas.
   energy: number
   health: number
@@ -159,12 +163,14 @@ export function stepRunner(
           direction === 1 ? Math.min(overflow, chosenEdge.lengthMeters) : Math.max(chosenEdge.lengthMeters - overflow, 0),
         direction
       }
+      runner.lastJunction = { nodeId, candidates, chosenEdgeId: chosen.edgeId, intent }
       runner.turnIntent = null
       runner.coordinate = getRoadCoordinate(graph, runner.roadPosition)
     } else {
       runner.roadPosition = { ...runner.roadPosition, distanceAlongEdge: reachedEnd ? edge.lengthMeters : 0 }
       runner.moving = false
       runner.turnIntent = null
+      runner.lastJunction = null
     }
   } else {
     runner.roadPosition = { ...runner.roadPosition, distanceAlongEdge: distance }
@@ -177,6 +183,15 @@ export function stepRunner(
 export function requestTurn(graph: RoadGraph, runner: Runner, direction: RoadDirection, now: number) {
   if (!runner.roadPosition) return
   if (direction !== "left" && direction !== "right" && direction !== "straight") return
+  // Just went straight through a junction? Take the turn there instead.
+  const late = lateTurn(graph, runner.roadPosition, runner.lastJunction ?? null, direction)
+  if (late) {
+    runner.roadPosition = late
+    runner.coordinate = getRoadCoordinate(graph, late)
+    runner.lastJunction = null
+    runner.turnIntent = null
+    return
+  }
   const available = classifyConnectedEdges(graph, runner.roadPosition)
   if (!available.some((candidate) => candidate.direction === direction)) return
   runner.turnIntent = { direction, expiresAt: now + TURN_INTENT_TIMEOUT_MS }
@@ -186,6 +201,7 @@ export function turnAround(runner: Runner) {
   if (!runner.roadPosition) return
   runner.moving = false
   runner.turnIntent = null
+  runner.lastJunction = null
   runner.roadPosition = {
     ...runner.roadPosition,
     direction: runner.roadPosition.direction === 1 ? -1 : 1

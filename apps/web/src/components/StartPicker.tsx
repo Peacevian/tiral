@@ -19,7 +19,7 @@ export function StartPicker({ players, ownSessionId, locked, onSelect }: StartPi
   const ownStartId = ownSessionId ? players[ownSessionId]?.startPointId ?? null : null
 
   return (
-    <div className="rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl backdrop-blur-md">
+    <div className="rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl md:backdrop-blur-md">
       <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
         {locked ? "Positions locked" : "Choose your start"}
       </div>

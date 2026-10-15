@@ -9,6 +9,8 @@ import {
   getDistanceToUpcomingNode,
   getRoadCoordinate,
   getRoadHeading,
+  lateTurn,
+  type PassedJunction,
   type RoadDirection,
   type RoadGraph,
   type RoadPosition
@@ -17,9 +19,17 @@ import {
 const WALK_SPEED_METERS_PER_SECOND = 18
 const TURN_DECISION_DISTANCE_METERS = 28
 const TURN_INTENT_TIMEOUT_MS = 3000
-/** How far the predicted runner may stray from the server's before snapping back. */
+/**
+ * How far the predicted runner may stray from the server's before it's
+ * corrected. While moving, the phone legitimately runs ahead of the server by
+ * speed × network delay (300–600 ms on 3G), so the tolerance grows with speed.
+ */
 const RECONCILE_MOVING_METERS = 12
+const RECONCILE_MOVING_SECONDS = 0.7
 const RECONCILE_STILL_METERS = 3
+/** Standing still, a correction this small along the same road glides instead of jumping. */
+const GLIDE_MAX_METERS = 20
+const GLIDE_MS = 250
 /**
  * While walking, the exact position lives in refs and is drawn every frame by
  * whoever reads `live` (the runner's 3D avatar). React state (HUD text, camera,
@@ -58,6 +68,10 @@ export function useRoadMovement(
   const publishedAtRef = useRef(0)
   const movingRef = useRef(false)
   const turnIntentRef = useRef<{ direction: RoadDirection; expiresAt: number } | null>(null)
+  // The junction just passed, for a turn tapped a moment late (lateTurn).
+  const lastJunctionRef = useRef<PassedJunction | null>(null)
+  // A small correction from the server, played out over GLIDE_MS while standing.
+  const glideRef = useRef<{ from: number; to: RoadPosition; startedAt: number } | null>(null)
   const onInputRef = useRef(onInput)
   onInputRef.current = onInput
   const lockedRef = useRef(locked)
@@ -148,6 +162,18 @@ export function useRoadMovement(
       previousTime = time
       const current = positionRef.current
 
+      const glide = glideRef.current
+      if (glide && current) {
+        if (movingRef.current || current.edgeId !== glide.to.edgeId) {
+          glideRef.current = null
+        } else {
+          const t = Math.min(1, (time - glide.startedAt) / GLIDE_MS)
+          const eased = t * (2 - t)
+          commit({ ...glide.to, distanceAlongEdge: glide.from + (glide.to.distanceAlongEdge - glide.from) * eased }, t < 1 ? "throttled" : "now")
+          if (t >= 1) glideRef.current = null
+        }
+      }
+
       if (movingRef.current && current) {
         const edge = graph.edges[current.edgeId]
         if (edge) {
@@ -170,6 +196,7 @@ export function useRoadMovement(
               const overflow = reachedEnd ? distance - edge.lengthMeters : -distance
               const next = enterEdge(chosen.edgeId, nodeId, overflow)
               if (next) {
+                lastJunctionRef.current = { nodeId, candidates, chosenEdgeId: chosen.edgeId, intent }
                 commit(next)
                 setTurnIntent(null)
                 turnIntentRef.current = null
@@ -178,6 +205,7 @@ export function useRoadMovement(
             } else {
               distance = reachedEnd ? edge.lengthMeters : 0
               commit({ ...current, distanceAlongEdge: distance })
+              lastJunctionRef.current = null
               setMoving(false)
               movingRef.current = false
               onInputRef.current?.({ type: "walk", on: false })
@@ -244,6 +272,18 @@ export function useRoadMovement(
     }
     const current = positionRef.current
     if (!graph || !current) return
+    // Just went straight through a junction? Take the turn there instead (the
+    // server does the same, so both agree).
+    const late = lateTurn(graph, current, lastJunctionRef.current, direction)
+    if (late) {
+      lastJunctionRef.current = null
+      turnIntentRef.current = null
+      setTurnIntent(null)
+      commit(late)
+      onInputRef.current?.({ type: "turn", direction })
+      setFeedback(`${direction[0]!.toUpperCase()}${direction.slice(1)} turn taken`)
+      return
+    }
     const distance = getDistanceToUpcomingNode(graph, current)
     if (distance > TURN_DECISION_DISTANCE_METERS) {
       setFeedback(`Turn available in ${Math.round(distance)} m`)
@@ -258,7 +298,7 @@ export function useRoadMovement(
     setTurnIntent(direction)
     onInputRef.current?.({ type: "turn", direction })
     setFeedback(`${direction[0]!.toUpperCase()}${direction.slice(1)} turn selected`)
-  }, [graph])
+  }, [graph, commit])
 
   const turnAround = useCallback(() => {
     if (lockedRef.current) {
@@ -269,6 +309,8 @@ export function useRoadMovement(
     movingRef.current = false
     onInputRef.current?.({ type: "turnAround" })
     turnIntentRef.current = null
+    lastJunctionRef.current = null
+    glideRef.current = null
     setTurnIntent(null)
     setFeedback("Turned around on the road")
     const current = positionRef.current
@@ -290,11 +332,19 @@ export function useRoadMovement(
       const clientCoordinate = current ? getRoadCoordinate(graph, current) : null
       const gap = clientCoordinate ? haversineDistanceMeters(clientCoordinate, serverCoordinate) : Infinity
       const sameEdge = current?.edgeId === server.edgeId && current.direction === server.direction
-      const limit = movingRef.current || serverMoving ? RECONCILE_MOVING_METERS : RECONCILE_STILL_METERS
       const moving = movingRef.current || serverMoving
+      const speed = WALK_SPEED_METERS_PER_SECOND * (speedRef?.current ?? 1)
+      const limit = moving ? Math.max(RECONCILE_MOVING_METERS, speed * RECONCILE_MOVING_SECONDS) : RECONCILE_STILL_METERS
       // Within tolerance is fine, except standing still on a different road
       // (e.g. a start snapped to another street at a junction): adopt the server's.
       if (gap <= limit && (sameEdge || moving)) return
+      // Standing still on the same road, a little off (the server stopped a
+      // few metres later than the phone): slide there instead of jumping.
+      if (!moving && sameEdge && current && gap <= GLIDE_MAX_METERS) {
+        glideRef.current = { from: current.distanceAlongEdge, to: server, startedAt: performance.now() }
+        return
+      }
+      glideRef.current = null
       commit(server)
     },
     [graph, commit]

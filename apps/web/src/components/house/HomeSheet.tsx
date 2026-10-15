@@ -47,7 +47,7 @@ export function HomeSheet({
 
   return (
     <div className="absolute inset-x-0 bottom-[var(--shell-bottom)] z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-2 md:bottom-0 md:left-auto md:right-0 md:top-[var(--shell-top)] md:w-[23rem] md:px-2 md:py-2">
-      <div className="mx-auto flex w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-md md:mx-0 md:h-full md:max-w-none md:rounded-2xl">
+      <div className="mx-auto flex w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 shadow-2xl md:backdrop-blur-md md:mx-0 md:h-full md:max-w-none md:rounded-2xl">
         {open ? (
           <>
             <div className="flex shrink-0 items-center gap-2 border-b border-white/10 py-1.5 pl-1.5 pr-3">

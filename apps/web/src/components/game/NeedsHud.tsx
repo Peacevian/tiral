@@ -39,7 +39,7 @@ function Bar({
 export function NeedsHud({ energy, health, sprinting }: { energy: number; health: number; sprinting: boolean }) {
   return (
     <div
-      className={`pointer-events-none flex flex-col gap-1 rounded-xl border px-2.5 py-1.5 shadow-xl backdrop-blur-md transition-colors ${
+      className={`pointer-events-none flex flex-col gap-1 rounded-xl border px-2.5 py-1.5 shadow-xl md:backdrop-blur-md transition-colors ${
         sprinting ? "border-amber-300/60 bg-amber-950/70" : "border-white/10 bg-slate-950/75"
       }`}
     >

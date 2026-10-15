@@ -123,7 +123,7 @@ export function AdaptivePanel({
     <>
     <section
       aria-label={label}
-      className={`fixed inset-x-0 bottom-[var(--shell-bottom)] z-30 flex flex-col overflow-hidden rounded-t-3xl border border-b-0 border-white/10 bg-slate-950/95 text-white shadow-2xl backdrop-blur-md md:bottom-2 md:left-auto md:right-2 md:top-[calc(var(--shell-top)+0.5rem)] md:w-[24rem] md:rounded-2xl md:border-b xl:w-[26rem] max-md:[height:var(--sheet-h)] ${
+      className={`fixed inset-x-0 bottom-[var(--shell-bottom)] z-30 flex flex-col overflow-hidden rounded-t-3xl border border-b-0 border-white/10 bg-slate-950/95 text-white shadow-2xl md:backdrop-blur-md md:bottom-2 md:left-auto md:right-2 md:top-[calc(var(--shell-top)+0.5rem)] md:w-[24rem] md:rounded-2xl md:border-b xl:w-[26rem] max-md:[height:var(--sheet-h)] ${
         sideOpen ? "" : "md:pointer-events-none md:invisible md:translate-x-[calc(100%+1rem)]"
       }`}
       style={
@@ -171,7 +171,7 @@ export function AdaptivePanel({
         type="button"
         onClick={() => toggleSide(true)}
         aria-label={`Show ${label}`}
-        className="fixed right-2 top-[calc(var(--shell-top)+0.5rem)] z-30 hidden min-h-[44px] items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-slate-900 md:inline-flex"
+        className="fixed right-2 top-[calc(var(--shell-top)+0.5rem)] z-30 hidden min-h-[44px] items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-3 text-sm font-black text-white shadow-2xl md:backdrop-blur-md transition hover:bg-slate-900 md:inline-flex"
       >
         <span aria-hidden>‹</span> {label}
       </button>

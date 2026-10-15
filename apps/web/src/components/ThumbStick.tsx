@@ -112,7 +112,7 @@ export function ThumbStick({
       onPointerUp={stop}
       onPointerCancel={stop}
       style={{ width: size, height: size }}
-      className={`relative touch-none select-none rounded-full border-2 bg-slate-950/60 backdrop-blur-sm sm:bg-slate-950/80 ${
+      className={`relative touch-none select-none rounded-full border-2 bg-slate-950/60 md:backdrop-blur-sm sm:bg-slate-950/80 ${
         disabled ? "border-white/10 opacity-40" : "border-cyan-300/40"
       }`}
     >

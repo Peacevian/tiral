@@ -28,7 +28,7 @@ export function HomeHud({
     <div className="absolute inset-x-0 top-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-2">
       <div className="flex min-h-[48px] items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="max-w-[45vw] truncate rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2 text-xs font-black text-white shadow-xl backdrop-blur-md sm:max-w-none sm:text-sm">
+          <div className="max-w-[45vw] truncate rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2 text-xs font-black text-white shadow-xl md:backdrop-blur-md sm:max-w-none sm:text-sm">
             🏠 {displayName}&rsquo;s home
           </div>
         </div>
@@ -49,14 +49,14 @@ export function HomeHud({
             onClick={() => setMenuOpen((open) => !open)}
             aria-label="More actions"
             aria-expanded={menuOpen}
-            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/80 text-lg font-black text-slate-200 shadow-xl backdrop-blur-md"
+            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/80 text-lg font-black text-slate-200 shadow-xl md:backdrop-blur-md"
           >
             ⋯
           </button>
         </div>
       </div>
       {menuOpen && (
-        <div className="ml-auto mt-1.5 flex w-[min(78vw,260px)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-md">
+        <div className="ml-auto mt-1.5 flex w-[min(78vw,260px)] flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl md:backdrop-blur-md">
           <button
             type="button"
             onClick={onToggleRoof}
@@ -78,7 +78,7 @@ export function HomeHud({
         </div>
       )}
       {notice && (
-        <div className="mx-auto mt-1.5 w-fit max-w-full truncate rounded-xl bg-slate-950/85 px-3 py-1.5 text-xs font-bold text-slate-200 shadow-xl backdrop-blur-md">
+        <div className="mx-auto mt-1.5 w-fit max-w-full truncate rounded-xl bg-slate-950/85 px-3 py-1.5 text-xs font-bold text-slate-200 shadow-xl md:backdrop-blur-md">
           {notice}
         </div>
       )}
