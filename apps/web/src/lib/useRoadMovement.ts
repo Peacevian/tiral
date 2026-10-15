@@ -189,11 +189,18 @@ export function useRoadMovement(
       if (key === "w" || key === "ArrowUp") updateMoving(false)
     }
 
+    // Switching tabs while holding W never sends the keyup: stop walking, so
+    // the server doesn't keep the runner going (and draining energy) unseen.
+    const onBlur = () => {
+      if (movingRef.current) updateMoving(false)
+    }
     window.addEventListener("keydown", onKeyDown)
     window.addEventListener("keyup", onKeyUp)
+    window.addEventListener("blur", onBlur)
     return () => {
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
+      window.removeEventListener("blur", onBlur)
     }
   })
 

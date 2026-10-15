@@ -17,6 +17,7 @@ import {
   MAX_MESSAGES_PER_SECOND,
   MessageThrottle,
   NEEDS_FLUSH_MS,
+  guarded,
   PLACE_START_MS,
   REFRESH_NEEDS_MS,
   freshBody,
@@ -200,14 +201,19 @@ export class RaceRoom extends Room {
         console.error("Failed to load road graph:", error)
       })
 
-    this.tickInterval = setInterval(() => this.tickMovement(), TICK_MS)
-    this.needsFlushInterval = setInterval(() => void this.body.flush(Object.values(this.players)), NEEDS_FLUSH_MS)
+    this.tickInterval = setInterval(guarded("race tick", () => this.tickMovement()), TICK_MS)
+    this.needsFlushInterval = setInterval(guarded("race needs flush", () => this.body.flush(Object.values(this.players))), NEEDS_FLUSH_MS)
 
     // Food bought on the profile while still connected: pull fresh values now.
     this.onMessage("refreshNeeds", (client) => {
       const player = this.players[client.sessionId]
       if (player && this.throttle.allow(client.sessionId, "refreshNeeds", REFRESH_NEEDS_MS)) void this.body.flush([player], true)
     })
+  }
+
+  /** An error in a message handler or room method: log it, keep the room (and server) alive. */
+  onUncaughtException(error: unknown, methodName: string) {
+    console.error(`[race ${this.roomId}] ${methodName} failed:`, error)
   }
 
   onJoin(client: Client, options: any, auth?: JoinIdentity) {
@@ -538,7 +544,7 @@ export class RaceRoom extends Room {
 
     let remaining = COUNTDOWN_SECONDS
     this.countdownSeconds = remaining
-    this.countdownInterval = setInterval(() => {
+    this.countdownInterval = setInterval(guarded("race countdown", () => {
       remaining--
       this.countdownSeconds = remaining
       this.broadcast("countdownTick", remaining)
@@ -546,7 +552,7 @@ export class RaceRoom extends Room {
         this.stopCountdown()
         this.launchRace()
       }
-    }, 1000)
+    }), 1000)
   }
 
   /** People racing (with a start): one account in several tabs counts once. */

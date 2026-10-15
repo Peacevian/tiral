@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import * as THREE from "three"
 import type { AvatarLoadout } from "@tiral/avatars"
@@ -485,7 +485,7 @@ function Scene({
 }
 
 /** The washing bay: drag on the car to work, drag the background to walk around. */
-export function CarWashBay(props: {
+export const CarWashBay = memo(function CarWashBay(props: {
   carId: string | null
   carType: string | null
   zones: BayZone[]
@@ -526,4 +526,4 @@ export function CarWashBay(props: {
       )}
     </div>
   )
-}
+})

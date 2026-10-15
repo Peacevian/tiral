@@ -168,11 +168,15 @@ function MapHustle() {
     const up = (event: KeyboardEvent) => {
       if (event.key === "Shift") setSprint(false)
     }
+    // Switching tabs while holding Shift never sends the keyup: stop sprinting.
+    const release = () => setSprint(false)
     window.addEventListener("keydown", down)
     window.addEventListener("keyup", up)
+    window.addEventListener("blur", release)
     return () => {
       window.removeEventListener("keydown", down)
       window.removeEventListener("keyup", up)
+      window.removeEventListener("blur", release)
     }
   }, [setSprint])
   const onBike = hustle?.hustle === "boda"

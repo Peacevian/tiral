@@ -221,6 +221,8 @@ export function useColyseus({
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
   const manualLeaveRef = useRef(false)
+  // Rooms we left on purpose: their late onLeave must be ignored.
+  const leftRoomsRef = useRef(new WeakSet<Room>())
 
   const getClient = useCallback(() => {
     if (!clientRef.current) {
@@ -339,8 +341,9 @@ export function useColyseus({
     })
 
     room.onLeave((code) => {
-      // A room we already moved on from (left it, then joined another): its
-      // late "left" event must not reconnect to it or wipe the new room's state.
+      // A room we left on purpose, or already moved on from: its late "left"
+      // event must not reconnect to it or wipe the new room's state.
+      if (leftRoomsRef.current.has(room)) return
       if (roomRef.current && roomRef.current !== room) return
       const token =
         (room as unknown as { reconnectionToken?: string }).reconnectionToken ??
@@ -376,12 +379,14 @@ export function useColyseus({
     }
     setReconnecting(true)
     for (let attempt = 0; attempt < RECONNECT_ATTEMPTS; attempt++) {
-      if (manualLeaveRef.current) return
+      // Stop if the player left, or has since joined another room.
+      if (manualLeaveRef.current || roomRef.current) return
       try {
         await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY_MS))
-        if (manualLeaveRef.current) return
+        if (manualLeaveRef.current || roomRef.current) return
         const nextRoom = await client.reconnect(token)
-        if (manualLeaveRef.current) {
+        if (manualLeaveRef.current || roomRef.current) {
+          leftRoomsRef.current.add(nextRoom)
           nextRoom.leave()
           return
         }
@@ -411,6 +416,7 @@ export function useColyseus({
     manualLeaveRef.current = true
     clearReconnectToken()
     setReconnecting(false)
+    if (roomRef.current) leftRoomsRef.current.add(roomRef.current)
     roomRef.current?.leave()
     roomRef.current = null
     setConnected(false)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { Html } from "@react-three/drei"
 import * as THREE from "three"
@@ -57,46 +57,48 @@ function eggColor(seconds: number, target: THREE.Color) {
   return target.copy(brown).lerp(burnt, ease((seconds - end) / 1.2))
 }
 
-function useStripes(colors: string[]) {
-  return useMemo(() => {
-    if (typeof document === "undefined") return null
-    const canvas = document.createElement("canvas")
-    canvas.width = 256
-    canvas.height = 8
-    const ctx = canvas.getContext("2d")!
-    const width = canvas.width / colors.length
-    colors.forEach((color, index) => {
-      ctx.fillStyle = color
-      ctx.fillRect(index * width, 0, width + 1, canvas.height)
-    })
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.colorSpace = THREE.SRGBColorSpace
-    return texture
-  }, [colors])
+// Shared canvas textures: built once per page (they never change), so the
+// stall can re-render freely without creating and uploading new ones.
+const CANOPY_COLORS = ["#dc2626", "#facc15", "#16a34a", "#facc15", "#dc2626", "#2563eb", "#facc15", "#2563eb"]
+let canopy: THREE.CanvasTexture | null = null
+let speckles: THREE.CanvasTexture | null = null
+
+function canopyTexture() {
+  if (canopy || typeof document === "undefined") return canopy
+  const canvas = document.createElement("canvas")
+  canvas.width = 256
+  canvas.height = 8
+  const ctx = canvas.getContext("2d")!
+  const width = canvas.width / CANOPY_COLORS.length
+  CANOPY_COLORS.forEach((color, index) => {
+    ctx.fillStyle = color
+    ctx.fillRect(index * width, 0, width + 1, canvas.height)
+  })
+  canopy = new THREE.CanvasTexture(canvas)
+  canopy.colorSpace = THREE.SRGBColorSpace
+  return canopy
 }
 
 /** Egg with bits of tomato, onion and cabbage in it. */
-function useSpeckles() {
-  return useMemo(() => {
-    if (typeof document === "undefined") return null
-    const canvas = document.createElement("canvas")
-    canvas.width = canvas.height = 128
-    const ctx = canvas.getContext("2d")!
-    ctx.fillStyle = "#ffffff"
-    ctx.fillRect(0, 0, 128, 128)
-    let state = 7
-    const random = () => ((state = (state * 9301 + 49297) % 233280) / 233280)
-    const bits = ["#dc2626", "#16a34a", "#a855f7", "#65a30d", "#ef4444"]
-    for (let i = 0; i < 70; i++) {
-      ctx.fillStyle = bits[i % bits.length]!
-      ctx.beginPath()
-      ctx.ellipse(random() * 128, random() * 128, 1.5 + random() * 3, 1 + random() * 2, random() * Math.PI, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.colorSpace = THREE.SRGBColorSpace
-    return texture
-  }, [])
+function speckleTexture() {
+  if (speckles || typeof document === "undefined") return speckles
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext("2d")!
+  ctx.fillStyle = "#ffffff"
+  ctx.fillRect(0, 0, 128, 128)
+  let state = 7
+  const random = () => ((state = (state * 9301 + 49297) % 233280) / 233280)
+  const bits = ["#dc2626", "#16a34a", "#a855f7", "#65a30d", "#ef4444"]
+  for (let i = 0; i < 70; i++) {
+    ctx.fillStyle = bits[i % bits.length]!
+    ctx.beginPath()
+    ctx.ellipse(random() * 128, random() * 128, 1.5 + random() * 3, 1 + random() * 2, random() * Math.PI, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  speckles = new THREE.CanvasTexture(canvas)
+  speckles.colorSpace = THREE.SRGBColorSpace
+  return speckles
 }
 
 /** A soft pulsing ring that shows what to tap next. */
@@ -135,7 +137,7 @@ function Tappable({ onTap, children }: { onTap(): void; children: ReactNode }) {
 // ---------------------------------------------------------------------------
 // The stall
 
-function Street() {
+const Street = memo(function Street() {
   const buildings = useMemo(
     () => [
       { x: -6, w: 4, h: 4.5, color: "#e7c9a0" },
@@ -178,10 +180,10 @@ function Street() {
       ))}
     </group>
   )
-}
+})
 
-function Stall({ next, onTap }: { next: RolexTarget | null; onTap(target: RolexTarget): void }) {
-  const canopy = useStripes(["#dc2626", "#facc15", "#16a34a", "#facc15", "#dc2626", "#2563eb", "#facc15", "#2563eb"])
+const Stall = memo(function Stall({ next, onTap }: { next: RolexTarget | null; onTap(target: RolexTarget): void }) {
+  const canopy = canopyTexture()
   const eggs = useMemo(() => {
     const spots: Array<[number, number]> = []
     for (let row = 0; row < 3; row++) for (let col = 0; col < 4; col++) spots.push([(col - 1.5) * 0.075, (row - 1) * 0.075])
@@ -289,11 +291,11 @@ function Stall({ next, onTap }: { next: RolexTarget | null; onTap(target: RolexT
       </mesh>
     </group>
   )
-}
+})
 
 /** The mixing bowl and what's in it for the next rolex. */
-function Bowl({ prep, next, onTap }: { prep: RolexPrep; next: RolexTarget | null; onTap(): void }) {
-  const speckles = useSpeckles()
+const Bowl = memo(function Bowl({ prep, next, onTap }: { prep: RolexPrep; next: RolexTarget | null; onTap(): void }) {
+  const speckles = speckleTexture()
   const spoon = useRef<THREE.Group>(null)
   const flying = useRef<THREE.Group>(null)
   const bits = useRef<THREE.Group>(null)
@@ -366,10 +368,10 @@ function Bowl({ prep, next, onTap }: { prep: RolexPrep; next: RolexTarget | null
       <Hint position={BOWL} radius={0.17} show={next === "bowl"} />
     </group>
   )
-}
+})
 
 /** The egg frying on the plate, then flipped, rolled in a chapati and handed over. */
-function Griddle({
+const Griddle = memo(function Griddle({
   cooking,
   flip,
   customerX
@@ -378,7 +380,7 @@ function Griddle({
   flip: RolexFlip | null
   customerX(id: string | null): number
 }) {
-  const speckles = useSpeckles()
+  const speckles = speckleTexture()
   const omelette = useRef<THREE.Mesh>(null)
   const material = useRef<THREE.MeshStandardMaterial>(null)
   const chapati = useRef<THREE.Mesh>(null)
@@ -504,7 +506,7 @@ function Griddle({
       </instancedMesh>
     </group>
   )
-}
+})
 
 // ---------------------------------------------------------------------------
 // Customers
@@ -529,7 +531,25 @@ function useShownCustomers(customers: RolexCustomer[]) {
   return shown
 }
 
-function Customer({
+/** The only part of a customer that changes every moment: it ticks on its own. */
+function PatienceBar({ leavesInMs, received }: { leavesInMs: number; received: number }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(id)
+  }, [])
+  const left = Math.max(0, leavesInMs - (now - received))
+  return (
+    <span className="block h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+      <span
+        className="block h-full rounded-full"
+        style={{ width: `${(left / (ROLEX_PATIENCE_SECONDS * 1000)) * 100}%`, background: left < 12_000 ? "#f43f5e" : "#34d399" }}
+      />
+    </span>
+  )
+}
+
+const Customer = memo(function Customer({
   customer,
   selected,
   cooking,
@@ -540,7 +560,7 @@ function Customer({
   selected: boolean
   cooking: boolean
   received: number
-  onPick(): void
+  onPick(customerId: string): void
 }) {
   const group = useRef<THREE.Group>(null)
   const [walking, setWalking] = useState(true)
@@ -563,8 +583,6 @@ function Customer({
     }
     if (moving !== walking) setWalking(moving)
   })
-  const left = Math.max(0, customer.leavesInMs - (Date.now() - received))
-  const patience = left / (ROLEX_PATIENCE_SECONDS * 1000)
   return (
     <group ref={group}>
       <RealisticAvatar loadout={look} moving={walking} />
@@ -574,7 +592,7 @@ function Customer({
           position={[0, 0.95, 0]}
           onClick={(event) => {
             event.stopPropagation()
-            onPick()
+            onPick(customer.id)
           }}
           onPointerOver={() => (document.body.style.cursor = "pointer")}
           onPointerOut={() => (document.body.style.cursor = "")}
@@ -587,7 +605,7 @@ function Customer({
         <Html position={[0, 1.3, 0.3]} center zIndexRange={[5, 0]}>
           <button
             type="button"
-            onClick={onPick}
+            onClick={() => onPick(customer.id)}
             className={`flex w-[74px] flex-col items-center gap-1 rounded-xl border px-1.5 py-1 text-[11px] font-black text-white shadow-lg ${
               selected ? "border-amber-300 bg-amber-500/90 text-slate-950" : cooking ? "border-orange-300 bg-orange-600/90" : "border-white/20 bg-slate-950/85"
             }`}
@@ -595,18 +613,13 @@ function Customer({
             <span>
               🌯 {customer.served}/{customer.wants}
             </span>
-            <span className="block h-1.5 w-full overflow-hidden rounded-full bg-white/20">
-              <span
-                className="block h-full rounded-full"
-                style={{ width: `${patience * 100}%`, background: left < 12_000 ? "#f43f5e" : "#34d399" }}
-              />
-            </span>
+            <PatienceBar leavesInMs={customer.leavesInMs} received={received} />
           </button>
         </Html>
       )}
     </group>
   )
-}
+})
 
 // ---------------------------------------------------------------------------
 
@@ -661,10 +674,23 @@ export function RolexStall3D({
   showcase?: boolean
 }) {
   const shown = useShownCustomers(customers)
-  const customerX = (id: string | null) => {
-    const customer = shown.find((candidate) => candidate.id === id)
+  // The HUD above re-renders on a fast clock; hand the memoised scene pieces
+  // callbacks and props that only change when something really changes.
+  const latest = useRef({ onPick, onTap, shown })
+  latest.current = { onPick, onTap, shown }
+  const pick = useCallback((customerId: string) => latest.current.onPick(customerId), [])
+  const tap = useCallback((target: RolexTarget) => latest.current.onTap(target), [])
+  const tapBowl = useCallback(() => latest.current.onTap("bowl"), [])
+  const customerX = useCallback((id: string | null) => {
+    const customer = latest.current.shown.find((candidate) => candidate.id === id)
     return customer ? (SLOT_X[customer.slot] ?? 0) : 0
-  }
+  }, [])
+  const cookingSince = cooking?.since ?? null
+  const cookingFor = cooking?.customerId ?? null
+  const stableCooking = useMemo(
+    () => (cookingSince !== null && cookingFor !== null ? { since: cookingSince, customerId: cookingFor } : null),
+    [cookingSince, cookingFor]
+  )
   return (
     <div className="absolute inset-0">
       <Canvas shadows camera={{ position: [0.5, 2.8, -3.4], fov: 44 }} gl={{ antialias: true }} dpr={[1, 2]}>
@@ -673,9 +699,9 @@ export function RolexStall3D({
         <hemisphereLight args={["#fff7e6", "#6b4f3a", 1.1]} />
         <directionalLight position={[4, 8, 3]} intensity={2.2} castShadow shadow-mapSize={[1024, 1024]} />
         <Street />
-        <Stall next={next} onTap={onTap} />
-        <Bowl prep={prep} next={next} onTap={() => onTap("bowl")} />
-        <Griddle cooking={cooking} flip={flip} customerX={customerX} />
+        <Stall next={next} onTap={tap} />
+        <Bowl prep={prep} next={next} onTap={tapBowl} />
+        <Griddle cooking={stableCooking} flip={flip} customerX={customerX} />
         {/* You, behind the counter */}
         <group position={[-1.05, 0, -0.7]}>
           <RealisticAvatar loadout={loadout} moving={false} />
@@ -685,9 +711,9 @@ export function RolexStall3D({
             key={customer.id}
             customer={customer}
             selected={prep.customerId === customer.id}
-            cooking={cooking?.customerId === customer.id}
+            cooking={cookingFor === customer.id}
             received={received}
-            onPick={() => onPick(customer.id)}
+            onPick={pick}
           />
         ))}
         <CameraRig showcase={showcase} />

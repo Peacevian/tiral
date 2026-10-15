@@ -6,6 +6,12 @@ import { RaceRoom } from "./rooms/RaceRoom.js"
 import { HustleRoom } from "./rooms/HustleRoom.js"
 import { StallRoom } from "./rooms/StallRoom.js"
 
+// A forgotten promise rejection somewhere must not take every race and shift
+// down with it: log it and keep serving.
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason)
+})
+
 const port = Number(process.env.PORT) || 2567
 const apiPort = Number(process.env.API_PORT) || 2568
 

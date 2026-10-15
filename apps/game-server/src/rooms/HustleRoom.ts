@@ -46,6 +46,7 @@ import {
   MAX_MESSAGES_PER_SECOND,
   MessageThrottle,
   NEEDS_FLUSH_MS,
+  guarded,
   REFRESH_NEEDS_MS,
   freshBody,
   requestTurn,
@@ -156,17 +157,25 @@ export class HustleRoom extends Room {
       if (this.own(client) && this.job) this.failJob("abandoned")
     })
 
-    void loadRoadGraph().then((graph) => {
-      this.graph = graph
-      if (this.worker) this.place(this.worker)
-      this.fillOffers(Date.now())
-      this.sendState()
-    })
+    loadRoadGraph()
+      .then((graph) => {
+        this.graph = graph
+        if (this.worker) this.place(this.worker)
+        this.fillOffers(Date.now())
+        this.sendState()
+      })
+      .catch((error) => console.error("Failed to load road graph:", error))
 
-    this.tickInterval = setInterval(() => this.tick(), TICK_MS)
-    this.flushInterval = setInterval(() => {
-      if (this.worker) void this.body.flush([this.worker])
-    }, NEEDS_FLUSH_MS)
+    this.tickInterval = setInterval(guarded("hustle tick", () => this.tick()), TICK_MS)
+    this.flushInterval = setInterval(
+      guarded("hustle needs flush", () => (this.worker ? this.body.flush([this.worker]) : undefined)),
+      NEEDS_FLUSH_MS
+    )
+  }
+
+  /** An error in a message handler or room method: log it, keep the server alive. */
+  onUncaughtException(error: unknown, methodName: string) {
+    console.error(`[hustle ${this.roomId}] ${methodName} failed:`, error)
   }
 
   onJoin(client: Client, options: any, auth?: JoinIdentity) {

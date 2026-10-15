@@ -306,3 +306,18 @@ export const MAX_MESSAGES_PER_SECOND = { race: 30, hustle: 30, stall: 60 } as co
 export const REFRESH_NEEDS_MS = 2_000
 /** Minimum gap between start-pin placements (each one scans the road graph and broadcasts). */
 export const PLACE_START_MS = 300
+
+/**
+ * Wrap a timer callback so an error (or a rejected promise) in one room is
+ * logged and skipped instead of crashing the whole game server.
+ */
+export function guarded(label: string, run: () => unknown): () => void {
+  return () => {
+    try {
+      const result = run()
+      if (result instanceof Promise) result.catch((error) => console.error(`[${label}] failed:`, error))
+    } catch (error) {
+      console.error(`[${label}] failed:`, error)
+    }
+  }
+}
