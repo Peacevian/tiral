@@ -1,5 +1,6 @@
 "use client"
 
+import { colorName } from "@/lib/colorName"
 import { useMemo, useState } from "react"
 import {
   FLOOR_COLORS,
@@ -114,12 +115,20 @@ function Swatches({
           key={color}
           type="button"
           onClick={() => onSelect(color)}
-          aria-label={color}
-          className={`h-11 w-11 rounded-full border-2 transition ${
+          aria-label={colorName(color)}
+          aria-pressed={selected === color}
+          title={colorName(color)}
+          className={`inline-flex h-11 w-11 items-center justify-center rounded-full border-2 transition ${
             selected === color ? "scale-110 border-amber-300" : "border-white/20 hover:border-white/50"
           }`}
           style={{ backgroundColor: color }}
-        />
+        >
+          {selected === color && (
+            <span aria-hidden className="text-base font-black text-white [text-shadow:0_0_3px_#000,0_0_2px_#000]">
+              ✓
+            </span>
+          )}
+        </button>
       ))}
     </div>
   )
@@ -290,7 +299,7 @@ export function HouseCustomizer({
                 key={item.id}
                 type="button"
                 onClick={() => setSelectedId(item.id)}
-                className={`absolute flex items-center justify-center rounded-md text-[9px] font-bold text-white/90 transition ${
+                className={`absolute flex items-center justify-center rounded-md text-[11px] font-bold text-white/90 transition ${
                   isSelected ? "ring-2 ring-amber-300" : "ring-1 ring-white/20"
                 }`}
                 style={{
@@ -312,14 +321,16 @@ export function HouseCustomizer({
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-slate-300">Move</span>
               {[
-                { label: "↑", dx: 0, dz: -1 },
-                { label: "↓", dx: 0, dz: 1 },
-                { label: "←", dx: -1, dz: 0 },
-                { label: "→", dx: 1, dz: 0 }
+                { label: "↑", name: "Move back", dx: 0, dz: -1 },
+                { label: "↓", name: "Move forward", dx: 0, dz: 1 },
+                { label: "←", name: "Move left", dx: -1, dz: 0 },
+                { label: "→", name: "Move right", dx: 1, dz: 0 }
               ].map((step) => (
                 <button
                   key={step.label}
                   type="button"
+                  aria-label={step.name}
+                  title={step.name}
                   onClick={() => moveSelected(step.dx, step.dz)}
                   className="h-11 w-11 rounded-lg border border-white/15 bg-white/5 text-sm font-bold text-slate-200 hover:bg-white/10"
                 >
@@ -343,7 +354,7 @@ export function HouseCustomizer({
             </Group>
           </div>
         ) : (
-          <div className="mt-3 text-center text-xs text-slate-500">
+          <div className="mt-3 text-center text-xs text-slate-400">
             Tap a piece in the grid to move, rotate, recolour or remove it.
           </div>
         )}

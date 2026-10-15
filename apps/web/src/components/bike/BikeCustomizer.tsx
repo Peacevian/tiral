@@ -23,12 +23,12 @@ const RARITY_DOT: Record<BikeItemRarity, string> = {
 
 /** "owned" / "free" / "15,000" for an option's item id (null = free default). */
 function PriceTag({ itemId, owned }: { itemId: string | null; owned: ReadonlySet<string> }) {
-  if (itemId === null) return <span className="text-[10px] text-slate-500">free</span>
-  if (owned.has(itemId)) return <span className="text-[10px] font-bold text-emerald-300">owned</span>
+  if (itemId === null) return <span className="text-[11px] text-slate-400">free</span>
+  if (owned.has(itemId)) return <span className="text-[11px] font-bold text-emerald-300">owned</span>
   const item = findBikeItem(itemId)
   if (!item) return null
   return (
-    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-amber-200">
+    <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-amber-200">
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${RARITY_DOT[item.rarity]}`} />
       {formatCoins(item.price)}
     </span>

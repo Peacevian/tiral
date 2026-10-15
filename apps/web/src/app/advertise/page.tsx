@@ -18,7 +18,10 @@ type Phase =
 export default function AdvertisePage() {
   const [slots, setSlots] = useState<Slot[]>([])
   const [liveCounts, setLiveCounts] = useState<Record<string, number>>({})
+  // Nothing pre-selected: the buyer picks each slot they pay for.
   const [selected, setSelected] = useState<string[]>([])
+  const [slotsState, setSlotsState] = useState<"loading" | "ready" | "failed">("loading")
+  const [slotsAttempt, setSlotsAttempt] = useState(0)
   const [brandName, setBrandName] = useState("")
   const [link, setLink] = useState("")
   const [msisdn, setMsisdn] = useState("")
@@ -31,15 +34,16 @@ export default function AdvertisePage() {
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/billboards/active")
+    setSlotsState("loading")
+    fetch("/api/billboards/active", { signal: AbortSignal.timeout(10_000) })
       .then(async (response) => {
-        if (!response.ok) return null
+        if (!response.ok) throw new Error(String(response.status))
         return (await response.json()) as { slots: Slot[]; campaigns: Campaign[] }
       })
       .then((body) => {
-        if (cancelled || !body) return
+        if (cancelled) return
         setSlots(body.slots)
-        setSelected(body.slots.map((slot) => slot.id))
+        setSlotsState("ready")
         const counts: Record<string, number> = {}
         for (const campaign of body.campaigns) {
           for (const slotId of campaign.slotIds) {
@@ -48,11 +52,13 @@ export default function AdvertisePage() {
         }
         setLiveCounts(counts)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setSlotsState("failed")
+      })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [slotsAttempt])
 
   const toggleSlot = (id: string) => {
     setSelected((current) =>
@@ -181,6 +187,22 @@ export default function AdvertisePage() {
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                 Slots ({selected.length} selected)
               </div>
+              {slotsState === "loading" && <p className="text-sm text-slate-400">Loading billboard slots…</p>}
+              {slotsState === "failed" && (
+                <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                  Couldn&apos;t load the billboard slots.
+                  <button
+                    type="button"
+                    onClick={() => setSlotsAttempt((n) => n + 1)}
+                    className="min-h-[44px] shrink-0 rounded-lg border border-rose-300/40 px-3 text-xs font-bold"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+              {slotsState === "ready" && selected.length === 0 && (
+                <p className="mb-2 text-xs text-slate-400">Tap the slots you want your ad on.</p>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 {slots.map((slot) => {
                   const live = liveCounts[slot.id] ?? 0
@@ -191,11 +213,15 @@ export default function AdvertisePage() {
                       key={slot.id}
                       type="button"
                       onClick={() => toggleSlot(slot.id)}
+                      aria-pressed={on}
                       className={`rounded-xl border px-3 py-2 text-left transition ${
-                        on ? "border-amber-300 bg-amber-300/15" : "border-white/10 bg-white/5 opacity-60"
+                        on ? "border-amber-300 bg-amber-300/15" : "border-white/15 bg-white/5 hover:bg-white/10"
                       }`}
                     >
-                      <div className="text-sm font-bold">{slot.name}</div>
+                      <div className="text-sm font-bold">
+                        {on && <span aria-hidden className="mr-1 text-amber-300">✓</span>}
+                        {slot.name}
+                      </div>
                       <div className="text-[11px] text-slate-400">
                         {live === 0 ? "empty — ~100% airtime" : `${live} live — ~${share}% airtime`}
                       </div>
@@ -276,7 +302,7 @@ export default function AdvertisePage() {
             >
               {submitting ? "Starting payment…" : `Pay UGX ${total.toLocaleString()} for 3 days`}
             </button>
-            <p className="text-center text-[11px] text-slate-500">
+            <p className="text-center text-[11px] text-slate-400">
               You will approve the charge with your mobile-money PIN.
             </p>
           </div>

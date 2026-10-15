@@ -27,7 +27,7 @@ export function Footer() {
             </Link>
           ))}
         </nav>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           © {new Date().getFullYear()} Tiral. Play on real streets — stay safe out there.
         </p>
       </div>

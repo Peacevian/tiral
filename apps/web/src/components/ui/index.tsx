@@ -1,6 +1,6 @@
 "use client"
 
-import type { ButtonHTMLAttributes, ReactNode } from "react"
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react"
 
 // Tiral UI kit. Colour language, used everywhere:
 //   amber   = primary actions and money      emerald = gains, success, "live"
@@ -80,7 +80,7 @@ export function Badge({ count, className = "" }: { count: number; className?: st
   if (count <= 0) return null
   return (
     <span
-      className={`grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black leading-none text-white ${className}`}
+      className={`grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[11px] font-black leading-none text-white ${className}`}
     >
       {count > 9 ? "9+" : count}
     </span>
@@ -89,13 +89,8 @@ export function Badge({ count, className = "" }: { count: number; className?: st
 
 type ActionVariant = "primary" | "secondary" | "ghost" | "danger"
 
-export function ActionButton({
-  variant = "secondary",
-  size = "md",
-  className = "",
-  children,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ActionVariant; size?: "md" | "lg" }) {
+/** ActionButton's look, for other buttons (e.g. ConfirmButton) that should match it. */
+export function actionButtonClass(variant: ActionVariant = "secondary", size: "md" | "lg" = "md") {
   const variants: Record<ActionVariant, string> = {
     primary: "bg-amber-400 text-slate-950 hover:bg-amber-300",
     secondary: "bg-white/10 text-white hover:bg-white/15",
@@ -103,13 +98,65 @@ export function ActionButton({
     danger: "border border-rose-300/40 text-rose-200 hover:bg-rose-400/10"
   }
   const sizes = { md: "min-h-[44px] px-3 text-sm", lg: "min-h-[56px] px-4 text-base" }
+  return `inline-flex items-center justify-center gap-2 rounded-xl font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-40 ${variants[variant]} ${sizes[size]}`
+}
+
+export function ActionButton({
+  variant = "secondary",
+  size = "md",
+  className = "",
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ActionVariant; size?: "md" | "lg" }) {
+  return (
+    <button type="button" {...props} className={`${actionButtonClass(variant, size)} ${className}`}>
+      {children}
+    </button>
+  )
+}
+
+/**
+ * A button for actions that can't be undone (end a shift, drop a job, move
+ * house): the first tap arms it ("Tap again to end shift") for a few seconds,
+ * only a second tap acts. Pass `confirm={false}` when the action is harmless
+ * right now (e.g. a clean car) to act on the first tap.
+ */
+export function ConfirmButton({
+  onConfirm,
+  confirmLabel,
+  confirm = true,
+  className = "",
+  armedClassName = "",
+  children,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
+  onConfirm(): void
+  confirmLabel: ReactNode
+  confirm?: boolean
+  armedClassName?: string
+}) {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const id = setTimeout(() => setArmed(false), 3500)
+    return () => clearTimeout(id)
+  }, [armed])
   return (
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-40 ${variants[variant]} ${sizes[size]} ${className}`}
+      onClick={() => {
+        if (!confirm || armed) {
+          setArmed(false)
+          onConfirm()
+        } else {
+          setArmed(true)
+        }
+      }}
+      onBlur={() => setArmed(false)}
+      className={`${className} ${armed ? armedClassName : ""}`}
     >
-      {children}
+      {armed ? confirmLabel : children}
     </button>
   )
 }

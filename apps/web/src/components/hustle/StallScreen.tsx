@@ -16,6 +16,7 @@ import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import {
+  CAR_MIN_CLEAN_SHARE,
   CAR_TYPES,
   ROLEX_FLIP_WINDOW,
   ROLEX_PACKS,
@@ -28,8 +29,9 @@ import { useColyseusContext, useColyseusStatus } from "@/components/ColyseusProv
 import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import type { StallState } from "@/lib/useColyseus"
-import { ActionButton, Card, SectionLabel } from "@/components/ui"
+import { ActionButton, Card, ConfirmButton, SectionLabel, actionButtonClass } from "@/components/ui"
 import { AdaptivePanel } from "@/components/ui/AdaptivePanel"
+import { Modal } from "@/components/ui/Modal"
 import { useMyLoadout } from "@/lib/useMyLoadout"
 import type { AvatarLoadout } from "@tiral/avatars"
 import { WASH_RINSE_DIRT, type WashTool } from "@tiral/game-core"
@@ -230,7 +232,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                     className={`min-w-0 rounded-xl border p-2 text-left text-xs ${spot === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
                   >
                     <span className="block font-black text-white">{candidate.name}</span>
-                    <span className="block text-[10px] text-slate-400">
+                    <span className="block text-[11px] text-slate-400">
                       {candidate.customersPerMinute >= 5 ? "busiest" : candidate.customersPerMinute >= 4 ? "busy" : "quieter"} · KCCA{" "}
                       {Math.round(candidate.raidChance * 100)}%
                     </span>
@@ -270,7 +272,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                     <span className="text-xs font-black text-white">
                       {index + 1}. {entry.label}
                     </span>
-                    <span className="text-[10px] leading-tight text-slate-400">{entry.hint}</span>
+                    <span className="text-[11px] leading-tight text-slate-400">{entry.hint}</span>
                   </li>
                 ))}
               </ol>
@@ -285,7 +287,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                     </span>
                     <span className="block text-xs font-black text-white">{car.id === "taxi" ? "Matatu" : car.id === "saloon" ? "Saloon" : car.name}</span>
                     <span className="block font-mono text-sm font-black text-amber-200">{formatCoins(car.pay)}</span>
-                    <span className="block text-[10px] text-slate-400">
+                    <span className="block text-[11px] text-slate-400">
                       {car.zones} panels · {car.seconds / 60} min
                     </span>
                   </div>
@@ -299,11 +301,11 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
           {player && (
             <div className="mt-4 grid grid-cols-2 gap-1.5 text-xs">
               <div className="rounded-xl bg-white/5 px-3 py-2">
-                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Balance</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">Balance</span>
                 <span className="font-mono font-black text-amber-200">{formatCoins(player.balance)}</span>
               </div>
               <div className="rounded-xl bg-white/5 px-3 py-2">
-                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Energy</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">Energy</span>
                 <span className="flex items-center gap-2">
                   <span className="font-mono font-black text-white">{energy}</span>
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
@@ -335,7 +337,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
 const EMPTY_PREP: RolexPrep = { customerId: null, eggs: 0, veg: false, whisked: false, crackAt: 0, vegAt: 0, whiskAt: 0 }
 
 const STEP_TEXT: Record<RolexStep, { icon: string; label: string; hint: string }> = {
-  pick: { icon: "🧑🏾", label: "Take an order", hint: "Tap a customer at the counter" },
+  pick: { icon: "🧑🏾", label: "Take an order", hint: "Tap a customer at the counter or below" },
   crack: { icon: "🥚", label: "Crack an egg", hint: "Two eggs into the bowl" },
   veg: { icon: "🍅", label: "Add the veg", hint: "Tomato, onion and cabbage" },
   whisk: { icon: "🥄", label: "Whisk it", hint: "Beat the eggs and veg together" },
@@ -460,7 +462,7 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
               { done: prep.veg, label: "🍅🧅🥬" },
               { done: prep.whisked, label: "🥄" }
             ].map((item, index) => (
-              <span key={index} className={`rounded-full px-2 py-0.5 ${item.done ? "bg-emerald-400/20 text-emerald-200" : "bg-white/5 text-slate-500 grayscale"}`}>
+              <span key={index} className={`rounded-full px-2 py-0.5 ${item.done ? "bg-emerald-400/20 text-emerald-200" : "bg-white/5 text-slate-400 grayscale"}`}>
                 {item.label}
               </span>
             ))}
@@ -482,12 +484,38 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
               <p className="mt-1 text-center text-[11px] text-slate-300">Flip when the bar is in the green and the egg is golden.</p>
             </div>
           )}
+          {/* The queue as buttons too: picking a customer shouldn't need a precise 3D tap. */}
+          {customers.length > 0 && !state.cooking && (
+            <div className="flex gap-1.5 overflow-x-auto" role="group" aria-label="Customers waiting">
+              {customers.map((customer, index) => {
+                const secondsLeft = Math.max(0, Math.ceil((customer.leavesInMs - (now - state.receivedAt)) / 1000))
+                const chosen = selected?.id === customer.id
+                return (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    onClick={() => pick(customer.id)}
+                    aria-pressed={chosen}
+                    className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold ${
+                      chosen ? "border-amber-300 bg-amber-300/20 text-amber-100" : "border-white/15 bg-slate-950/85 text-white"
+                    }`}
+                  >
+                    <span aria-hidden>🧑🏾</span>
+                    <span>
+                      Customer {index + 1}: {customer.served}/{customer.wants}
+                    </span>
+                    <span className={secondsLeft <= 10 ? "text-rose-300" : "text-slate-400"}>{secondsLeft}s</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <ActionButton
             variant="primary"
             size="lg"
             className={`w-full ${inWindow ? "ring-4 ring-emerald-300/60" : ""}`}
             disabled={step === "empty" || step === "wait"}
-            onClick={() => (step === "pick" ? say("Tap a customer at the counter.") : target && doStep(target))}
+            onClick={() => (step === "pick" ? say("Pick a customer: tap one at the counter or in the list.") : target && doStep(target))}
           >
             {shownStep.icon} {step === "crack" ? `${shownStep.label} (${prep.eggs}/2)` : shownStep.label}
           </ActionButton>
@@ -543,7 +571,7 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
               </span>
               <span className="font-mono text-sm font-black text-amber-200">{formatCoins(type.pay)}</span>
             </div>
-            <div className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+            <div className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
               <span>
                 Time <span className="font-mono normal-case text-slate-200">{Math.floor(left / 60_000)}:{String(Math.floor((left % 60_000) / 1000)).padStart(2, "0")}</span>
               </span>
@@ -562,7 +590,7 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
           </div>
         ) : (
           <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 text-center text-sm text-slate-300 md:backdrop-blur-md">
-            🚿 Bay is empty. Next car coming… <span className="block text-[11px] text-slate-500">{state.carsDone} washed this shift</span>
+            🚿 Bay is empty. Next car coming… <span className="block text-[11px] text-slate-400">{state.carsDone} washed this shift</span>
           </div>
         )}
       </div>
@@ -586,9 +614,17 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
               {entry.label}
             </button>
           ))}
-          <ActionButton variant="primary" className="flex-[1.4] text-xs" disabled={!car} onClick={() => send("finishCar")}>
+          {/* Below the pay line the driver won't pay: make sure that's meant. */}
+          <ConfirmButton
+            className={`${actionButtonClass("primary")} flex-[1.4] text-xs`}
+            armedClassName="!bg-rose-500 !text-white"
+            disabled={!car}
+            confirm={!!car && car.zones.filter((zone) => zone.clean).length / car.zones.length < CAR_MIN_CLEAN_SHARE}
+            confirmLabel={`Under ${Math.round(CAR_MIN_CLEAN_SHARE * 100)}% clean: no pay. Tap again`}
+            onConfirm={() => send("finishCar")}
+          >
             ✅ Done, call the driver
-          </ActionButton>
+          </ConfirmButton>
         </div>
       </div>
     </>,
@@ -754,13 +790,14 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
                     {formatCoins(stall.summary.earned)} BNG
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => sendStall("close")}
+                <ConfirmButton
+                  onConfirm={() => sendStall("close")}
+                  confirmLabel={stall.stall === "rolex" ? "Tap again to close" : "Tap again to end"}
                   className="inline-flex min-h-[44px] items-center rounded-xl border border-rose-300/30 px-3 text-xs font-bold text-rose-200"
+                  armedClassName="!border-rose-400 !bg-rose-500 !text-white"
                 >
                   {stall.stall === "rolex" ? "Close stall" : "End shift"}
-                </button>
+                </ConfirmButton>
               </div>
               {stall.stall === "rolex" ? <RolexStand state={stall} now={now} send={sendStall} /> : <CarWash state={stall} now={now} send={sendStall} />}
             </>
@@ -799,18 +836,21 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
         </div>
 
         {stall?.phase === "raid" && (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-rose-950/85 p-6 text-center">
-            <div>
-              <div className="text-5xl">🚨</div>
-              <div className="mt-2 text-3xl font-black">KCCA! Pack up!</div>
-              <p className="mt-1 text-sm text-rose-100">
-                Run now or lose your stall and pay a fine. {Math.ceil(Math.max(0, (stall.raidInMs ?? 0) - (now - stall.receivedAt)) / 1000)}s
-              </p>
-              <ActionButton variant="primary" size="lg" className="mt-5 w-56" onClick={() => sendStall("run")}>
-                🏃 RUN
-              </ActionButton>
-            </div>
-          </div>
+          <Modal
+            alert
+            labelledBy="kcca-title"
+            backdropClassName="fixed inset-0 z-50 grid place-items-center bg-rose-950/85 p-6 text-center"
+            className=""
+          >
+            <div aria-hidden className="text-5xl">🚨</div>
+            <div id="kcca-title" className="mt-2 text-3xl font-black">KCCA! Pack up!</div>
+            <p className="mt-1 text-sm text-rose-100">
+              Run now or lose your stall and pay a fine. {Math.ceil(Math.max(0, (stall.raidInMs ?? 0) - (now - stall.receivedAt)) / 1000)}s
+            </p>
+            <ActionButton variant="primary" size="lg" className="mt-5 w-56" onClick={() => sendStall("run")}>
+              🏃 RUN
+            </ActionButton>
+          </Modal>
         )}
       </main>
     </StageContext.Provider>

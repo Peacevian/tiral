@@ -142,6 +142,31 @@ export default function HomePage() {
     }
   }, [loadAttempt])
 
+  // Unsaved look/house/name: warn before the edits are lost, both on reload or
+  // closing the tab, and on in-app links (the nav bar, Home → Play, ...).
+  useEffect(() => {
+    if (!dirty) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    const onClick = (event: MouseEvent) => {
+      const link = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!link || link.target === "_blank" || event.defaultPrevented) return
+      const url = new URL(link.href, window.location.href)
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return
+      if (!window.confirm("You have unsaved changes. Leave without saving?")) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
+    window.addEventListener("beforeunload", onBeforeUnload)
+    document.addEventListener("click", onClick, true)
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload)
+      document.removeEventListener("click", onClick, true)
+    }
+  }, [dirty])
+
   const save = useCallback(async () => {
     if (!user) return
     setSaving(true)
@@ -379,7 +404,7 @@ export default function HomePage() {
                 ].map((stat) => (
                   <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 px-1 py-2">
                     <div className="font-mono text-base font-black text-cyan-300">{stat.value}</div>
-                    <div className="text-[10px] uppercase tracking-wide text-slate-400">{stat.label}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-400">{stat.label}</div>
                   </div>
                 ))}
               </div>

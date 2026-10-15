@@ -59,7 +59,8 @@ type PlayerContextValue = {
   eat(foodId: string): Promise<string | null>
   setResting(resting: boolean): Promise<void>
   answer(event: LifeEvent, action: "pay" | "refuse"): Promise<string | null>
-  moveHouse(tier: string): Promise<void>
+  /** Resolves to an error message, or null when moved. */
+  moveHouse(tier: string): Promise<string | null>
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null)
@@ -212,8 +213,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     async (tier: string) => {
       setBusy(`move:${tier}`)
       try {
-        await post("/api/life/move", { tier })
+        const result = await post("/api/life/move", { tier })
         await refresh()
+        return result.ok ? null : result.error === "Unavailable" ? "Couldn't move right now. Try again." : result.error ?? "Couldn't move"
+      } catch {
+        return "Network is down"
       } finally {
         setBusy(null)
       }

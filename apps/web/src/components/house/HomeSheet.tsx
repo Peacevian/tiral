@@ -87,7 +87,7 @@ export function HomeSheet({
                     </span>
                     <span className="block text-sm font-black text-white">{entry.label}</span>
                     {(badges?.[entry.id] ?? 0) > 0 && (
-                      <span className="absolute right-2 top-2 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white">
+                      <span className="absolute right-2 top-2 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[11px] font-black text-white">
                         {badges?.[entry.id]}
                       </span>
                     )}

@@ -98,12 +98,15 @@ export function BillboardLayer({
   map,
   pins,
   showEmpty = true,
+  interactive = true,
   onPinClick
 }: {
   map: maplibregl.Map | null
   pins: BillboardPin[]
   /** Show unsold "advertise here" slots (off during a race to keep the map clean). */
   showEmpty?: boolean
+  /** Off during a race: taps go through to the map instead of opening a card. */
+  interactive?: boolean
   onPinClick(pin: BillboardPin): void
 }) {
   const layerRef = useRef<HTMLDivElement>(null)
@@ -111,6 +114,8 @@ export function BillboardLayer({
   pinsRef.current = pins
   const showEmptyRef = useRef(showEmpty)
   showEmptyRef.current = showEmpty
+  const interactiveRef = useRef(interactive)
+  interactiveRef.current = interactive
   const onPinClickRef = useRef(onPinClick)
   onPinClickRef.current = onPinClick
   const relayoutRef = useRef<() => void>(() => {})
@@ -136,6 +141,7 @@ export function BillboardLayer({
           el.type = "button"
           el.addEventListener("click", (event) => {
             event.stopPropagation()
+            if (!interactiveRef.current) return
             const current = pinsRef.current.find((p) => p.slotId === pin.slotId)
             if (current) onPinClickRef.current(current)
           })
@@ -159,6 +165,8 @@ export function BillboardLayer({
           continue
         }
         entry.el.style.display = ""
+        entry.el.style.pointerEvents = interactiveRef.current ? "" : "none"
+        entry.el.tabIndex = interactiveRef.current ? 0 : -1
         render(entry, pin, look)
         const premium = pin.tier === "premium"
         candidates.push({
@@ -222,7 +230,7 @@ export function BillboardLayer({
 
   useEffect(() => {
     relayoutRef.current()
-  }, [pins, showEmpty])
+  }, [pins, showEmpty, interactive])
 
   return <div ref={layerRef} className="tiral-bb-layer pointer-events-none absolute inset-0 z-[5] overflow-hidden" />
 }

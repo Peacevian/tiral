@@ -41,13 +41,13 @@ export function PlayerStats() {
         aria-label={`Energy ${Math.round(player.needs.energy)}, health ${Math.round(player.needs.health)}`}
         className="flex min-h-[40px] w-[4.5rem] flex-col justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 sm:w-24"
       >
-        <span className="flex items-center gap-1 text-[10px] leading-none">
+        <span className="flex items-center gap-1 text-[11px] leading-none">
           <span aria-hidden>⚡</span>
           <span className="flex-1">
             <StatMeter compact label="Energy" icon="⚡" value={player.needs.energy} color="#fbbf24" />
           </span>
         </span>
-        <span className="flex items-center gap-1 text-[10px] leading-none">
+        <span className="flex items-center gap-1 text-[11px] leading-none">
           <span aria-hidden>❤</span>
           <span className="flex-1">
             <StatMeter compact label="Health" icon="❤" value={player.needs.health} color="#f87171" />

@@ -31,7 +31,7 @@ import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/Collapse
 import { StallScreen } from "@/components/hustle/StallScreen"
 import { JobBoard, clock, offerTitle, spotName, useNow } from "@/components/hustle/JobBoard"
 import type { HustlePin } from "@/components/hustle/HustlePins"
-import { ActionButton, Card } from "@/components/ui"
+import { ActionButton, Card, ConfirmButton } from "@/components/ui"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const HustlePins = dynamic(
@@ -392,16 +392,17 @@ function MapHustle() {
               >
                 ◎
               </button>
-              <button
-                type="button"
-                onClick={() => {
+              <ConfirmButton
+                onConfirm={() => {
                   leaveRoom()
                   router.push("/play")
                 }}
+                confirmLabel="Tap again to end"
                 className="inline-flex min-h-[44px] items-center rounded-xl border border-rose-300/30 px-3 text-xs font-bold text-rose-200"
+                armedClassName="!border-rose-400 !bg-rose-500 !text-white"
               >
                 End shift
-              </button>
+              </ConfirmButton>
             </div>
           </div>
 
