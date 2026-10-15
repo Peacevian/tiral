@@ -1,4 +1,4 @@
-import { and, eq, lte } from "drizzle-orm"
+import { and, count, eq, gte, inArray, lte } from "drizzle-orm"
 import { getDatabase, type Database } from "./client.js"
 import { billboardCampaigns, billboardImpressions, billboardSlots } from "./schema.js"
 
@@ -93,25 +93,48 @@ export async function getCampaignById(id: string, db: Database = getDatabase()) 
   return rows[0] ?? null
 }
 
+/** Remember Relworx's id for the payment prompt, so its status can be re-checked later. */
+export async function setCampaignInternalRef(id: string, internalReference: string, db: Database = getDatabase()) {
+  await db
+    .update(billboardCampaigns)
+    .set({ relworxInternalRef: internalReference })
+    .where(and(eq(billboardCampaigns.id, id), eq(billboardCampaigns.status, "pending")))
+}
+
+/**
+ * Turn a paid campaign on. Only a pending (or expired-while-waiting) campaign
+ * can go live, so a late or replayed confirmation never revives one that was
+ * disabled by a moderator or failed. Returns true if it is now active.
+ */
 export async function activateCampaign(
   id: string,
   internalReference: string,
   db: Database = getDatabase()
 ): Promise<boolean> {
-  const existing = await getCampaignById(id, db)
-  if (!existing || existing.status === "active") return existing?.status === "active"
-  await db
+  const updated = await db
     .update(billboardCampaigns)
     .set({ status: "active", relworxInternalRef: internalReference })
-    .where(eq(billboardCampaigns.id, id))
-  return true
+    .where(and(eq(billboardCampaigns.id, id), inArray(billboardCampaigns.status, ["pending", "expired"])))
+    .returning({ id: billboardCampaigns.id })
+  if (updated.length > 0) return true
+  return (await getCampaignById(id, db))?.status === "active"
 }
 
+/** A payment that failed: only a campaign still waiting can fail. */
 export async function failCampaign(id: string, db: Database = getDatabase()) {
   await db
     .update(billboardCampaigns)
     .set({ status: "failed" })
-    .where(eq(billboardCampaigns.id, id))
+    .where(and(eq(billboardCampaigns.id, id), eq(billboardCampaigns.status, "pending")))
+}
+
+/** How many payment prompts went to this number since `since` (anti-spam). */
+export async function countRecentCampaignsForMsisdn(msisdn: string, since: Date, db: Database = getDatabase()) {
+  const [row] = await db
+    .select({ total: count() })
+    .from(billboardCampaigns)
+    .where(and(eq(billboardCampaigns.buyerMsisdn, msisdn), gte(billboardCampaigns.createdAt, since)))
+  return row?.total ?? 0
 }
 
 export async function setCampaignStatus(

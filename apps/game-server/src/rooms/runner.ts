@@ -278,3 +278,31 @@ export class BodySync {
     }
   }
 }
+
+/**
+ * Per-client message throttle for handlers that hit the database or broadcast
+ * to the whole room. Returns false if `key` (e.g. "<sessionId>:refreshNeeds")
+ * was allowed less than `ms` ago.
+ */
+export class MessageThrottle {
+  private readonly last = new Map<string, number>()
+
+  allow(sessionId: string, message: string, ms: number, now = Date.now()): boolean {
+    const key = `${sessionId}:${message}`
+    if (now - (this.last.get(key) ?? 0) < ms) return false
+    this.last.set(key, now)
+    return true
+  }
+
+  /** Forget a client that left. */
+  forget(sessionId: string) {
+    for (const key of this.last.keys()) if (key.startsWith(`${sessionId}:`)) this.last.delete(key)
+  }
+}
+
+/** Messages a client may send per second before Colyseus drops it (floods only). */
+export const MAX_MESSAGES_PER_SECOND = { race: 30, hustle: 30, stall: 60 } as const
+/** Minimum gap between needs refreshes (each one writes to the database). */
+export const REFRESH_NEEDS_MS = 2_000
+/** Minimum gap between start-pin placements (each one scans the road graph and broadcasts). */
+export const PLACE_START_MS = 300

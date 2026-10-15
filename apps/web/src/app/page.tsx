@@ -18,7 +18,7 @@ export const dynamic = "force-static"
 export default function LandingPage() {
   return (
     <main
-      className={`${sign.variable} ${marker.variable} ${receipt.variable} min-h-screen w-full overflow-y-auto bg-slate-950`}
+      className={`${sign.variable} ${marker.variable} ${receipt.variable} h-dvh w-full overflow-y-auto bg-slate-950`}
     >
       <header className="relative z-20 w-full bg-[#1b1b1b]">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">

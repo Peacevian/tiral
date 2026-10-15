@@ -131,10 +131,15 @@ export function relworxWebhookStatus(body: RelworxWebhookBody): string {
   return String(body.status ?? body.request_status ?? "").toLowerCase()
 }
 
+/** Whether webhooks can be accepted at all: production needs a signing key. */
+export function webhookConfigured(): boolean {
+  return getWebhookKey() !== "" || process.env.NODE_ENV !== "production"
+}
+
 /**
  * Verify the Relworx-Signature header (HMAC-SHA256 over URL + timestamp +
- * sorted params). Skipped when no webhook key is configured, matching the
- * reference integration — status is always re-checked via API regardless.
+ * sorted params). Without a key this only passes outside production (local
+ * testing); in production an unsigned webhook is always refused.
  */
 export function verifyRelworxWebhook(
   webhookUrl: string,
@@ -142,7 +147,7 @@ export function verifyRelworxWebhook(
   body: RelworxWebhookBody
 ): boolean {
   const key = getWebhookKey()
-  if (!key) return true
+  if (!key) return process.env.NODE_ENV !== "production"
   if (!signatureHeader) return false
 
   let timestamp: string | undefined
@@ -156,7 +161,8 @@ export function verifyRelworxWebhook(
     if (prefix === "v") supplied = value
   }
   if (!timestamp || !supplied) return false
-  if (Math.abs(Date.now() - Number(timestamp) * 1000) > WEBHOOK_FRESHNESS_MS) return false
+  const sentAt = Number(timestamp) * 1000
+  if (!Number.isFinite(sentAt) || Math.abs(Date.now() - sentAt) > WEBHOOK_FRESHNESS_MS) return false
 
   const params: Record<string, string> = {}
   const status = relworxWebhookStatus(body)

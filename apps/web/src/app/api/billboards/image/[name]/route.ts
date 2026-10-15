@@ -22,7 +22,9 @@ export async function GET(
     return new NextResponse(new Uint8Array(bytes), {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400"
+        "Cache-Control": "public, max-age=86400",
+        // Never let a browser second-guess the type of an uploaded file.
+        "X-Content-Type-Options": "nosniff"
       }
     })
   } catch {

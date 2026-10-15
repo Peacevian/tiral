@@ -14,7 +14,11 @@ import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
 import { awardRaceEarnings, recordRaceResults } from "@tiral/db"
 import {
   BodySync,
+  MAX_MESSAGES_PER_SECOND,
+  MessageThrottle,
   NEEDS_FLUSH_MS,
+  PLACE_START_MS,
+  REFRESH_NEEDS_MS,
   freshBody,
   requestTurn,
   stepRunner,
@@ -66,6 +70,9 @@ type BountyTarget = {
 
 export class RaceRoom extends Room {
   maxClients = 10
+  // A flooding client is dropped; real play sends a handful per second.
+  maxMessagesPerSecond = MAX_MESSAGES_PER_SECOND.race
+  private readonly throttle = new MessageThrottle()
 
   private phase: "lobby" | "countdown" | "racing" | "finished" = "lobby"
   private countdownSeconds = COUNTDOWN_SECONDS
@@ -98,6 +105,7 @@ export class RaceRoom extends Room {
     this.syncMetadata()
     this.onMessage("selectStart", (client, startPointId: string) => {
       if (this.phase !== "lobby" && this.phase !== "countdown") return
+      if (!this.throttle.allow(client.sessionId, "start", PLACE_START_MS)) return
       const player = this.players[client.sessionId]
       if (!player || !this.roadGraph) return
       const start = KAMPALA_ZONE.startPoints.find((point) => point.id === startPointId)
@@ -120,6 +128,7 @@ export class RaceRoom extends Room {
     // server snaps it to the nearest walkable road.
     this.onMessage("placeStart", (client, point: { lat: number; lng: number }) => {
       if (this.phase !== "lobby" && this.phase !== "countdown") return
+      if (!this.throttle.allow(client.sessionId, "start", PLACE_START_MS)) return
       const player = this.players[client.sessionId]
       if (!player || !this.roadGraph) return
       const lat = Number(point?.lat)
@@ -197,7 +206,7 @@ export class RaceRoom extends Room {
     // Food bought on the profile while still connected: pull fresh values now.
     this.onMessage("refreshNeeds", (client) => {
       const player = this.players[client.sessionId]
-      if (player) void this.body.flush([player], true)
+      if (player && this.throttle.allow(client.sessionId, "refreshNeeds", REFRESH_NEEDS_MS)) void this.body.flush([player], true)
     })
   }
 
@@ -267,6 +276,7 @@ export class RaceRoom extends Room {
   }
 
   onLeave(client: Client) {
+    this.throttle.forget(client.sessionId)
     const leaving = this.players[client.sessionId]
     if (leaving) void this.body.flush([leaving])
     delete this.players[client.sessionId]

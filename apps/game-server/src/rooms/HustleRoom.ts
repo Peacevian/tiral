@@ -43,7 +43,10 @@ import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import {
   BodySync,
+  MAX_MESSAGES_PER_SECOND,
+  MessageThrottle,
   NEEDS_FLUSH_MS,
+  REFRESH_NEEDS_MS,
   freshBody,
   requestTurn,
   snapToRoad,
@@ -87,6 +90,8 @@ export type HustleReceipt =
  */
 export class HustleRoom extends Room {
   maxClients = 1
+  maxMessagesPerSecond = MAX_MESSAGES_PER_SECOND.hustle
+  private readonly throttle = new MessageThrottle()
 
   private gig: Gig = "porter"
   private worker: Worker | null = null
@@ -144,7 +149,7 @@ export class HustleRoom extends Room {
     })
     this.onMessage("refreshNeeds", (client) => {
       const worker = this.own(client)
-      if (worker) void this.body.flush([worker], true)
+      if (worker && this.throttle.allow(client.sessionId, "refreshNeeds", REFRESH_NEEDS_MS)) void this.body.flush([worker], true)
     })
     this.onMessage("accept", (client, offerId: string) => void this.accept(client, offerId))
     this.onMessage("abandon", (client) => {

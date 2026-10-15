@@ -24,7 +24,16 @@ import {
 } from "@tiral/game-core"
 import { buyRolexStock, chargeKccaFine, payHustle } from "@tiral/db"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
-import { BodySync, NEEDS_FLUSH_MS, freshBody, spendEnergy, type Runner } from "./runner.js"
+import {
+  BodySync,
+  MAX_MESSAGES_PER_SECOND,
+  MessageThrottle,
+  NEEDS_FLUSH_MS,
+  REFRESH_NEEDS_MS,
+  freshBody,
+  spendEnergy,
+  type Runner
+} from "./runner.js"
 
 const TICK_MS = 100
 const RECONNECT_SECONDS = 30
@@ -52,6 +61,9 @@ type Summary = { spent: number; earned: number; served: number; spoiled: number;
  */
 export class StallRoom extends Room {
   maxClients = 1
+  // The car wash sends a stream of wash strokes, so this room allows more.
+  maxMessagesPerSecond = MAX_MESSAGES_PER_SECOND.stall
+  private readonly throttle = new MessageThrottle()
 
   private stall: Stall = "rolex"
   private worker: (Runner & { name: string }) | null = null
@@ -103,7 +115,9 @@ export class StallRoom extends Room {
       if (this.own(client)) void this.close("closed")
     })
     this.onMessage("refreshNeeds", (client) => {
-      if (this.own(client) && this.worker) void this.body.flush([this.worker], true)
+      if (this.own(client) && this.worker && this.throttle.allow(client.sessionId, "refreshNeeds", REFRESH_NEEDS_MS)) {
+        void this.body.flush([this.worker], true)
+      }
     })
 
     this.tickInterval = setInterval(() => this.tick(), TICK_MS)
