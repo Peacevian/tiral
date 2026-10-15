@@ -62,6 +62,7 @@ type PlayerContextValue = {
 const PlayerContext = createContext<PlayerContextValue | null>(null)
 
 const POLL_MS = 60_000
+const OFFLINE_RETRY_MS = 5_000
 
 // One source of truth for the signed-in player across the whole app: the
 // player bar, hub, home, inbox and wallet all read from here, and every
@@ -79,7 +80,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (inFlight.current) return inFlight.current
     const run = (async () => {
       try {
-        const response = await fetch("/api/player", { cache: "no-store" })
+        // Give up after 10 s so a hung server shows as offline, not "checking…" forever.
+        const response = await fetch("/api/player", { cache: "no-store", signal: AbortSignal.timeout(10_000) })
         if (!response.ok) throw new Error(String(response.status))
         const body = (await response.json()) as Partial<PlayerSnapshot> & { user: PlayerUser | null }
         setPlayer(body.user ? (body as PlayerSnapshot) : null)
@@ -112,6 +114,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       clearInterval(id)
     }
   }, [refresh])
+
+  // While the server is unreachable, check back every few seconds.
+  useEffect(() => {
+    if (!offline) return
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh()
+    }, OFFLINE_RETRY_MS)
+    return () => clearInterval(id)
+  }, [offline, refresh])
 
   const post = useCallback(async (url: string, body: unknown) => {
     const response = await fetch(url, {

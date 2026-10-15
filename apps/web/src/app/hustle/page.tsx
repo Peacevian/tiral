@@ -482,7 +482,7 @@ function MapHustle() {
             </div>
           )}
 
-          <div className="absolute bottom-[max(12.5rem,calc(env(safe-area-inset-bottom)+12rem))] right-[max(0.75rem,env(safe-area-inset-right))] z-30 md:bottom-[7.5rem] md:right-[25.5rem]">
+          <div className="tiral-sprint-slot absolute right-[max(0.75rem,env(safe-area-inset-right))] z-30 md:right-[25.5rem]">
             <SprintButton active={sprinting} disabled={collapsed} empty={(needs?.energy ?? 100) <= 0} onChange={setSprint} />
           </div>
           <PreloadCollapseFont />

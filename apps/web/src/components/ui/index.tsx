@@ -127,6 +127,25 @@ export function EmptyState({ children }: { children: ReactNode }) {
 }
 
 /** "in 31h 5m" / "now" for a future ISO time. */
+/**
+ * The server can't be reached. Shown instead of a sign-in screen, so nobody
+ * makes a new guest account (and strands the old one) during an outage.
+ */
+export function ServerUnreachable({ onRetry, retrying = false }: { onRetry(): void; retrying?: boolean }) {
+  return (
+    <div role="alert" className="px-4 pb-5 pt-2 text-center">
+      <div aria-hidden className="text-3xl">
+        📡
+      </div>
+      <p className="mt-1 text-base font-black text-white">Can&apos;t reach Tiral right now</p>
+      <p className="mt-1 text-sm text-slate-300">Your account and coins are safe. We&apos;ll keep trying, or check your connection.</p>
+      <ActionButton variant="primary" className="mt-3 w-full" disabled={retrying} onClick={onRetry}>
+        {retrying ? "Trying again…" : "Try again"}
+      </ActionButton>
+    </div>
+  )
+}
+
 export function untilText(iso: string): string {
   const minutes = Math.round((Date.parse(iso) - Date.now()) / 60000)
   if (minutes <= 0) return "now"

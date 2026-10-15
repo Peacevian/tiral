@@ -26,6 +26,12 @@ export type RoadInput =
   | { type: "turn"; direction: RoadDirection }
   | { type: "turnAround" }
 
+/** Keys typed into a text box (e.g. the join code) aren't game controls. */
+function isTyping(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null
+  return !!target && (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")
+}
+
 export function useRoadMovement(
   graph: RoadGraph | null,
   start: LatLng | null,
@@ -167,7 +173,7 @@ export function useRoadMovement(
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) return
+      if (event.repeat || isTyping(event)) return
       // Lower-case so Shift (sprint) + W still walks.
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
       if (key === "w" || key === "ArrowUp") updateMoving(true)
@@ -178,6 +184,7 @@ export function useRoadMovement(
     }
 
     const onKeyUp = (event: KeyboardEvent) => {
+      if (isTyping(event)) return
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
       if (key === "w" || key === "ArrowUp") updateMoving(false)
     }

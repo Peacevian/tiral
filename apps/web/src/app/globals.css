@@ -351,6 +351,18 @@ body.has-shell {
   }
 }
 
+/* Sprint sits above the right thumb stick wherever there are sticks (phones
+   and tablets); only mouse-and-keyboard screens get the lower spot. */
+.tiral-sprint-slot {
+  bottom: max(12.5rem, calc(env(safe-area-inset-bottom) + 12rem));
+}
+
+@media (min-width: 768px) and (pointer: fine) {
+  .tiral-sprint-slot {
+    bottom: 7.5rem;
+  }
+}
+
 /* Twin thumb sticks: touch devices only, never on keypad laptops */
 .tiral-sticks {
   display: none;
