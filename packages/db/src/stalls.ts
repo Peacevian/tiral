@@ -1,7 +1,7 @@
 import { and, eq, gte, sql } from "drizzle-orm"
 import { KCCA_FINE, ROLEX_SHIFTS_PER_DAY, findRolexPack, kampalaDay, kampalaDayStart } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
-import { balanceOf, insertEntry, lockUser } from "./ledger.js"
+import { balanceOf, findNote, insertEntry, lockUser } from "./ledger.js"
 import { coinLedger, lifeEvents } from "./schema.js"
 
 export type StockResult =
@@ -44,6 +44,9 @@ export async function chargeKccaFine(
 ): Promise<number> {
   return db.transaction(async (tx) => {
     await lockUser(tx, input.userId)
+    // Retry-safe: this raid's note is written once, with the fine taken.
+    const done = await findNote(tx, input.userId, "kcca_raid", input.refId)
+    if (done) return done.amount
     const charge = Math.min(KCCA_FINE, await balanceOf(tx, input.userId))
     if (charge > 0) {
       await insertEntry(tx, { userId: input.userId, delta: -charge, reason: "kcca_fine", refId: input.refId, meta: { spot: input.spot } })
@@ -53,7 +56,7 @@ export async function chargeKccaFine(
       kind: "kcca_raid",
       amount: charge,
       status: "info",
-      meta: { spot: input.spot, charged: charge }
+      meta: { spot: input.spot, charged: charge, ref: input.refId }
     })
     return charge
   })

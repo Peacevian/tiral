@@ -10,7 +10,7 @@ import {
   syncLife,
   touchLastSeen
 } from "@tiral/db"
-import { readSessionCookie, verifySession } from "@/lib/session"
+import { clearSessionCookie, readSessionCookie, verifySession } from "@/lib/session"
 
 // The app polls this every minute and after every payout, from every open tab.
 // Settling life (rent, requests, shocks) takes a lock and writes, so it runs at
@@ -31,10 +31,17 @@ export async function GET(request: NextRequest) {
   if (!claims) return NextResponse.json({ user: null })
   try {
     const userId = claims.userId
+    // A valid session for an account that no longer exists (a reset database,
+    // a guest made on another server): sign out instead of failing forever.
+    const user = await findUserById(userId)
+    if (!user) {
+      const response = NextResponse.json({ user: null })
+      response.headers.set("Set-Cookie", clearSessionCookie())
+      return response
+    }
     // Independent reads run side by side; money is sequential because life
     // (rent, shocks) may move coins before the balance is read.
-    const [user, tiktokLinked, needs, money] = await Promise.all([
-      findUserById(userId),
+    const [tiktokLinked, needs, money] = await Promise.all([
       hasTikTokLink(userId),
       loadNeeds(userId),
       (async () => {
@@ -50,7 +57,6 @@ export async function GET(request: NextRequest) {
         return { life, balance, entries }
       })()
     ])
-    if (!user) return NextResponse.json({ user: null })
     const { life, balance, entries } = money
     if (Date.now() - (lastSeen.get(user.id) ?? 0) >= SEEN_EVERY_MS) {
       lastSeen.set(user.id, Date.now())

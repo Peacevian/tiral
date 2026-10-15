@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm"
+import { and, desc, eq, ne, sql } from "drizzle-orm"
 import {
   BREAKDOWN_REPAIR,
   HOUR_MS,
@@ -19,7 +19,7 @@ import {
   type BikeModelId
 } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
-import { balanceOf, insertEntry, lockUser, type Tx } from "./ledger.js"
+import { balanceOf, findNote, insertEntry, lockUser, type Tx } from "./ledger.js"
 import { bikeItems, bikes, coinLedger, lifeEvents, type BikeRow } from "./schema.js"
 
 export type BikeView = {
@@ -271,22 +271,30 @@ export async function getRideBike(userId: string, db: Database = getDatabase()):
 
 /** Add wear for distance ridden; returns the new wear. */
 export async function addBikeWear(input: { bikeId: string; km: number }, db: Database = getDatabase()): Promise<number> {
-  const [bike] = await db.select().from(bikes).where(eq(bikes.id, input.bikeId)).limit(1)
+  const [bike] = await db.select({ model: bikes.model }).from(bikes).where(eq(bikes.id, input.bikeId)).limit(1)
   if (!bike) return 0
-  const wear = Math.min(100, bike.wear + input.km * bikeWearPerKm(findBikeModel(bike.model).stats))
-  await db.update(bikes).set({ wear }).where(eq(bikes.id, bike.id))
-  return wear
+  // One atomic update: two shifts' wear can't overwrite each other.
+  const added = input.km * bikeWearPerKm(findBikeModel(bike.model).stats)
+  const [row] = await db
+    .update(bikes)
+    .set({ wear: sql`least(100, ${bikes.wear} + ${added}::float8)` })
+    .where(eq(bikes.id, input.bikeId))
+    .returning({ wear: bikes.wear })
+  return row?.wear ?? 0
 }
 
 /** Roadside repair after a breakdown: takes what you have, up to the repair cost. */
 export async function chargeBreakdown(input: { userId: string; refId: string; model: string }, db: Database = getDatabase()): Promise<number> {
   return db.transaction(async (tx) => {
     await lockUser(tx, input.userId)
+    // Retry-safe: one note (and one charge) per breakdown.
+    const done = await findNote(tx, input.userId, "breakdown", input.refId)
+    if (done) return done.amount
     const charge = Math.min(BREAKDOWN_REPAIR, await balanceOf(tx, input.userId))
     if (charge > 0) {
       await insertEntry(tx, { userId: input.userId, delta: -charge, reason: "bike_repair", refId: input.refId, meta: { model: input.model } })
     }
-    await notice(tx, input.userId, "breakdown", { name: findBikeModel(input.model).name, charged: charge }, charge)
+    await notice(tx, input.userId, "breakdown", { name: findBikeModel(input.model).name, charged: charge, ref: input.refId }, charge)
     return charge
   })
 }

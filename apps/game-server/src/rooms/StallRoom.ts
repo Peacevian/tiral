@@ -24,6 +24,8 @@ import {
 } from "@tiral/game-core"
 import { buyRolexStock, chargeKccaFine, payHustle } from "@tiral/db"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
+import { withRetry } from "../retry.js"
+import { testOverride } from "../testOverrides.js"
 import {
   BodySync,
   MAX_MESSAGES_PER_SECOND,
@@ -33,6 +35,7 @@ import {
   guarded,
   freshBody,
   spendEnergy,
+  tiredReason,
   type Runner
 } from "./runner.js"
 
@@ -42,9 +45,9 @@ const MAX_QUEUE = 4
 /** Seconds after cooking starts that an unflipped egg burns on its own. */
 const AUTO_BURN_SECONDS = ROLEX_FLIP_WINDOW.end + 1.5
 /** Test overrides (like RACE_ARRIVAL_RADIUS): force raids / busier stalls. */
-const RAID_CHANCE = process.env.STALL_RAID_CHANCE === undefined ? null : Number(process.env.STALL_RAID_CHANCE)
-const CUSTOMER_RATE = process.env.STALL_CUSTOMER_RATE === undefined ? null : Number(process.env.STALL_CUSTOMER_RATE)
-const RAID_DELAY_SECONDS = process.env.STALL_RAID_DELAY === undefined ? null : Number(process.env.STALL_RAID_DELAY)
+const RAID_CHANCE = testOverride("STALL_RAID_CHANCE")
+const CUSTOMER_RATE = testOverride("STALL_CUSTOMER_RATE")
+const RAID_DELAY_SECONDS = testOverride("STALL_RAID_DELAY")
 
 type Stall = "rolex" | "carwash"
 
@@ -174,6 +177,20 @@ export class StallRoom extends Room {
     return this.worker && this.worker.id === client.sessionId ? this.worker : null
   }
 
+  private lastTiredNotice = 0
+
+  /** Refuse work the worker has no energy for (or before their energy is known); tells them at most every 3 s. */
+  private refuseIfTired(client: Client, amount: number): boolean {
+    const reason = this.worker ? tiredReason(this.worker, amount) : null
+    if (!reason) return false
+    const now = Date.now()
+    if (now - this.lastTiredNotice > 3000) {
+      this.lastTiredNotice = now
+      client.send("notice", reason)
+    }
+    return true
+  }
+
   private tell(type: string, payload: unknown) {
     const worker = this.worker
     if (worker) this.clients.find((candidate) => candidate.sessionId === worker.id)?.send(type, payload)
@@ -221,6 +238,7 @@ export class StallRoom extends Room {
 
   private cook(client: Client, customerId: string) {
     if (!this.own(client) || this.phase !== "open" || this.cooking || this.stock <= 0) return
+    if (this.refuseIfTired(client, ROLEX_ENERGY_PER_ROLEX)) return
     const customer = this.customers.find((candidate) => candidate.id === customerId)
     if (!customer || customer.served >= customer.wants) return
     this.stock--
@@ -257,18 +275,21 @@ export class StallRoom extends Room {
       this.tell("stallEvent", { kind: "customer_left", mood })
       return
     }
-    // Count and announce the sale only once the ledger has it ("duplicate"
-    // means it was already recorded), so the summary never shows unpaid money.
+    // Count and announce the sale only once the ledger has it, so the summary
+    // never shows unpaid money.
     let paid = false
+    const userId = worker.userId
     try {
-      const result = await payHustle({
-        userId: worker.userId,
-        hustle: "rolex",
-        jobId: `${this.roomId}:${customer.id}`,
-        net: customer.earned,
-        meta: { rolexes: customer.served, spot: this.spotId }
-      })
-      paid = result.ok || result.reason === "duplicate"
+      const result = await withRetry("Rolex sale", () =>
+        payHustle({
+          userId,
+          hustle: "rolex",
+          jobId: `${this.roomId}:${customer.id}`,
+          net: customer.earned,
+          meta: { rolexes: customer.served, spot: this.spotId }
+        })
+      )
+      paid = result.ok
     } catch (error) {
       console.error("Failed to pay rolex sale:", error)
     }
@@ -333,6 +354,8 @@ export class StallRoom extends Room {
     const zone = this.car.zones.find((candidate) => candidate.id === input?.zone)
     const now = Date.now()
     if (!tool || !zone || zone.clean) return
+    // The car's energy is spent when it's done; don't start work you can't finish.
+    if (this.refuseIfTired(client, CAR_WASH_ENERGY)) return
     // A real hand can't act on one spot faster than this.
     if (now - (zone.lastAction[tool] ?? 0) < WASH_MIN_ACTION_MS) return
     zone.lastAction[tool] = now
@@ -357,14 +380,17 @@ export class StallRoom extends Room {
     if (payout.net > 0 && !worker.userId) unpaid = "guest"
     if (payout.net > 0 && worker.userId) {
       try {
-        const result = await payHustle({
-          userId: worker.userId,
-          hustle: "carwash",
-          jobId: `${this.roomId}:${car.id}`,
-          net: payout.net,
-          meta: { car: car.typeId, ...payout },
-          dailyLimit: CAR_WASH_DAILY_LIMIT
-        })
+        const userId = worker.userId
+        const result = await withRetry("Car wash pay", () =>
+          payHustle({
+            userId,
+            hustle: "carwash",
+            jobId: `${this.roomId}:${car.id}`,
+            net: payout.net,
+            meta: { car: car.typeId, ...payout },
+            dailyLimit: CAR_WASH_DAILY_LIMIT
+          })
+        )
         paid = result.ok
         limit = !result.ok && result.reason === "daily_limit"
       } catch (error) {
@@ -422,7 +448,8 @@ export class StallRoom extends Room {
     this.stock = 0
     if (raided && worker?.userId) {
       try {
-        this.summary.fined = await chargeKccaFine({ userId: worker.userId, refId: `${this.roomId}:kcca`, spot: this.spotId })
+        const userId = worker.userId
+        this.summary.fined = await withRetry("KCCA fine", () => chargeKccaFine({ userId, refId: `${this.roomId}:kcca`, spot: this.spotId }))
       } catch (error) {
         console.error("Failed to charge KCCA fine:", error)
       }

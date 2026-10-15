@@ -652,7 +652,7 @@ export default function Home() {
                 ? "You won!"
                 : results?.[0]
                   ? `Winner: ${results[0].name}`
-                  : "Finished"}
+                  : "Time's up: nobody reached the treasure"}
             </div>
             {results && results.length > 0 && (
               <ol className="mt-3 flex flex-col gap-1">

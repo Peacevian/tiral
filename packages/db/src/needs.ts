@@ -15,7 +15,7 @@ import {
   type Needs
 } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
-import { balanceOf, insertEntry, lockUser, type Tx } from "./ledger.js"
+import { balanceOf, insertEntry, lockUser, lockUserRow, type Tx } from "./ledger.js"
 import { users } from "./schema.js"
 
 export type PlayerNeeds = Needs & { resting: boolean }
@@ -101,16 +101,20 @@ export async function setResting(
   resting: boolean,
   db: Database = getDatabase()
 ): Promise<PlayerNeeds> {
-  const now = new Date()
-  const stored = await readStored(db, userId)
-  if (!stored) return { energy: NEED_MAX, health: NEED_MAX, resting: false }
-  // Bank regen earned at the old rate before switching rates.
-  const needs = currentNeeds(stored, now)
-  await db
-    .update(users)
-    .set({ ...needs, needsAt: now, restingSince: resting ? now : null })
-    .where(eq(users.id, userId))
-  return { ...needs, resting }
+  return db.transaction(async (tx) => {
+    // Read-modify-write of energy: hold the row so a delta from the game can't be lost.
+    await lockUserRow(tx, userId)
+    const now = new Date()
+    const stored = await readStored(tx, userId)
+    if (!stored) return { energy: NEED_MAX, health: NEED_MAX, resting: false }
+    // Bank regen earned at the old rate before switching rates.
+    const needs = currentNeeds(stored, now)
+    await tx
+      .update(users)
+      .set({ ...needs, needsAt: now, restingSince: resting ? now : null })
+      .where(eq(users.id, userId))
+    return { ...needs, resting }
+  })
 }
 
 export type EatResult =
@@ -140,6 +144,8 @@ export async function eatFood(
     })
     if (!inserted) return { ok: false, reason: "duplicate", balance }
 
+    // Read-modify-write of energy: hold the row so a sprint's delta can't be lost.
+    await lockUserRow(tx, input.userId)
     const now = new Date()
     const stored = await readStored(tx, input.userId)
     const before = stored ? currentNeeds(stored, now) : { energy: NEED_MAX, health: NEED_MAX }
