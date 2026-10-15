@@ -257,9 +257,14 @@ body.has-shell {
   font-size: 13px;
 }
 
-/* Map pins (maplibre DOM markers). We don't load maplibre's own stylesheet
-   globally (it broke /play on client navigation), so markers need this to
-   sit on the map instead of in normal page flow. */
+/* maplibre-gl.css (loaded by the map components) sets
+   .maplibregl-map { position: relative }, which overrides our absolutely
+   positioned map containers and collapses the map. Keep them absolute. */
+.maplibregl-map.absolute {
+  position: absolute;
+}
+
+/* Map pins (maplibre DOM markers): keep them on the map, not in page flow. */
 .maplibregl-marker {
   position: absolute;
   top: 0;

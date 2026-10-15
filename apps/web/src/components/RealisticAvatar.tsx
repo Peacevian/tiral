@@ -16,7 +16,8 @@ import {
 
 // Rigged human: "Casual Character" by Quaternius (CC0), see public/models/CREDITS.md.
 // Rest (bind) pose is a T-pose about 1.85 tall, feet at y=0, facing +Z.
-const MODEL_URL = "/models/runner.glb"
+// Versioned name: served with a one-year immutable cache (next.config.ts).
+const MODEL_URL = "/models/runner-v2.glb"
 useGLTF.preload(MODEL_URL)
 
 /** Scripted beats for storytelling scenes (the landing hero). */

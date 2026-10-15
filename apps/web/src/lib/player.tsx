@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import type { AvatarLoadout } from "@tiral/avatars"
 import { COINS_CHANGED_EVENT, type WalletEntry } from "@/lib/useCoins"
 
 export type LifeEvent = {
@@ -29,6 +30,8 @@ export type PlayerUser = {
   displayName: string
   avatarUrl: string | null
   tiktokLinked: boolean
+  /** The runner's look (for the 3D avatar). */
+  loadout?: AvatarLoadout
 }
 
 export type PlayerNeeds = { energy: number; health: number; resting: boolean }

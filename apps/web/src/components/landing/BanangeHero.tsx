@@ -92,9 +92,23 @@ function SpeechBubble({ bubble }: { bubble: Bubble }) {
   return null
 }
 
+/** Slow or metered connection (Data Saver, 2G/3G): don't download the live hero. */
+function slowConnection(): boolean {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+  return Boolean(connection?.saveData) || ["slow-2g", "2g", "3g"].includes(connection?.effectiveType ?? "")
+}
+
 export function BanangeHero() {
   const sectionRef = useRef<HTMLElement>(null)
   const [inView, setInView] = useState(true)
+  // Phones get a still poster (28 KB) instead of the live map + 3D runner
+  // (~1 MB of map engine, three.js and the avatar model): most players are on
+  // 3G/4G and pay for data. The live hero loads on wide screens with a decent
+  // connection, or when someone taps "Watch the story".
+  const [live, setLive] = useState(false)
+  useEffect(() => {
+    if (window.innerWidth >= 768 && !slowConnection()) setLive(true)
+  }, [])
 
   // Only run the story (and its timers) while the hero is on screen.
   useEffect(() => {
@@ -107,7 +121,7 @@ export function BanangeHero() {
     return () => observer.disconnect()
   }, [])
 
-  const { act, bills, bubble } = useStory(inView)
+  const { act, bills, bubble } = useStory(inView && live)
   // Frame the map so the bills land around the centred content, not under it.
   const [narrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 768)
 
@@ -122,17 +136,33 @@ export function BanangeHero() {
         falls down.
       </p>
 
+      {/* Phones: a still of the scene below, in the first HTML response. It stays
+          underneath if the live hero is loaded on top. */}
+      {/* Only phone-width screens fetch it (a hidden <img> would still download). */}
+      <picture>
+        <source media="(max-width: 767px)" srcSet="/landing/hero-phone-v1.webp" type="image/webp" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+          alt=""
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full object-cover object-bottom md:hidden"
+        />
+      </picture>
+
       {/* the real game map, dimmed */}
-      <BillsMap
-        bills={BILLS}
-        shown={bills}
-        center={narrow ? [32.5778, 0.3395] : [32.581, 0.318]}
-        zoom={narrow ? 12.05 : 14}
-        shade="radial-gradient(ellipse 48% 55% at 50% 42%, rgba(2,6,23,0.92) 0%, rgba(2,6,23,0.72) 60%, rgba(2,6,23,0.55) 100%)"
-      />
+      {live && (
+        <BillsMap
+          bills={BILLS}
+          shown={bills}
+          center={narrow ? [32.5778, 0.3395] : [32.581, 0.318]}
+          zoom={narrow ? 12.05 : 14}
+          shade="radial-gradient(ellipse 48% 55% at 50% 42%, rgba(2,6,23,0.92) 0%, rgba(2,6,23,0.72) 60%, rgba(2,6,23,0.55) 100%)"
+        />
+      )}
 
       {/* content, centred in front of the map */}
-      <div className="pointer-events-none relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-4 pt-8 text-center md:pt-[6vh]">
+      <div data-hero-copy className="pointer-events-none relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-4 pt-8 text-center md:pt-[6vh]">
         <span className="rotate-[-2deg] bg-[#dfae3a] px-2 py-0.5 font-[family-name:var(--font-sign)] text-sm tracking-[0.2em] text-[#1b1b1b]">
           KAMPALA · DAY ONE
         </span>
@@ -161,12 +191,24 @@ export function BanangeHero() {
       </div>
 
       {/* the runner, centre stage under the button */}
-      <div className="pointer-events-none absolute bottom-16 left-1/2 z-10 h-[30%] w-[16rem] -translate-x-1/2 sm:w-[20rem] md:bottom-0 md:h-[40%]">
-        <StreetRunner act={act} />
-        <div className="absolute left-[64%] top-0 -translate-x-1/2 -translate-y-1/3 text-[#1b1b1b]">
-          <SpeechBubble bubble={bubble} />
+      {live && (
+        <div className="pointer-events-none absolute bottom-16 left-1/2 z-10 h-[30%] w-[16rem] -translate-x-1/2 sm:w-[20rem] md:bottom-0 md:h-[40%]">
+          <StreetRunner act={act} />
+          <div className="absolute left-[64%] top-0 -translate-x-1/2 -translate-y-1/3 text-[#1b1b1b]">
+            <SpeechBubble bubble={bubble} />
+          </div>
         </div>
-      </div>
+      )}
+
+      {!live && (
+        <button
+          type="button"
+          onClick={() => setLive(true)}
+          className="absolute bottom-4 right-4 z-20 rounded-full border border-white/20 bg-slate-950/70 px-3 py-2 text-xs font-bold text-[#f6efe0] backdrop-blur-sm"
+        >
+          ▶ Watch the story <span className="font-normal text-[#cfc6b0]">(~1 MB)</span>
+        </button>
+      )}
     </section>
   )
 }

@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react"
 import maplibregl from "maplibre-gl"
+import { loadMapStyle } from "@/lib/mapStyle"
+import "maplibre-gl/dist/maplibre-gl.css"
 
-const STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
+// Same trimmed style as the game map (no icon sheet, one font).
 
 export type Bill = { id: string; icon: string; place: string; label: string; amount: string; lngLat: [number, number] }
 
@@ -43,24 +45,30 @@ export function BillsMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const elementsRef = useRef<HTMLDivElement[]>([])
   const optsRef = useRef({ bills, center, zoom, shade })
+  const shownRef = useRef(shown)
+  shownRef.current = shown
 
   useEffect(() => {
     if (!containerRef.current) return
-    const { bills: initialBills, center: c, zoom: z, shade: initialShade } = optsRef.current
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: STYLE_URL,
-      center: c,
-      zoom: z,
-      pitch: 0,
-      bearing: 0,
-      attributionControl: { compact: true },
-      scrollZoom: false,
-      boxZoom: false,
-      dragRotate: false,
-      touchPitch: false,
-      keyboard: false,
-      renderWorldCopies: false
+    let cancelled = false
+    let cleanup: (() => void) | null = null
+    void loadMapStyle().then((style) => {
+      if (cancelled || !containerRef.current) return
+      const { bills: initialBills, center: c, zoom: z, shade: initialShade } = optsRef.current
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style,
+        center: c,
+        zoom: z,
+        pitch: 0,
+        bearing: 0,
+        attributionControl: { compact: true },
+        scrollZoom: false,
+        boxZoom: false,
+        dragRotate: false,
+        touchPitch: false,
+        keyboard: false,
+        renderWorldCopies: false
     })
     // Markers are appended to the canvas container after this, so they stay
     // above the shade while the tiles sit below it.
@@ -74,10 +82,19 @@ export function BillsMap({
       elementsRef.current.push(el)
       return new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat(bill.lngLat).addTo(map)
     })
-    return () => {
+    // The bills may already be partway through their reveal.
+    elementsRef.current.forEach((el, index) => {
+      el.dataset.shown = index < shownRef.current ? "true" : "false"
+    })
+    cleanup = () => {
       markers.forEach((marker) => marker.remove())
       elementsRef.current = []
       map.remove()
+    }
+    })
+    return () => {
+      cancelled = true
+      cleanup?.()
     }
   }, [])
 
@@ -87,9 +104,8 @@ export function BillsMap({
     })
   }, [shown])
 
-  // No global maplibre-gl.css here: it outlives this page on client-side
-  // navigation and collapses the game map. The one rule markers need lives in
-  // globals.css, scoped to .tiral-bills.
+  // maplibre-gl.css is safe now: globals.css keeps absolute map containers
+  // absolute (it used to collapse the game map after client-side navigation).
   return (
     <div className="tiral-bills absolute inset-0">
       <div ref={containerRef} className="h-full w-full" />

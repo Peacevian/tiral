@@ -16,12 +16,13 @@ import {
   isStallGig,
   haversineDistanceMeters
 } from "@tiral/game-core"
-import { buildRoadGraph, type OverpassResponse, type RoadGraph } from "@tiral/road-graph"
+import type { RoadGraph } from "@tiral/road-graph"
 import { useColyseusContext } from "@/components/ColyseusProvider"
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
 import { useMyLoadout } from "@/lib/useMyLoadout"
 import { useRaceCamera } from "@/lib/useRaceCamera"
 import { usePlayer } from "@/lib/player"
+import { loadRoadGraph } from "@/lib/roadGraph"
 import { formatCoins } from "@/lib/useCoins"
 import { ControlDeck } from "@/components/game/ControlDeck"
 import { NeedsHud } from "@/components/game/NeedsHud"
@@ -125,18 +126,17 @@ function MapHustle() {
   }, [connected, roomState, router])
 
   useEffect(() => {
-    const controller = new AbortController()
-    fetch("/api/roads", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Road request failed with ${response.status}`)
-        return response.json() as Promise<OverpassResponse>
+    let cancelled = false
+    loadRoadGraph()
+      .then((loaded) => {
+        if (!cancelled) setGraph(loaded)
       })
-      .then((data) => setGraph(buildRoadGraph(data)))
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return
-        setRoadError(error instanceof Error ? error.message : "Could not load roads")
+        if (!cancelled) setRoadError(error instanceof Error ? error.message : "Could not load roads")
       })
-    return () => controller.abort()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const inShift = connected && hustle !== null

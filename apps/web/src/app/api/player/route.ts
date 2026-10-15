@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const { life, balance, entries } = money
     void touchLastSeen(user.id).catch(() => {})
     return NextResponse.json({
-      user: { id: user.id, displayName: user.displayName, avatarUrl: user.avatarUrl, tiktokLinked },
+      user: { id: user.id, displayName: user.displayName, avatarUrl: user.avatarUrl, tiktokLinked, loadout: user.avatarLoadout },
       balance,
       entries: entries.map((entry) => ({
         id: entry.id,
