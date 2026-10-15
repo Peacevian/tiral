@@ -7,6 +7,13 @@
 # TIKTOK_CLIENT_KEY=
 # TIKTOK_CLIENT_SECRET=
 # TIKTOK_REDIRECT_URI=https://tiral.geinz.lol/api/auth/tiktok/callback
+# PORT=3100                      (nginx proxies the web app on 3100)
+# PUBLIC_BASE_URL=https://tiral.geinz.lol   (webhook signatures are checked against this URL)
+# BILLBOARD_UPLOAD_DIR=/data/uploads        (the compose volume; anywhere else is lost on rebuild)
+# ADMIN_SECRET=<openssl rand -hex 32>       (x-admin-secret header for disabling billboards)
+# RELWORX_API_KEY=
+# RELWORX_ACCOUNT_NO=
+# RELWORX_WEBHOOK_KEY=            (required in production: unsigned webhooks are refused)
 
 # ---- /opt/tiral/game.env ----
 # DATABASE_URL=postgres://tiral_app:<password>@127.0.0.1:5433/tiral
