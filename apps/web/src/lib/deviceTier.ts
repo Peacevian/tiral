@@ -24,3 +24,10 @@ export function isLiteDevice(): boolean {
 export function sceneQuality(): { shadows: boolean; dpr: number | [number, number]; antialias: boolean } {
   return isLiteDevice() ? { shadows: false, dpr: 1, antialias: false } : { shadows: true, dpr: [1, 2], antialias: true }
 }
+
+/** Data Saver on, or a 2G-class connection: skip optional downloads (music). */
+export function isDataSaver(): boolean {
+  if (typeof navigator === "undefined") return false
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+  return Boolean(connection?.saveData) || ["slow-2g", "2g"].includes(connection?.effectiveType ?? "")
+}

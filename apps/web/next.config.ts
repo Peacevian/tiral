@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
       },
       {
+        // Versioned file names (lofi-v1.mp3): a new file gets a new name.
+        source: "/music/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
+      },
+      {
         // Landing images are versioned too (hero-phone-v1.webp).
         source: "/landing/:file*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
