@@ -54,8 +54,8 @@ export function StartPins({
 }) {
   const markersRef = useRef(new Map<string, { marker: maplibregl.Marker; own: boolean }>())
 
-  // Reconcile markers with the latest pins. Runs on every render on purpose:
-  // it only touches what actually changed (add / move / restyle / remove).
+  // Reconcile markers with the latest pins when they change: only touches what
+  // actually changed (add / move / restyle / remove).
   useEffect(() => {
     if (!map) return
     const seen = new Set<string>()
@@ -73,7 +73,10 @@ export function StartPins({
           // Side changed or rival initial changed: rebuild the marker.
           entry.marker.remove()
         } else {
-          entry.marker.setLngLat([player.startAt.lng, player.startAt.lat])
+          const at = entry.marker.getLngLat()
+          if (at.lng !== player.startAt.lng || at.lat !== player.startAt.lat) {
+            entry.marker.setLngLat([player.startAt.lng, player.startAt.lat])
+          }
           entry.marker.getElement().title = title
           continue
         }
@@ -91,7 +94,7 @@ export function StartPins({
         markersRef.current.delete(id)
       }
     }
-  })
+  }, [map, players, ownSessionId])
 
   // Full cleanup only when the map itself goes away.
   useEffect(() => {

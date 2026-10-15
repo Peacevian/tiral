@@ -90,6 +90,9 @@ export function useRaceCamera(
     if (!map || phase !== "racing" || suspendedRef.current) return
     const target = coordinate
     if (!target) return
+    // Let a glide (or the race-start flight) finish instead of restarting it
+    // on every position update.
+    if (map.isEasing() || map.isMoving()) return
     const canvas = map.getCanvas()
     const point = map.project([target.lng, target.lat])
     const threshold =

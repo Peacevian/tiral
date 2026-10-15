@@ -70,6 +70,9 @@ function MapView(
       minZoom: MIN_ZOOM,
       maxZoom: 18,
       renderWorldCopies: false,
+      // Many Android phones are 3× density: drawing the map at 9× the pixels
+      // costs GPU time and battery for detail nobody can see. 2× is plenty.
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
       attributionControl: { compact: true, customAttribution: MAP_ATTRIBUTION }
     })
     map.addControl(new maplibregl.NavigationControl(), "bottom-right")

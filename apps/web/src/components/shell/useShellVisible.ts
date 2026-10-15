@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { useColyseusContext } from "@/components/ColyseusProvider"
+import { useColyseusStatus } from "@/components/ColyseusProvider"
 import { usePlayer } from "@/lib/player"
 
 const SHELL_PAGES = ["/play", "/home", "/inbox", "/leaderboard"]
@@ -13,7 +13,7 @@ const SHELL_PAGES = ["/play", "/home", "/inbox", "/leaderboard"]
 export function useShellVisible(): boolean {
   const pathname = usePathname() ?? "/"
   const { player } = usePlayer()
-  const race = useColyseusContext()
+  const race = useColyseusStatus()
   if (!player) return false
   if (!SHELL_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`))) return false
   if (pathname.startsWith("/play") && (race.connected || race.reconnecting)) return false

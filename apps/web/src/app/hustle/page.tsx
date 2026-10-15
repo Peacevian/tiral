@@ -288,6 +288,7 @@ function MapHustle() {
           {movement.coordinate && (
             <Avatar3D
               latLng={movement.coordinate}
+              live={movement.live}
               heading={movement.heading}
               moving={movement.moving}
               color="#f59e0b"

@@ -63,7 +63,11 @@ export function ThreeLayer({ map, children }: ThreeLayerProps) {
         // this chunk loads. Force it through so the map stays interactive.
         // (We attach no handlers to 3D meshes, so nothing is lost.)
         style={{ width: "100%", height: "100%", pointerEvents: "none" }}
-        gl={{ alpha: true, antialias: true }}
+        // A full-screen layer redrawn every frame over the map: cap its
+        // resolution, and skip antialiasing on dense screens where jagged
+        // edges are too small to see anyway.
+        dpr={[1, 1.5]}
+        gl={{ alpha: true, antialias: typeof window === "undefined" || window.devicePixelRatio < 2 }}
         onCreated={({ gl }) => {
           gl.setClearColor(0x000000, 0)
         }}
