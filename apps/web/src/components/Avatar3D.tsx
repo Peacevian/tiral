@@ -38,6 +38,12 @@ type Avatar3DProps = {
   collapsed?: boolean
   /** Riding a boda (hustles): the bike, and an optional passenger on the back. */
   bike?: { look: BikeLook; passenger?: boolean; passengerSeed?: string; plateSeed?: string } | null
+  /**
+   * Your own runner: its exact position, updated every animation frame by the
+   * movement loop. Drawn from here so it stays smooth while React (latLng,
+   * heading) only updates ~10 times a second.
+   */
+  live?: { current: { lat: number; lng: number; heading: number } | null }
 }
 
 // Model units (≈ metres in the avatar rig) → mercator units. Avatars are drawn
@@ -294,7 +300,8 @@ export function Avatar3D({
   isSelf = false,
   finishPosition = null,
   collapsed = false,
-  bike = null
+  bike = null,
+  live
 }: Avatar3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const displayRef = useRef<{ x: number; y: number } | null>(null)
@@ -305,21 +312,23 @@ export function Avatar3D({
   const celebrating = finishPosition !== null && !moving
 
   useFrame(() => {
-    if (!groupRef.current) return
-    if (!smooth) {
-      displayRef.current = { x: mercator.x, y: mercator.y }
-    } else if (!displayRef.current) {
-      displayRef.current = { x: mercator.x, y: mercator.y }
+    const group = groupRef.current
+    if (!group) return
+    const now = live?.current
+    const target = now ? lngLatToMercator(now) : mercator
+    // Updated in place (no new object per avatar per frame).
+    const display = displayRef.current ?? (displayRef.current = { x: target.x, y: target.y })
+    if (!smooth || now) {
+      display.x = target.x
+      display.y = target.y
     } else {
       const blend = 0.16
-      displayRef.current = {
-        x: displayRef.current.x + (mercator.x - displayRef.current.x) * blend,
-        y: displayRef.current.y + (mercator.y - displayRef.current.y) * blend
-      }
+      display.x += (target.x - display.x) * blend
+      display.y += (target.y - display.y) * blend
     }
-    groupRef.current.position.set(displayRef.current.x - origin.current.x, displayRef.current.y - origin.current.y, 0)
-    groupRef.current.scale.setScalar(avatarScale(origin.current.worldSize))
-    groupRef.current.rotation.z = dampAngle(groupRef.current.rotation.z, heading, 0.18)
+    group.position.set(display.x - origin.current.x, display.y - origin.current.y, 0)
+    group.scale.setScalar(avatarScale(origin.current.worldSize))
+    group.rotation.z = dampAngle(group.rotation.z, now ? now.heading : heading, 0.18)
   })
 
   return (

@@ -12,7 +12,7 @@ import {
   findHustle,
   findRolexSpot
 } from "@tiral/game-core"
-import { useColyseusContext } from "@/components/ColyseusProvider"
+import { useColyseusContext, useColyseusStatus } from "@/components/ColyseusProvider"
 import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import type { StallState } from "@/lib/useColyseus"
@@ -58,7 +58,7 @@ const OUTCOME_TEXT: Record<string, string> = {
 /** Leave any finished shift, then go back to the hub. */
 function BackToBase() {
   const router = useRouter()
-  const { connected, leaveRoom } = useColyseusContext()
+  const { connected, leaveRoom } = useColyseusStatus()
   return (
     <button
       type="button"

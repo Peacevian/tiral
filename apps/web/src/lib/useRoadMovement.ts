@@ -20,6 +20,15 @@ const TURN_INTENT_TIMEOUT_MS = 3000
 /** How far the predicted runner may stray from the server's before snapping back. */
 const RECONCILE_MOVING_METERS = 12
 const RECONCILE_STILL_METERS = 3
+/**
+ * While walking, the exact position lives in refs and is drawn every frame by
+ * whoever reads `live` (the runner's 3D avatar). React state (HUD text, camera,
+ * distances) only follows at this rate, not 60–120 times a second.
+ */
+const PUBLISH_EVERY_MS = 100
+
+/** Where the runner is drawn right now (updated every animation frame). */
+export type LiveRunner = { lat: number; lng: number; heading: number }
 
 export type RoadInput =
   | { type: "walk"; on: boolean }
@@ -45,6 +54,8 @@ export function useRoadMovement(
   const [turnIntent, setTurnIntent] = useState<RoadDirection | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const positionRef = useRef<RoadPosition | null>(null)
+  const liveRef = useRef<LiveRunner | null>(null)
+  const publishedAtRef = useRef(0)
   const movingRef = useRef(false)
   const turnIntentRef = useRef<{ direction: RoadDirection; expiresAt: number } | null>(null)
   const onInputRef = useRef(onInput)
@@ -52,13 +63,31 @@ export function useRoadMovement(
   const lockedRef = useRef(locked)
   lockedRef.current = locked
 
+  /** Move the runner: refs always; React state now, or at most every PUBLISH_EVERY_MS. */
+  const commit = useCallback(
+    (next: RoadPosition | null, publish: "now" | "throttled" = "now") => {
+      positionRef.current = next
+      if (graph && next) {
+        const coordinate = getRoadCoordinate(graph, next)
+        liveRef.current = coordinate ? { lat: coordinate.lat, lng: coordinate.lng, heading: getRoadHeading(graph, next) } : null
+      } else {
+        liveRef.current = null
+      }
+      const now = performance.now()
+      if (publish === "now" || now - publishedAtRef.current >= PUBLISH_EVERY_MS) {
+        publishedAtRef.current = now
+        setPosition(next)
+      }
+    },
+    [graph]
+  )
+
   // No seed, no avatar: the player stays off-map until they drop a start pin.
   // Crucially this also CLEARS any stale position (previous race, HMR state)
   // so an avatar can never appear before an explicit placement.
   useEffect(() => {
     if (!graph || !start) {
-      positionRef.current = null
-      setPosition(null)
+      commit(null)
       return
     }
     const nearest = findNearestEdge(graph, start)
@@ -68,10 +97,9 @@ export function useRoadMovement(
       distanceAlongEdge: nearest.distanceAlongEdge,
       direction: 1
     }
-    positionRef.current = next
-    setPosition(next)
+    commit(next)
     setFeedback(nearest.distanceMeters > 20 ? "Snapped to the nearest walkable road" : null)
-  }, [graph, start?.lat, start?.lng])
+  }, [graph, start?.lat, start?.lng, commit])
 
   useEffect(() => {
     movingRef.current = moving
@@ -84,8 +112,10 @@ export function useRoadMovement(
     }
     setMoving(on)
     movingRef.current = on
+    // Stopping: show exactly where the runner stopped (state may lag 100 ms).
+    if (!on && positionRef.current) commit(positionRef.current)
     onInputRef.current?.({ type: "walk", on })
-  }, [])
+  }, [commit])
 
   useEffect(() => {
     if (locked) {
@@ -140,26 +170,22 @@ export function useRoadMovement(
               const overflow = reachedEnd ? distance - edge.lengthMeters : -distance
               const next = enterEdge(chosen.edgeId, nodeId, overflow)
               if (next) {
-                positionRef.current = next
-                setPosition(next)
+                commit(next)
                 setTurnIntent(null)
                 turnIntentRef.current = null
                 setFeedback(null)
               }
             } else {
               distance = reachedEnd ? edge.lengthMeters : 0
-              const stopped = { ...current, distanceAlongEdge: distance }
-              positionRef.current = stopped
-              setPosition(stopped)
+              commit({ ...current, distanceAlongEdge: distance })
               setMoving(false)
               movingRef.current = false
               onInputRef.current?.({ type: "walk", on: false })
               setFeedback(intent ? `No ${intent} road here` : "Choose a direction at the junction")
             }
           } else {
-            const next = { ...current, distanceAlongEdge: distance }
-            positionRef.current = next
-            setPosition(next)
+            // Same road: refs every frame, React state at most every 100 ms.
+            commit({ ...current, distanceAlongEdge: distance }, "throttled")
           }
         }
       }
@@ -169,9 +195,16 @@ export function useRoadMovement(
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [enterEdge, graph])
+  }, [enterEdge, graph, commit])
+
+  // Handlers change with the graph; the listeners are registered once and call
+  // the latest ones through this ref (not re-added on every render).
+  const controlsRef = useRef({ updateMoving: (_on: boolean) => {}, requestTurn: (_direction: RoadDirection) => {}, turnAround: () => {} })
 
   useEffect(() => {
+    const updateMoving = (on: boolean) => controlsRef.current.updateMoving(on)
+    const requestTurn = (direction: RoadDirection) => controlsRef.current.requestTurn(direction)
+    const turnAround = () => controlsRef.current.turnAround()
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isTyping(event)) return
       // Lower-case so Shift (sprint) + W still walks.
@@ -202,7 +235,7 @@ export function useRoadMovement(
       window.removeEventListener("keyup", onKeyUp)
       window.removeEventListener("blur", onBlur)
     }
-  })
+  }, [])
 
   const requestTurn = useCallback((direction: RoadDirection) => {
     if (lockedRef.current) {
@@ -238,13 +271,9 @@ export function useRoadMovement(
     turnIntentRef.current = null
     setTurnIntent(null)
     setFeedback("Turned around on the road")
-    setPosition((current) => {
-      if (!current) return current
-      const next = { ...current, direction: (current.direction === 1 ? -1 : 1) as 1 | -1 }
-      positionRef.current = next
-      return next
-    })
-  }, [])
+    const current = positionRef.current
+    if (current) commit({ ...current, direction: (current.direction === 1 ? -1 : 1) as 1 | -1 })
+  }, [commit])
 
   /**
    * The server owns where you really are (it decides arrivals). The runner on
@@ -266,11 +295,12 @@ export function useRoadMovement(
       // Within tolerance is fine, except standing still on a different road
       // (e.g. a start snapped to another street at a junction): adopt the server's.
       if (gap <= limit && (sameEdge || moving)) return
-      positionRef.current = server
-      setPosition(server)
+      commit(server)
     },
-    [graph]
+    [graph, commit]
   )
+
+  controlsRef.current = { updateMoving, requestTurn, turnAround }
 
   const coordinate = useMemo(
     () => graph && position ? getRoadCoordinate(graph, position) ?? start : start,
@@ -284,10 +314,6 @@ export function useRoadMovement(
     () => graph && position ? getDistanceToUpcomingNode(graph, position) : null,
     [graph, position]
   )
-  const availableDirections = useMemo(
-    () => graph && position ? classifyConnectedEdges(graph, position).map((candidate) => candidate.direction) : [],
-    [graph, position]
-  )
 
   return {
     position,
@@ -297,7 +323,8 @@ export function useRoadMovement(
     turnIntent,
     feedback,
     distanceToJunction,
-    availableDirections,
+    /** Read every frame to draw the runner smoothly (React state lags up to 100 ms). */
+    live: liveRef,
     setMoving: updateMoving,
     requestTurn,
     turnAround,
