@@ -105,26 +105,6 @@ export function untilLabel(iso: string, now = Date.now()): string {
   return `in ${Math.round(hours / 24)} days`
 }
 
-export function inviteLink(code: string): string {
-  return `${window.location.origin}/play?join=${encodeURIComponent(code)}`
-}
-
-/** Share sheet, or copy the link; resolves to what to tell the player. */
-export async function shareRace(race: { roomCode: string; pot: number; host: string; startsAt: string }): Promise<string> {
-  const url = inviteLink(race.roomCode)
-  const text = `🏆 ${race.pot.toLocaleString("en-US")} BNG prize race by ${race.host}, ${startLabel(race.startsAt)}. Code ${race.roomCode}`
-  try {
-    if (navigator.share) {
-      await navigator.share({ title: "Tiral prize race", text, url })
-      return "Shared"
-    }
-    await navigator.clipboard.writeText(`${text}: ${url}`)
-    return "Link copied"
-  } catch {
-    return `Code: ${race.roomCode}`
-  }
-}
-
 /**
  * A code for a prize race whose room isn't open yet (more than an hour out):
  * sign the player up instead, and say when it opens. Null if no such race.

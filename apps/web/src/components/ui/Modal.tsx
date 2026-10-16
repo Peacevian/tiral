@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -16,6 +17,7 @@ export function Modal({
   alert = false,
   focus = "first",
   closeOnBackdrop = true,
+  portal = false,
   backdropClassName,
   className,
   children
@@ -30,6 +32,11 @@ export function Modal({
   focus?: "first" | "panel"
   /** False when a stray tap outside would lose something (onboarding). */
   closeOnBackdrop?: boolean
+  /**
+   * Render at the end of <body>: for dialogs opened from inside a panel, whose
+   * own stacking would otherwise keep them under the app's tab bar.
+   */
+  portal?: boolean
   backdropClassName: string
   className: string
   children: ReactNode
@@ -37,8 +44,13 @@ export function Modal({
   const panel = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  // A portalled dialog mounts one render later (once <body> is known).
+  const [body, setBody] = useState<HTMLElement | null>(null)
+  useEffect(() => setBody(document.body), [])
+  const mounted = !portal || body !== null
 
   useEffect(() => {
+    if (!mounted) return
     const previous = document.activeElement as HTMLElement | null
     const node = panel.current
     // Focus the first control, or the panel itself.
@@ -71,11 +83,11 @@ export function Modal({
       document.removeEventListener("keydown", onKey, true)
       if (previous?.isConnected) previous.focus({ preventScroll: true })
     }
-    // Set up once per opening.
+    // Set up once per opening (when the dialog is actually on the page).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [mounted])
 
-  return (
+  const dialog = (
     <div className={backdropClassName} onClick={() => closeOnBackdrop && onCloseRef.current?.()}>
       <div
         ref={panel}
@@ -91,4 +103,6 @@ export function Modal({
       </div>
     </div>
   )
+  if (!portal) return dialog
+  return body ? createPortal(dialog, body) : null
 }

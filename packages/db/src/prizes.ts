@@ -372,3 +372,33 @@ export async function sendHostedRaceReminders(now = new Date(), db: Database = g
   }
   return due.length
 }
+
+export type SharedPrizeRace = HostedRaceView & {
+  hostAvatarUrl: string | null
+  /** Once paid: who won what, by place. */
+  winners: Array<{ place: number; amount: number; name: string }>
+}
+
+/** A prize race by its code (share images, link previews): public details only. */
+export async function getSharedPrizeRace(code: string, db: Database = getDatabase()): Promise<SharedPrizeRace | null> {
+  const [row] = await db
+    .select({ race: hostedRaces, host: users.displayName, avatarUrl: users.avatarUrl })
+    .from(hostedRaces)
+    .innerJoin(users, eq(users.id, hostedRaces.hostUserId))
+    .where(eq(hostedRaces.roomCode, code.trim().toUpperCase()))
+    .limit(1)
+  if (!row) return null
+  const payouts = ((row.race.settlement as { payouts?: Array<{ userId: string; place: number; amount: number }> } | null)?.payouts ?? [])
+  const names = payouts.length
+    ? await db.select({ id: users.id, name: users.displayName }).from(users).where(inArray(users.id, payouts.map((payout) => payout.userId)))
+    : []
+  return {
+    ...view(row.race, row.host),
+    hostAvatarUrl: row.avatarUrl,
+    winners: payouts.map((payout) => ({
+      place: payout.place,
+      amount: payout.amount,
+      name: names.find((entry) => entry.id === payout.userId)?.name ?? "A racer"
+    }))
+  }
+}

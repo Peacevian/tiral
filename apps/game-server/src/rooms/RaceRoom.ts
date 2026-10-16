@@ -638,6 +638,7 @@ export class RaceRoom extends Room {
       const nameOf = (userId: string) => Object.values(this.players).find((player) => player.userId === userId)
       this.broadcast("prizeResult", {
         host: prize.hostName,
+        code: this.roomCode,
         ...(settlement.kind === "paid"
           ? {
               kind: "paid",
