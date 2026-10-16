@@ -17,7 +17,8 @@ import {
 import type { RaceListing } from "@/lib/useColyseus"
 import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
-import { shareRace, startLabel, untilLabel, usePrizeRaces, type PrizeRace } from "@/lib/prizeRaces"
+import { startLabel, untilLabel, usePrizeRaces, type PrizeRace } from "@/lib/prizeRaces"
+import { ShareSheet, raceShareCard, type ShareCard } from "@/components/ShareSheet"
 import { ActionButton, ConfirmButton, SectionLabel, actionButtonClass } from "@/components/ui"
 import { Modal } from "@/components/ui/Modal"
 
@@ -32,6 +33,7 @@ export function PrizeRaces({ openRaces, joining, onJoinCode }: { openRaces: Race
   const prizes = usePrizeRaces()
   const [hosting, setHosting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [sharing, setSharing] = useState<ShareCard | null>(null)
   const openCodes = new Set(openRaces.filter((race) => race.prize && !race.locked).map((race) => race.roomCode))
 
   return (
@@ -61,7 +63,7 @@ export function PrizeRaces({ openRaces, joining, onJoinCode }: { openRaces: Race
               onJoin={() => onJoinCode(race.roomCode)}
               onSignUp={async (on) => setNotice(await prizes.signUp(race.id, on))}
               onCancel={async () => setNotice((await prizes.cancel(race.id)) ?? "Cancelled. The pot is back in your wallet.")}
-              onShare={async () => setNotice(await shareRace({ roomCode: race.roomCode, pot: race.pot, host: race.host.name, startsAt: race.startsAt }))}
+              onShare={() => setSharing(raceShareCard({ roomCode: race.roomCode, pot: race.pot, host: race.host.name }))}
             />
           ))}
         </ul>
@@ -71,6 +73,7 @@ export function PrizeRaces({ openRaces, joining, onJoinCode }: { openRaces: Race
           {notice}
         </p>
       )}
+      {sharing && <ShareSheet card={sharing} onClose={() => setSharing(null)} />}
       {hosting && (
         <HostPrizeRace
           onClose={() => setHosting(false)}
@@ -78,7 +81,9 @@ export function PrizeRaces({ openRaces, joining, onJoinCode }: { openRaces: Race
             const result = await prizes.create(input)
             if (result.race) {
               setHosting(false)
-              setNotice(`Your race is up: code ${result.race.roomCode}. Share it!`)
+              setNotice(`Your race is up: code ${result.race.roomCode}.`)
+              // Straight to sharing: that's how people find out about it.
+              setSharing(raceShareCard({ roomCode: result.race.roomCode, pot: result.race.pot, host: result.race.host.name }))
             }
             return result.error
           }}
@@ -198,6 +203,7 @@ function HostPrizeRace({ onClose, onCreate }: { onClose(): void; onCreate(input:
     <Modal
       label="Host a prize race"
       onClose={onClose}
+      portal
       backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center"
       className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-amber-300/30 bg-slate-950 p-5 text-white shadow-2xl"
     >

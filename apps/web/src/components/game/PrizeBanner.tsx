@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { ShareSheet, winShareCard } from "@/components/ShareSheet"
 import { PRIZE_CUT_SHARE } from "@tiral/game-core"
 import type { PrizeResult, PrizeSummary } from "@/lib/useColyseus"
 import { formatCoins } from "@/lib/useCoins"
@@ -50,6 +51,11 @@ export function PrizeResultLines({ result, sessionId }: { result: PrizeResult; s
       </p>
     )
   }
+  return <PrizePayouts result={result} sessionId={sessionId} />
+}
+
+function PrizePayouts({ result, sessionId }: { result: Extract<PrizeResult, { kind: "paid" }>; sessionId: string | null }) {
+  const [sharing, setSharing] = useState(false)
   const mine = result.payouts.find((payout) => payout.sessionId === sessionId)
   return (
     <div className="mt-3 rounded-lg border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
@@ -57,6 +63,21 @@ export function PrizeResultLines({ result, sessionId }: { result: PrizeResult; s
         <div className="mb-1 text-sm font-black text-amber-200">
           🏆 You won {formatCoins(mine.amount)} BNG from {result.host}&apos;s prize!
         </div>
+      )}
+      {mine && (
+        <button
+          type="button"
+          onClick={() => setSharing(true)}
+          className="mb-2 min-h-[44px] w-full rounded-xl bg-amber-400 px-3 text-sm font-black text-slate-950"
+        >
+          Share your win
+        </button>
+      )}
+      {mine && sharing && (
+        <ShareSheet
+          card={winShareCard({ roomCode: result.code, place: mine.place, amount: mine.amount, host: result.host })}
+          onClose={() => setSharing(false)}
+        />
       )}
       <ul className="flex flex-col gap-0.5">
         {result.payouts.map((payout) => (

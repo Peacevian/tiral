@@ -49,7 +49,7 @@ export type PrizeSummary = {
 
 /** How a prize race ended, sent to everyone in the room after the results. */
 export type PrizeResult =
-  | { kind: "paid"; host: string; cut: number; payouts: Array<{ place: number; amount: number; name: string; sessionId: string | null }> }
+  | { kind: "paid"; host: string; code: string; cut: number; payouts: Array<{ place: number; amount: number; name: string; sessionId: string | null }> }
   | { kind: "refunded"; host: string; why: string }
 
 type RoomState = {
