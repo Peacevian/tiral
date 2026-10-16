@@ -61,12 +61,12 @@ const FAILURE_TEXT = {
 const GIGS = {
   porter: {
     blurb:
-      "Shops around Kikuubo need loads moved: sugar, soda, bales of clothes. Take a job, collect it, carry it across before time runs out. About 1,200–3,300 BNG a trip, and it tires you out.",
+      "Shops around Kikuubo need loads moved: sugar, soda, bales of clothes. Take a job, collect it, carry it across before time runs out. About 2,000–5,500 BNG a load, and it tires you out: eat to keep going.",
     spots: KIKUUBO_SPOTS
   },
   boda: {
     blurb:
-      "Rent the stage bike for the day (10,000 BNG, charged with your first ride), pick passengers up at a stage and drop them across town. Fares run about 2,500–5,500, more in rush hour, minus fuel. Quick rides get tipped.",
+      "Rent the stage bike for the day (10,000 BNG, charged with your first ride), pick passengers up at a stage and drop them across town. Fares run about 4,000–9,500, more in rush hour, minus fuel. Quick rides get tipped.",
     spots: BODA_STAGES
   }
 } as const
@@ -476,9 +476,7 @@ function MapHustle() {
                   </>
                 ) : (
                   <div className="text-sm font-bold text-flame-deep">
-                    {toast.receipt.reason === "daily_limit"
-                      ? "Done, but that's today's limit: no more paid jobs of this kind until tomorrow."
-                      : "Delivered, but the pay didn't go through. Try another job."}
+                    Delivered, but the pay didn&apos;t go through. Try another job.
                   </div>
                 )
               ) : toast.kind === "failed" ? (

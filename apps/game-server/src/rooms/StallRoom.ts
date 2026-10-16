@@ -4,7 +4,7 @@ import {
   WASH_MIN_ACTION_MS,
   WASH_TOOLS,
   applyWash,
-  CAR_WASH_DAILY_LIMIT,
+  CAR_NEXT_SECONDS,
   CAR_WASH_ENERGY,
   ROLEX_ENERGY_PER_ROLEX,
   ROLEX_FLIP_WINDOW,
@@ -215,8 +215,8 @@ export class StallRoom extends Room {
         const text =
           result.reason === "insufficient"
             ? `You need ${pack.price.toLocaleString("en-US")} BNG for that stock.`
-            : result.reason === "daily_limit"
-              ? "That's two rolex shifts today. Come back tomorrow."
+            : result.reason === "duplicate"
+              ? "This stall is already stocked."
               : "Pick a stock pack."
         return client.send("notice", text)
       }
@@ -374,12 +374,11 @@ export class StallRoom extends Room {
     const worker = this.worker
     if (!car || !worker) return
     this.car = null
-    this.nextCarAt = Date.now() + (5 + Math.random() * 8) * 1000
+    this.nextCarAt = Date.now() + (CAR_NEXT_SECONDS.min + Math.random() * (CAR_NEXT_SECONDS.max - CAR_NEXT_SECONDS.min)) * 1000
     const clean = car.zones.filter((zone) => zone.clean).length
     const payout = carPayout({ carId: car.typeId, cleanZones: clean, secondsUsed: (Date.now() - car.arrivedAt) / 1000 })
     spendEnergy(worker, CAR_WASH_ENERGY)
     let paid = false
-    let limit = false
     // Why a clean enough car still wasn't paid: no account, or the payment failed.
     let unpaid: "guest" | "error" | null = null
     if (payout.net > 0 && !worker.userId) unpaid = "guest"
@@ -392,16 +391,14 @@ export class StallRoom extends Room {
             hustle: "carwash",
             jobId: `${this.roomId}:${car.id}`,
             net: payout.net,
-            meta: { car: car.typeId, ...payout },
-            dailyLimit: CAR_WASH_DAILY_LIMIT
+            meta: { car: car.typeId, ...payout }
           })
         )
         paid = result.ok
-        limit = !result.ok && result.reason === "daily_limit"
       } catch (error) {
         console.error("Failed to pay car wash:", error)
       }
-      if (!paid && !limit) unpaid = "error"
+      if (!paid) unpaid = "error"
     }
     if (paid) {
       this.summary.earned += payout.net
@@ -409,7 +406,7 @@ export class StallRoom extends Room {
       this.carsDone++
       announceUnlocks(worker.userId!, (text) => this.tell("notice", text))
     }
-    this.tell("stallEvent", { kind: "car_done", car: car.typeId, ...payout, paid, limit, unpaid })
+    this.tell("stallEvent", { kind: "car_done", car: car.typeId, ...payout, paid, unpaid })
     this.sendState()
   }
 

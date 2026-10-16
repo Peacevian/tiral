@@ -4,10 +4,11 @@
 
 // ---------------------------------------------------------------------------
 // Rolex stand.
+// Customers arrive steadily enough for ~130k an hour of cooking (§18.1).
 export const ROLEX_SPOTS = [
-  { id: "kikuubo", name: "Kikuubo Lane", customersPerMinute: 4, raidChance: 0.12 },
-  { id: "taxi-park", name: "Old Taxi Park", customersPerMinute: 5, raidChance: 0.18 },
-  { id: "nakivubo", name: "Nakivubo", customersPerMinute: 2.5, raidChance: 0.06 }
+  { id: "kikuubo", name: "Kikuubo Lane", customersPerMinute: 2.5, raidChance: 0.12 },
+  { id: "taxi-park", name: "Old Taxi Park", customersPerMinute: 3, raidChance: 0.18 },
+  { id: "nakivubo", name: "Nakivubo", customersPerMinute: 1.5, raidChance: 0.06 }
 ] as const
 export type RolexSpotId = (typeof ROLEX_SPOTS)[number]["id"]
 
@@ -27,7 +28,6 @@ export function findRolexPack(id: string) {
 
 export const ROLEX_PRICE = 2_000
 export const ROLEX_PERFECT_TIP = 500
-export const ROLEX_SHIFTS_PER_DAY = 2
 export const ROLEX_ENERGY_PER_ROLEX = 1.5
 /** Customers wait this long before walking off. */
 export const ROLEX_PATIENCE_SECONDS = 60
@@ -110,7 +110,13 @@ export function applyWash(zone: WashZone, tool: WashTool): WashZone {
 }
 
 export const CAR_SOAP = 500
-export const CAR_WASH_DAILY_LIMIT = 4
+/**
+ * Seconds before the next car pulls in. No daily limit: the gap keeps a steady
+ * hour at ~150k (a car takes ~2 min to wash; §18.1).
+ */
+export const CAR_NEXT_SECONDS = { min: 45, max: 75 } as const
+/** A car can't be paid for faster than this per panel (stops scripted washing). */
+export const CAR_MIN_SECONDS_PER_ZONE = 2.5
 export const CAR_WASH_ENERGY = 12
 /** Below this share of zones clean, the driver won't pay. */
 export const CAR_MIN_CLEAN_SHARE = 0.7
@@ -137,6 +143,8 @@ export type CarPayout = { pay: number; tip: number; soap: number; net: number; c
 export function carPayout(input: { carId: string; cleanZones: number; secondsUsed: number }): CarPayout {
   const car = findCarType(input.carId) ?? CAR_TYPES[0]
   const cleanShare = Math.max(0, Math.min(1, input.cleanZones / car.zones))
+  // Faster than any person can wash: no pay (and no soap charged either).
+  if (input.secondsUsed < car.zones * CAR_MIN_SECONDS_PER_ZONE) return { pay: 0, tip: 0, soap: 0, net: 0, cleanShare }
   let pay = 0
   if (cleanShare >= 1) pay = car.pay
   else if (cleanShare >= CAR_MIN_CLEAN_SHARE) pay = Math.round((car.pay * cleanShare) / 100) * 100

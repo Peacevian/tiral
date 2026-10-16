@@ -9,10 +9,10 @@ import { usePlayer } from "@/lib/player"
 // always something to work towards.
 
 const GIG_INFO: Record<LadderGig, { icon: string; name: string; pay: string }> = {
-  porter: { icon: "🧺", name: "Kikuubo porter", pay: "1,000–2,500 a load" },
+  porter: { icon: "🧺", name: "Kikuubo porter", pay: "2,000–5,500 a load" },
   carwash: { icon: "🚗", name: "Car wash", pay: "8,000–15,000 a car" },
-  boda: { icon: "🛵", name: "Boda passengers", pay: "2,000–6,000 a trip" },
-  rolex: { icon: "🍳", name: "Rolex stand", pay: "up to 25,000 a shift" },
+  boda: { icon: "🛵", name: "Boda passengers", pay: "4,000–9,500 a trip" },
+  rolex: { icon: "🍳", name: "Rolex stand", pay: "about 1,000 profit a rolex" },
   live: { icon: "📱", name: "Sell clothes on live", pay: "the best pay in town" }
 }
 

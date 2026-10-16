@@ -92,17 +92,16 @@ export const PORTER_PICKUP_SECONDS = 90
 export const HUSTLE_ARRIVAL_METERS = 25
 /** Sprinting under a load drains energy faster. */
 export const PORTER_SPRINT_DRAIN = { light: 1.3, heavy: 1.8 } as const
-/**
- * Paid porter jobs per Kampala day. Energy alone can't limit it: street food
- * is cheap enough (a rolex funds ~5 jobs) that eating would make it endless.
- */
-export const PORTER_DAILY_JOBS = 20
 /** Stress: a paid job eases it a little; an abandoned or late one hurts. */
 export const HUSTLE_STRESS = { paid: -1, failed: 3 } as const
 
-/** What a delivery pays (BNG): by straight-line distance, heavier loads more. */
+/**
+ * What a delivery pays (BNG): by straight-line distance, heavier loads more.
+ * Tuned to ~100k an hour of steady work after food (a load takes ~90 s; see
+ * docs/economy-progress.md §18.1). No daily limit: energy and food are the brake.
+ */
 export function porterPay(meters: number, heavy: boolean): number {
-  const base = 700 + meters * 3.6
+  const base = 1_050 + meters * 5.4
   return Math.round((base * (heavy ? 1.3 : 1)) / 100) * 100
 }
 
@@ -217,9 +216,12 @@ export const BODA_OFFER_COUNT = 3
 export const BODA_OFFER_TTL_SECONDS = 75
 /** Seconds to reach the stage after accepting. */
 export const BODA_PICKUP_SECONDS = 120
-export const BODA_DAILY_TRIPS = 15
-/** BNG of fuel per metre ridden (petrol ≈ 6,500/L at ~11 km/L). */
-export const BODA_FUEL_PER_METER = 0.6
+/**
+ * BNG of fuel per game metre. The map runs fast (a bike covers ~2 km a
+ * minute), so fuel is a third of the real-world rate (≈0.6/m at 6,500/L and
+ * ~11 km/L) or it would eat the whole fare.
+ */
+export const BODA_FUEL_PER_METER = 0.2
 export const BODA_TIP_MAX = 0.2
 
 /** Kampala is UTC+3 all year. */
@@ -233,8 +235,9 @@ export function isRushHour(at: Date): boolean {
   return (hour >= 7 && hour < 9) || (hour >= 17 && hour < 20)
 }
 
+/** Tuned to ~120k an hour of steady riding after fuel (§18.1). No daily limit. */
 export function bodaFare(meters: number, rush: boolean): number {
-  const base = 1_500 + meters * 1.8
+  const base = 2_600 + meters * 3.2
   return Math.round((base * (rush ? 1.5 : 1)) / 100) * 100
 }
 
@@ -249,12 +252,13 @@ export function bodaExpectedSeconds(meters: number): number {
 
 /** Full fare up to this; half fare after; the passenger gets off at `bodaGiveUpSeconds`. */
 /** `patience` > 1 on comfier bikes (passengers wait longer). */
+/** (Generous: real riders took 2–3× the straight-line time on Kampala's streets.) */
 export function bodaFullFareSeconds(meters: number, patience = 1): number {
-  return Math.round((bodaExpectedSeconds(meters) * 1.8 + 10) * patience)
+  return Math.round((bodaExpectedSeconds(meters) * 2.6 + 20) * patience)
 }
 
 export function bodaGiveUpSeconds(meters: number, patience = 1): number {
-  return Math.round((bodaExpectedSeconds(meters) * 3 + 20) * patience)
+  return Math.round((bodaExpectedSeconds(meters) * 4 + 40) * patience)
 }
 
 /** Tip share for a ride that took `seconds`: up to 20% when quick, nothing when slow. */

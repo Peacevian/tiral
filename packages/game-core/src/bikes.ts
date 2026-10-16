@@ -2,6 +2,8 @@
 // that fill Kampala's stages. Decorations are cosmetic only — they never
 // change speed, pay or anything else. See docs/economy-progress.md §16.10.
 
+import { BODA_FUEL_PER_METER } from "./hustles.js"
+
 export type BikeStats = {
   /** 1–5: how fast trips go. */
   speed: number
@@ -211,7 +213,7 @@ export function bikeSpeedFactor(stats: BikeStats) {
 
 /** Fuel (or battery) cost per metre. Rental 0.6; Boxa 0.42; Zembo 0.33. */
 export function bikeFuelPerMeter(stats: BikeStats) {
-  return Math.round(0.6 * (1.3 - 0.15 * stats.economy) * 1000) / 1000
+  return Math.round(BODA_FUEL_PER_METER * (1.3 - 0.15 * stats.economy) * 1000) / 1000
 }
 
 /** Passengers stay patient longer on a comfier bike. */

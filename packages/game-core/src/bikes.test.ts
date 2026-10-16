@@ -12,10 +12,10 @@ import {
 } from "./bikes.js"
 
 describe("bikes", () => {
-  it("keep the rental exactly as boda launched (2× speed, 0.6/m fuel)", () => {
+  it("keep the rental at 2× speed and the base fuel rate (0.2/m)", () => {
     const rental = findBikeModel("rental").stats
     expect(bikeSpeedFactor(rental)).toBeCloseTo(2)
-    expect(bikeFuelPerMeter(rental)).toBeCloseTo(0.6)
+    expect(bikeFuelPerMeter(rental)).toBeCloseTo(0.2)
   })
 
   it("make each bike a trade-off", () => {

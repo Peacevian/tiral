@@ -20,10 +20,15 @@ describe("rolex timing", () => {
 
 describe("car wash", () => {
   it("pays full (with a quick tip), by share, or nothing", () => {
-    expect(carPayout({ carId: "saloon", cleanZones: 12, secondsUsed: 20 })).toMatchObject({ pay: 8000, tip: 800, net: 8300 })
+    expect(carPayout({ carId: "saloon", cleanZones: 12, secondsUsed: 40 })).toMatchObject({ pay: 8000, tip: 800, net: 8300 })
     expect(carPayout({ carId: "saloon", cleanZones: 12, secondsUsed: 120 })).toMatchObject({ pay: 8000, tip: 0, net: 7500 })
     expect(carPayout({ carId: "taxi", cleanZones: 16, secondsUsed: 90 }).pay).toBe(12000)
     expect(carPayout({ carId: "saloon", cleanZones: 6, secondsUsed: 60 }).net).toBe(0)
+  })
+
+  it("won't pay a car washed faster than a person could (2.5 s a panel)", () => {
+    expect(carPayout({ carId: "saloon", cleanZones: 12, secondsUsed: 29 })).toMatchObject({ pay: 0, soap: 0, net: 0 })
+    expect(carPayout({ carId: "saloon", cleanZones: 12, secondsUsed: 30 }).pay).toBe(8000)
   })
 
   it("picks cars by weight", () => {

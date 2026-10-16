@@ -31,9 +31,9 @@ function seeded(seed: number) {
 }
 
 describe("porter pay", () => {
-  it("stays in the planned 1,000–2,500 band for light loads, more for heavy", () => {
-    expect(porterPay(150, false)).toBe(1200)
-    expect(porterPay(500, false)).toBe(2500)
+  it("pays ~1,900–3,800 for light loads (§18.1), more for heavy", () => {
+    expect(porterPay(150, false)).toBe(1900)
+    expect(porterPay(500, false)).toBe(3800)
     expect(porterPay(500, true)).toBeGreaterThan(porterPay(500, false))
   })
 
@@ -66,8 +66,8 @@ describe("porter offers", () => {
 
 describe("boda", () => {
   it("prices fares by distance, with a rush-hour bump", () => {
-    expect(bodaFare(2000, false)).toBe(5100)
-    expect(bodaFare(2000, true)).toBe(7700)
+    expect(bodaFare(2000, false)).toBe(9000)
+    expect(bodaFare(2000, true)).toBe(13500)
   })
 
   it("knows Kampala rush hour (UTC+3)", () => {
@@ -80,11 +80,11 @@ describe("boda", () => {
     const fare = bodaFare(2000, false)
     const quick = bodaPayout({ fare, meters: 2000, seconds: bodaExpectedSeconds(2000), fuelMeters: 2300 })
     expect(quick.tip).toBeGreaterThan(0)
-    expect(quick.fuel).toBe(1380)
+    expect(quick.fuel).toBe(460)
     expect(quick.net).toBe(quick.fare + quick.tip - quick.fuel)
     const late = bodaPayout({ fare, meters: 2000, seconds: bodaFullFareSeconds(2000) + 1, fuelMeters: 2300 })
     expect(late.late).toBe(true)
-    expect(late.fare).toBe(2600)
+    expect(late.fare).toBe(4500)
     expect(late.tip).toBe(0)
     // Fuel never makes a ride cost money.
     expect(bodaPayout({ fare: 500, meters: 500, seconds: 999, fuelMeters: 9000 }).net).toBe(0)
