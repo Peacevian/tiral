@@ -22,7 +22,7 @@ day). Progress depends on time played; energy and food are the brake.
 |---|---|---|---|
 | — | Hustle ladder (porter → car wash → boda → rolex) | no | ✅ `a5975ac` |
 | 0 | Foundations (inside 1–2) | no | ⬜ |
-| 1 | Tier 1 rebalance | no | 🟡 built, not deployed |
+| 1 | Tier 1 rebalance | no | ✅ `99899a4` |
 | 2 | Career path and moving up | no | ⬜ |
 | 3a | TikTok Live mitumba | **yes** | ⬜ |
 | 3b | Mobile money kiosk | maybe | ⬜ |
@@ -55,7 +55,7 @@ day). Progress depends on time played; energy and food are the brake.
 - [x] Update game-core tests (64 pass).
 - [x] Time real play from the live ledger; numbers in economy-progress §18.1.
 - [x] Update the hustle cards' pay text and the career path's pay hints.
-- [ ] Deploy.
+- [x] Deploy (16 Oct).
 
 ## Phase 2: Career path and moving up
 - [ ] Tier labels on the Earn BNG career path.
@@ -119,3 +119,4 @@ day). Progress depends on time played; energy and food are the brake.
 
 ## Log
 - **16 Oct 2026** — Roadmap written. Hustle ladder already live (`a5975ac`).
+- **16 Oct 2026** — Phase 1 (tier 1 rebalance) deployed (`99899a4`).
