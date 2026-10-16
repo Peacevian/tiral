@@ -348,16 +348,14 @@ export async function moveHouse(userId: string, tierId: HousingTierId, db: Datab
   })
 }
 
-export type HustlePayResult =
-  | { ok: true; balance: number }
-  | { ok: false; reason: "daily_limit" }
+export type HustlePayResult = { ok: true; balance: number }
 
 /**
- * Pay one completed hustle job (once per job id). `dailyLimit` caps paid jobs
- * of this kind per Kampala day; omit it for gigs limited by energy alone.
+ * Pay one completed hustle job (once per job id). No daily limits: energy,
+ * food and each gig's pace are the brake (docs/economy-progress.md §18.1).
  * `meta` carries the receipt (gross, costs, tip) for the wallet history.
  * Safe to retry: a job that's already in the ledger reports ok again (a retry
- * after a lost reply must not look unpaid, or hit the daily limit it filled).
+ * after a lost reply must not look unpaid).
  */
 export async function payHustle(
   input: {
@@ -366,7 +364,6 @@ export async function payHustle(
     jobId: string
     net: number
     meta: Record<string, unknown>
-    dailyLimit?: number
   },
   db: Database = getDatabase()
 ): Promise<HustlePayResult> {
@@ -379,14 +376,6 @@ export async function payHustle(
       .where(and(eq(coinLedger.userId, input.userId), eq(coinLedger.reason, reason), eq(coinLedger.refId, input.jobId)))
       .limit(1)
     if (already) return { ok: true, balance: await balanceOf(tx, input.userId) }
-    if (input.dailyLimit !== undefined) {
-      const dayStart = kampalaDayStart(kampalaDay(new Date()))
-      const [today] = await tx
-        .select({ count: sql<number>`count(*)::int` })
-        .from(coinLedger)
-        .where(and(eq(coinLedger.userId, input.userId), eq(coinLedger.reason, reason), gte(coinLedger.createdAt, dayStart)))
-      if ((today?.count ?? 0) >= input.dailyLimit) return { ok: false, reason: "daily_limit" }
-    }
     const inserted = await insertEntry(tx, {
       userId: input.userId,
       delta: Math.max(0, Math.round(input.net)),

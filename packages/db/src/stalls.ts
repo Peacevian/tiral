@@ -1,14 +1,13 @@
-import { and, eq, gte, sql } from "drizzle-orm"
-import { KCCA_FINE, ROLEX_SHIFTS_PER_DAY, findRolexPack, kampalaDay, kampalaDayStart } from "@tiral/game-core"
+import { KCCA_FINE, findRolexPack } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf, findNote, insertEntry, lockUser } from "./ledger.js"
-import { coinLedger, lifeEvents } from "./schema.js"
+import { lifeEvents } from "./schema.js"
 
 export type StockResult =
   | { ok: true; rolexes: number; balance: number }
-  | { ok: false; reason: "insufficient" | "daily_limit" | "unknown_pack" }
+  | { ok: false; reason: "insufficient" | "duplicate" | "unknown_pack" }
 
-/** Buy ingredients for a rolex shift (counts as one of today's shifts). */
+/** Buy ingredients for a rolex shift (once per shift; no daily limit). */
 export async function buyRolexStock(
   input: { userId: string; packId: string; shiftId: string; spot: string },
   db: Database = getDatabase()
@@ -17,12 +16,6 @@ export async function buyRolexStock(
   if (!pack) return { ok: false, reason: "unknown_pack" }
   return db.transaction(async (tx) => {
     await lockUser(tx, input.userId)
-    const dayStart = kampalaDayStart(kampalaDay(new Date()))
-    const [today] = await tx
-      .select({ count: sql<number>`count(*)::int` })
-      .from(coinLedger)
-      .where(and(eq(coinLedger.userId, input.userId), eq(coinLedger.reason, "rolex_stock"), gte(coinLedger.createdAt, dayStart)))
-    if ((today?.count ?? 0) >= ROLEX_SHIFTS_PER_DAY) return { ok: false, reason: "daily_limit" }
     const balance = await balanceOf(tx, input.userId)
     if (balance < pack.price) return { ok: false, reason: "insufficient" }
     const inserted = await insertEntry(tx, {
@@ -32,7 +25,7 @@ export async function buyRolexStock(
       refId: input.shiftId,
       meta: { pack: pack.id, rolexes: pack.rolexes, spot: input.spot }
     })
-    if (!inserted) return { ok: false, reason: "daily_limit" }
+    if (!inserted) return { ok: false, reason: "duplicate" }
     return { ok: true, rolexes: pack.rolexes, balance: balance - pack.price }
   })
 }

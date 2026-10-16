@@ -221,7 +221,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
             <>
               <p className="mt-1 text-sm leading-snug text-sheet-mute">
                 Buy ingredients, then cook rolexes to order: flip the egg at the right moment. Unsold stock spoils, and KCCA
-                raids stalls. 2 shifts a day.
+                raids stalls.
               </p>
               <div className="mt-4">
                 <SectionLabel>Where</SectionLabel>
@@ -298,7 +298,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                 ))}
               </div>
               <p className="mt-2 text-[11px] leading-snug text-sheet-mute">
-                500 soap comes off each car. Under 70% clean, the driver won&apos;t pay. 4 paid cars a day.
+                500 soap comes off each car. Under 70% clean, the driver won&apos;t pay. A new car pulls in about a minute after each one.
               </p>
             </>
           )}
@@ -728,7 +728,7 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
     }
   }, [pending, stall?.phase, sendStall])
 
-  // A refused purchase (no money, daily limit) leaves the room unopened.
+  // A refused purchase (not enough money) leaves the room unopened.
   useEffect(() => {
     if (stallEvent?.kind === "notice" && stall?.phase === "setup") {
       setError(stallEvent.text)
@@ -823,8 +823,6 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
                       {formatCoins(toast.pay)} wash{toast.tip ? ` + ${formatCoins(toast.tip)} tip` : ""} − {formatCoins(toast.soap)} soap
                     </span>
                   </span>
-                ) : toast.limit ? (
-                  <span className="text-flame-deep">That&apos;s 4 cars today: no more paid washes until tomorrow.</span>
                 ) : toast.unpaid === "guest" ? (
                   <span className="text-flame-deep">Sign in to get paid for washes.</span>
                 ) : toast.unpaid === "error" ? (

@@ -1,7 +1,6 @@
 import { Room, Client, ServerError } from "@colyseus/core"
 import {
   BODA_BIKE_RENT,
-  BODA_DAILY_TRIPS,
   BODA_OFFER_COUNT,
   BODA_PICKUP_SECONDS,
   BODA_SPRINT_DRAIN,
@@ -10,7 +9,6 @@ import {
   HUSTLE_STRESS,
   KIKUUBO_SPOTS,
   PORTER_LOADS,
-  PORTER_DAILY_JOBS,
   PORTER_OFFER_COUNT,
   PORTER_PICKUP_SECONDS,
   PORTER_SPRINT_DRAIN,
@@ -85,7 +83,7 @@ export type ReceiptLine = { label: string; amount: number }
 
 export type HustleReceipt =
   | { jobId: string; paid: true; title: string; lines: ReceiptLine[]; net: number; meters: number; balance: number }
-  | { jobId: string; paid: false; title: string; reason: "duplicate" | "daily_limit" | "error"; meters: number }
+  | { jobId: string; paid: false; title: string; reason: "duplicate" | "error"; meters: number }
 
 /**
  * A solo hustle shift: the server keeps a board of simulated jobs; the player
@@ -397,7 +395,6 @@ export class HustleRoom extends Room {
     let lines: ReceiptLine[]
     let net: number
     let meta: Record<string, unknown>
-    let dailyLimit: number | undefined
     if (offer.kind === "boda") {
       const seconds = (now - (job.pickedUpAt ?? now)) / 1000
       const stats = this.bikeStats
@@ -420,14 +417,12 @@ export class HustleRoom extends Room {
       ]
       net = payout.net
       meta = { passenger: offer.passenger, from: offer.pickupId, to: offer.dropoffId, meters: offer.meters, ...payout, seconds: Math.round(seconds) }
-      dailyLimit = BODA_DAILY_TRIPS
     } else {
       const load = PORTER_LOADS.find((candidate) => candidate.id === offer.loadId)?.name ?? "a load"
       title = `Delivered ${load}`
       lines = [{ label: "Pay", amount: offer.pay }]
       net = offer.pay
       meta = { load: offer.loadId, from: offer.pickupId, to: offer.dropoffId, meters: offer.meters, gross: offer.pay }
-      dailyLimit = PORTER_DAILY_JOBS
     }
     this.sendState()
 
@@ -437,10 +432,8 @@ export class HustleRoom extends Room {
     } else {
       try {
         const userId = worker.userId
-        const result = await withRetry("Hustle pay", () => payHustle({ userId, hustle: this.gig, jobId: offer.id, net, meta, dailyLimit }))
-        receipt = result.ok
-          ? { jobId: offer.id, paid: true, title, lines, net, meters: offer.meters, balance: result.balance }
-          : { jobId: offer.id, paid: false, title, reason: result.reason, meters: offer.meters }
+        const result = await withRetry("Hustle pay", () => payHustle({ userId, hustle: this.gig, jobId: offer.id, net, meta }))
+        receipt = { jobId: offer.id, paid: true, title, lines, net, meters: offer.meters, balance: result.balance }
       } catch (error) {
         console.error("Failed to pay hustle:", error)
         receipt = { jobId: offer.id, paid: false, title, reason: "error", meters: offer.meters }

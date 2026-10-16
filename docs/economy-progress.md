@@ -1060,6 +1060,56 @@ stock, a TikTok account, bale money) are checked where they're paid for.
 - **No daily ceiling across hustles:** players hustle their way; energy and
   each gig's own limits are the brakes.
 
+## 18. Career tiers: porter to tycoon (plan, 16 Oct 2026)
+
+Progress depends on **time played**, not the calendar: about **20 hours of
+play from porter to Tycoon** (a week at 3 h a day; 3–4 days for a heavy
+player; ~3 weeks at 1 h a day). Energy is the brake (food tops it up); the
+per-day hustle caps go.
+
+| Tier | Verb | Unlock | Goes into the business | Net per hour of play | Hours in tier |
+|---|---|---|---|---|---|
+| 1 Street jobs | work | open (ladder §17) | — | ~125k | ~4 |
+| 2 Small business | sell | 500,000 | ~150k (first bale / kiosk float) | ~900k | ~5 |
+| 3 Town business | manage | 5,000,000 | ~2M (first bikes / shop stock) | ~8M, growing with reinvestment | ~5–6 |
+| 4 Big business | invest | 50,000,000 | ~20M | ~35M | ~5–6 |
+| 5 Tycoon | title | 250,000,000 **net worth** | — | — | — |
+
+- **Tier 2 gigs:** TikTok Live mitumba (TikTok connected; followers; unsold
+  stock carries over), mobile money kiosk, salon/barber kiosk, phone repair /
+  airtime reseller.
+- **Tier 3:** boda fleet (riders pay you dues), Kikuubo wholesale shop, rolex
+  chain, matatu owner. Active management while playing (send riders out,
+  restock, handle events), not a once-a-day collection.
+- **Tier 4:** rental rooms (players' rent), bale imports (supply live
+  sellers), hotel share, Kololo property.
+- **Tycoon** is net worth (coins + bikes, shops, property at value), shown on
+  a Kampala Rich List.
+- **Moving up** = experience in the tier below + the capital, part of which
+  is put into your first business there.
+- **Costs scale with tier** (housing, staff, upkeep, a weekly URA tax) so
+  coins keep their value; rich players' big spends (prize races, billboards)
+  benefit everyone.
+- **Racing pay stays as it is** (fun and social); big prize races are where
+  rich players spend.
+
+### 18.1 Tier 1 rebalance (shipped with Phase 1)
+Timed from real play in the live ledger (16 Oct): a porter load ~90 s (avg
+2,140), a car ~2 min (avg 9,200 net), a 5-rolex shift sells out in ~75 s
+(+6,000), and every boda trip netted **0** (all "late", and fuel at the
+real-world rate on a fast map ate the fare).
+
+| Gig | Change | Est. per hour after food |
+|---|---|---|
+| Porter | pay ×1.5 (`1,050 + 5.4/m`: ~1,900–5,500 a load); no daily limit | ~110k |
+| Car wash | same pay; no daily limit; next car in 45–75 s; no pay if washed faster than 2.5 s a panel | ~150k |
+| Boda | fare ×1.6 (`2,600 + 3.2/m`: ~4,000–9,500); fuel 0.2/m (was 0.6); full fare up to 2.6× the expected time (was 1.8×); no daily limit | ~110–120k |
+| Rolex stand | same prices; no shift limit; customers 2.5 / 3 / 1.5 a minute (was 4 / 5 / 2.5) | ~130–150k |
+
+An hour of hard work burns ~100–150 energy against ~25 refilled, so ~6–8k
+of food an hour, included above. Estimates combine the measured job times
+with the new rules; re-check them once players have a few days of data.
+
 ## 15. Revision log
 
 - **12 Oct 2026** — Doc created. Captured: code audit (no currency; points +
@@ -1097,3 +1147,6 @@ stock, a TikTok account, bale money) are checked where they're paid for.
   hand-over. Customer patience 35 → 60 s.
 - **16 Oct 2026** — Hustle ladder (§17): porter → car wash → boda → rolex
   stand → selling clothes on live; progress reset for everyone.
+- **16 Oct 2026** — Career tiers planned (§18): five tiers to a 250M-net-worth
+  Tycoon in ~20 hours of play; tier 1 rebalance (no daily caps, porter and
+  boda pay up) is the first step.
