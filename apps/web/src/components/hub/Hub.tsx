@@ -8,6 +8,7 @@ import { usePlayer } from "@/lib/player"
 import { FoodGrid, FoodResultLine, useFoodPurchase } from "@/components/NeedsPanel"
 import { HomeStatusCard, MessageList } from "@/components/LifePanel"
 import { ActionButton, SectionLabel, Skeleton } from "@/components/ui"
+import { PrizeRaces } from "@/components/hub/PrizeRaces"
 
 export type HubActions = {
   races: RaceListing[]
@@ -19,6 +20,8 @@ export type HubActions = {
   onCreate(): void
   onJoin(roomId: string): void
   onJoinCode(code: string): void
+  /** Something to tell the player (not an error), e.g. "you're signed up". */
+  notice?: string | null
   /** Pulse the Quick race button (first run). */
   highlightQuickRace?: boolean
 }
@@ -26,7 +29,8 @@ export type HubActions = {
 function OpenRaces({ races, loadingRaces, joining, onRefresh, onJoin }: HubActions) {
   const joinable = races.filter(
     (race) =>
-      !race.locked && (race.phase === "lobby" || race.phase === "countdown") && race.playerCount < race.maxClients
+      // Prize races have their own section.
+      !race.prize && !race.locked && (race.phase === "lobby" || race.phase === "countdown") && race.playerCount < race.maxClients
   )
   return (
     <div>
@@ -136,7 +140,14 @@ export function Hub(actions: HubActions) {
           </form>
         )}
         {error && <p className="rounded-lg bg-rose-500/15 px-3 py-2 text-xs font-bold text-rose-200">{error}</p>}
+        {actions.notice && (
+          <p role="status" className="rounded-lg bg-cyan-500/15 px-3 py-2 text-xs font-bold text-cyan-100">
+            {actions.notice}
+          </p>
+        )}
       </div>
+
+      <PrizeRaces openRaces={actions.races} joining={actions.joining} onJoinCode={actions.onJoinCode} />
 
       <OpenRaces {...actions} />
 

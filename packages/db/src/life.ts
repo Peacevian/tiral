@@ -78,8 +78,40 @@ const RENT_NOTICE_TEXT: Record<string, (meta: Record<string, unknown>) => { from
   breakdown: (meta) => ({
     from: "Mechanic",
     text: `Your ${String(meta.name)} broke down mid-ride. Roadside repair: ${Number(meta.charged ?? 0).toLocaleString("en-US")}.`
+  }),
+  // Prize races (packages/db/src/prizes.ts).
+  prize_won: (meta) => ({
+    from: `${String(meta.host)}'s prize race`,
+    text: `🏆 You came ${ordinal(Number(meta.place))} and won ${bng(meta.amount)} BNG!`
+  }),
+  prize_paid: (meta) => ({
+    from: "Your prize race",
+    text: `Paid ${bng(meta.paid)} BNG to ${Number(meta.winners)} winner${Number(meta.winners) === 1 ? "" : "s"}. Tiral's 10% cut: ${bng(meta.cut)}.${
+      Number(meta.unclaimed) > 0 ? ` ${bng(meta.unclaimed)} BNG nobody finished to claim came back to you.` : ""
+    }`
+  }),
+  prize_refund: (meta) => ({
+    from: "Your prize race",
+    text: `Your ${bng(meta.amount)} BNG pot came back to you: ${PRIZE_REFUND_WHY[String(meta.why)] ?? "the race didn't happen"}.`
+  }),
+  race_reminder: (meta) => ({
+    from: `${String(meta.host)}'s prize race`,
+    text: `Starts at ${kampalaClock(String(meta.startsAt))} for ${bng(meta.pot)} BNG. Join with code ${String(meta.code)}.`
   })
 }
+
+const PRIZE_REFUND_WHY: Record<string, string> = {
+  cancelled: "you cancelled the race",
+  few_racers: "fewer than 2 other people raced",
+  no_finishers: "nobody reached the treasure",
+  missed: "the race couldn't start on time",
+  no_players: "nobody joined"
+}
+
+const bng = (value: unknown) => Number(value ?? 0).toLocaleString("en-US")
+const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`
+const kampalaClock = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Kampala", weekday: "short", hour: "2-digit", minute: "2-digit" })
 
 function viewEvent(row: typeof lifeEvents.$inferSelect): LifeEventView {
   const meta = row.meta ?? {}

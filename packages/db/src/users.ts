@@ -1,8 +1,9 @@
 import { desc, eq } from "drizzle-orm"
+import { kampalaDay } from "@tiral/game-core"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
 import { sanitizeHouseLoadout, type HouseLoadout } from "@tiral/houses"
 import { getDatabase, type Database } from "./client.js"
-import { raceResults, races, tiktokAccounts, users, type User } from "./schema.js"
+import { raceResults, races, tiktokAccounts, userActivityDays, users, type User } from "./schema.js"
 
 export async function findUserById(id: string, db: Database = getDatabase()): Promise<User | null> {
   const rows = await db.select().from(users).where(eq(users.id, id)).limit(1)
@@ -17,7 +18,12 @@ export async function createGuest(displayName: string, db: Database = getDatabas
 }
 
 export async function touchLastSeen(id: string, db: Database = getDatabase()): Promise<void> {
-  await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, id))
+  const now = new Date()
+  await db.update(users).set({ lastSeenAt: now }).where(eq(users.id, id))
+  // One row per player per Kampala day: what active players and retention
+  // are counted from (admin stats). Second, so last_seen_at still lands if
+  // the table is missing on a database that hasn't run migration 0014 yet.
+  await db.insert(userActivityDays).values({ userId: id, day: kampalaDay(now) }).onConflictDoNothing()
 }
 
 export type TikTokUpsert = {

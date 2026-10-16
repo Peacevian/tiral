@@ -12,7 +12,15 @@ import { loadRoadGraph } from "../roads.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
 import { randomUUID } from "node:crypto"
-import { awardRaceEarnings, recordRaceResults } from "@tiral/db"
+import {
+  awardRaceEarnings,
+  getHostedRace,
+  markHostedRaceLive,
+  recordRaceResults,
+  refundHostedRace,
+  settleHostedRace,
+  type PrizeSettlement
+} from "@tiral/db"
 import { withRetry } from "../retry.js"
 import { configNumber } from "../testOverrides.js"
 import {
@@ -49,6 +57,21 @@ type PlayerInfo = Runner & {
 }
 
 const RECONNECT_SECONDS = 30
+
+/** A prize race this room is running (loaded from the database, never from the client). */
+type HostedPrize = {
+  id: string
+  hostUserId: string
+  hostName: string
+  pot: number
+  shares: number[]
+  message: string | null
+  startsAt: number
+  countdownSeconds: number
+}
+
+/** Rooms currently running a prize race, by race id (the scheduler opens each once). */
+export const openHostedRooms = new Map<string, RaceRoom>()
 
 const MAX_START_SNAP_METERS = 500
 
@@ -95,6 +118,13 @@ export class RaceRoom extends Room {
   private finishDeadline: number | null = null
   private roadGraph: RoadGraph | null = null
   private roomCode = ""
+  // Prize race (null for an ordinary race, and once the prize is settled).
+  private hosted: HostedPrize | null = null
+  private hostedTimer: ReturnType<typeof setTimeout> | null = null
+  /** Resolves at the gun: true if the prize is locked in (false: the host cancelled first). */
+  private prizeLocked: Promise<boolean> | null = null
+  /** Accounts in the race at the gun (for the "2 other racers" rule). */
+  private racerUserIds: string[] = []
   private lastTickAt: number | null = null
   private readonly body = new BodySync((runner, message, payload) => {
     this.clients.find((candidate) => candidate.sessionId === runner.id)?.send(message, payload)
@@ -108,8 +138,35 @@ export class RaceRoom extends Room {
     return identity
   }
 
-  onCreate(_options: any) {
-    this.roomCode = generateRoomCode()
+  async onCreate(options: any) {
+    // A prize race is opened by the scheduler with just its id; everything
+    // else comes from the database, so a client can't invent a prize.
+    const hostedRaceId = typeof options?.hostedRaceId === "string" ? options.hostedRaceId : null
+    if (hostedRaceId) {
+      const race = await getHostedRace(hostedRaceId)
+      if (!race || race.status !== "scheduled" || openHostedRooms.has(race.id)) {
+        throw new ServerError(409, "That prize race isn't open")
+      }
+      this.hosted = {
+        id: race.id,
+        hostUserId: race.host.id,
+        hostName: race.host.name,
+        pot: race.pot,
+        shares: race.shares,
+        message: race.message,
+        startsAt: Date.parse(race.startsAt),
+        countdownSeconds: race.countdownSeconds
+      }
+      this.roomCode = race.roomCode
+      usedRoomCodes.add(race.roomCode)
+      openHostedRooms.set(race.id, this)
+      // Stay open while nobody's in yet: people join any time before the start.
+      this.autoDispose = false
+      const wait = Math.max(0, this.hosted.startsAt - Date.now())
+      this.hostedTimer = setTimeout(guarded("prize race start", () => this.startHostedCountdown()), wait)
+    } else {
+      this.roomCode = generateRoomCode()
+    }
     this.syncMetadata()
     this.onMessage("selectStart", (client, startPointId: string) => {
       if (this.phase !== "lobby" && this.phase !== "countdown") return
@@ -194,7 +251,8 @@ export class RaceRoom extends Room {
     })
 
     this.onMessage("startNow", (client) => {
-      if (this.phase !== "lobby") return
+      // A prize race starts at its scheduled time, not when someone taps.
+      if (this.phase !== "lobby" || this.hosted) return
       if (!this.players[client.sessionId]) return
       if (Object.keys(this.players).length < 1) return
       this.beginCountdown()
@@ -271,7 +329,7 @@ export class RaceRoom extends Room {
     this.sendRoomState()
     this.syncMetadata()
 
-    if (Object.keys(this.players).length >= 2 && this.phase === "lobby") {
+    if (Object.keys(this.players).length >= 2 && this.phase === "lobby" && !this.hosted) {
       this.beginCountdown()
     }
   }
@@ -308,7 +366,7 @@ export class RaceRoom extends Room {
     const remaining = Object.keys(this.players).length
     if (remaining === 0) {
       this.stopCountdown()
-    } else if (this.phase === "countdown" && remaining < 2) {
+    } else if (this.phase === "countdown" && remaining < 2 && !this.hosted) {
       this.stopCountdown()
       this.phase = "lobby"
       this.countdownSeconds = COUNTDOWN_SECONDS
@@ -319,6 +377,9 @@ export class RaceRoom extends Room {
 
   onDispose() {
     usedRoomCodes.delete(this.roomCode)
+    // Still scheduled (e.g. the server is shutting down): the scheduler reopens it.
+    if (this.hostedTimer) clearTimeout(this.hostedTimer)
+    if (this.hosted && openHostedRooms.get(this.hosted.id) === this) openHostedRooms.delete(this.hosted.id)
     this.stopCountdown()
     if (this.tickInterval) {
       clearInterval(this.tickInterval)
@@ -337,7 +398,8 @@ export class RaceRoom extends Room {
       phase: this.phase,
       playerCount: Object.keys(this.players).length,
       maxClients: this.maxClients,
-      countdownSeconds: this.phase === "countdown" ? this.countdownSeconds : null
+      countdownSeconds: this.phase === "countdown" ? this.countdownSeconds : null,
+      prize: this.prizeSummary()
     })
   }
 
@@ -453,12 +515,13 @@ export class RaceRoom extends Room {
     )
     // Everyone who actually raced (had a start), finished or not.
     const fieldSize = this.fieldSize()
-    void this.persistResults(finishedAt, fieldSize)
+    void this.persistResults(finishedAt, fieldSize).then((raceId) => this.settlePrize(raceId))
   }
 
-  private async persistResults(finishedAt: Date, fieldSize: number) {
+  /** Records the race and pays the usual earnings; the race id, or null if nothing was recorded. */
+  private async persistResults(finishedAt: Date, fieldSize: number): Promise<string | null> {
     // A race that timed out with nobody at the treasure has nothing to record.
-    if (!this.destinationId || !this.startedAt || this.finishOrder.length === 0) return
+    if (!this.destinationId || !this.startedAt || this.finishOrder.length === 0) return null
     const placements = this.finishOrder.map((sessionId, index) => ({
       sessionId,
       userId: this.players[sessionId]?.userId ?? null,
@@ -479,7 +542,7 @@ export class RaceRoom extends Room {
       raceId = await withRetry("Race results", () => recordRaceResults(input))
     } catch (error) {
       console.error("Failed to persist race results:", error)
-      return
+      return null
     }
     // Coins are paid separately so a ledger problem never loses the results.
     try {
@@ -492,6 +555,104 @@ export class RaceRoom extends Room {
     } catch (error) {
       console.error("Failed to award race earnings:", error)
     }
+    return raceId
+  }
+
+  // ---------------------------------------------------------------------------
+  // Prize races
+
+  /** What the lobby, the race list and the invite link show about the prize. */
+  private prizeSummary() {
+    const prize = this.hosted
+    if (!prize) return null
+    return {
+      pot: prize.pot,
+      shares: prize.shares,
+      winners: prize.shares.length,
+      host: prize.hostName,
+      message: prize.message,
+      startsAt: new Date(prize.startsAt).toISOString(),
+      countdownSeconds: prize.countdownSeconds
+    }
+  }
+
+  /** Start time reached: the host's countdown, or a refund if nobody came. */
+  private startHostedCountdown() {
+    this.hostedTimer = null
+    if (!this.hosted || this.phase !== "lobby") return
+    if (Object.keys(this.players).length === 0) {
+      const prize = this.hosted
+      this.endPrize()
+      void withRetry("Prize refund", () => refundHostedRace(prize.id, "no_players")).catch((error) =>
+        console.error("Failed to refund an empty prize race:", error)
+      )
+      return
+    }
+    this.beginCountdown()
+  }
+
+  /** Called by the scheduler when the host cancels before the start. */
+  hostedCancelled() {
+    if (!this.hosted || this.phase === "racing" || this.phase === "finished") return
+    this.endPrize()
+    this.broadcast("notice", "The host cancelled the prize. It's an ordinary race now.")
+    this.stopCountdown()
+    this.phase = "lobby"
+    this.countdownSeconds = COUNTDOWN_SECONDS
+    this.sendRoomState()
+    if (Object.keys(this.players).length >= 2) this.beginCountdown()
+  }
+
+  /** The prize is done (paid, refunded or cancelled): carry on as an ordinary room. */
+  private endPrize() {
+    if (this.hostedTimer) clearTimeout(this.hostedTimer)
+    this.hostedTimer = null
+    if (this.hosted && openHostedRooms.get(this.hosted.id) === this) openHostedRooms.delete(this.hosted.id)
+    this.hosted = null
+    this.prizeLocked = null
+    this.autoDispose = true
+    this.syncMetadata()
+    if (this.clients.length === 0) void this.disconnect()
+  }
+
+  /** After the results: pay the winners (or refund the host) and tell everyone. */
+  private async settlePrize(raceId: string | null) {
+    const prize = this.hosted
+    if (!prize) return
+    const locked = (await this.prizeLocked) ?? false
+    // Finishers in order, signed-in only: guests can win, nobody without an account.
+    const finishers = this.finishOrder
+      .map((sessionId) => this.players[sessionId]?.userId ?? null)
+      .filter((userId): userId is string => !!userId)
+    let settlement: PrizeSettlement | null = null
+    if (locked) {
+      try {
+        settlement = await withRetry("Prize payout", () =>
+          settleHostedRace({ id: prize.id, raceId, finishers, racers: this.racerUserIds })
+        )
+      } catch (error) {
+        console.error("Failed to settle the prize race:", error)
+      }
+    }
+    if (settlement) {
+      const nameOf = (userId: string) => Object.values(this.players).find((player) => player.userId === userId)
+      this.broadcast("prizeResult", {
+        host: prize.hostName,
+        ...(settlement.kind === "paid"
+          ? {
+              kind: "paid",
+              cut: settlement.cut,
+              payouts: settlement.payouts.map((payout) => ({
+                place: payout.place,
+                amount: payout.amount,
+                name: nameOf(payout.userId)?.name ?? "Racer",
+                sessionId: nameOf(payout.userId)?.id ?? null
+              }))
+            }
+          : { kind: "refunded", why: settlement.why })
+      })
+    }
+    this.endPrize()
   }
 
   private resetToLobby() {
@@ -568,6 +729,7 @@ export class RaceRoom extends Room {
       destinationId: this.destinationId,
       startedAt: this.startedAt,
       roomCode: this.roomCode,
+      prize: this.prizeSummary(),
       players
     }
   }
@@ -586,7 +748,7 @@ export class RaceRoom extends Room {
     this.sendRoomState()
     this.syncMetadata()
 
-    let remaining = COUNTDOWN_SECONDS
+    let remaining = this.hosted ? this.hosted.countdownSeconds : COUNTDOWN_SECONDS
     this.countdownSeconds = remaining
     this.countdownInterval = setInterval(guarded("race countdown", () => {
       remaining--
@@ -609,6 +771,14 @@ export class RaceRoom extends Room {
   }
 
   private launchRace() {
+    this.racerUserIds = [...new Set(Object.values(this.players).map((player) => player.userId).filter((id): id is string => !!id))]
+    if (this.hosted) {
+      const prize = this.hosted
+      this.prizeLocked = withRetry("Prize race goes live", () => markHostedRaceLive(prize.id)).catch((error) => {
+        console.error("Failed to lock the prize:", error)
+        return false
+      })
+    }
     this.phase = "racing"
     // Anyone who never dropped a pin gets the default start so they can race.
     this.snapUnplacedPlayers()
