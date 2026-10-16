@@ -41,6 +41,7 @@ import { sanitizeLoadout, type AvatarLoadout } from "@tiral/avatars"
 import { addBikeWear, chargeBreakdown, chargeFuel, getRideBike, payHustle, rentBikeToday, type BikeView } from "@tiral/db"
 import { loadRoadGraph } from "../roads.js"
 import { withRetry } from "../retry.js"
+import { announceUnlocks, refuseLockedGig } from "../ladder.js"
 import { testOverride } from "../testOverrides.js"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import {
@@ -125,9 +126,11 @@ export class HustleRoom extends Room {
     this.clients.find((candidate) => candidate.sessionId === runner.id)?.send(message, payload)
   })
 
-  static async onAuth(token: unknown) {
+  static async onAuth(token: unknown, options: any) {
     const identity = await verifyJoinToken(token)
     if (identity.guest) throw new ServerError(401, "Sign in to hustle")
+    // The hustle ladder: the boda opens once you've done your porter time.
+    await refuseLockedGig(identity.userId, options?.hustle === "boda" ? "boda" : "porter")
     return identity
   }
 
@@ -446,6 +449,7 @@ export class HustleRoom extends Room {
     if (receipt.paid) {
       this.shift.jobs++
       this.shift.earned += receipt.net
+      announceUnlocks(worker.userId!, (text) => this.clients.find((candidate) => candidate.sessionId === worker.id)?.send("notice", text))
     }
     this.clients.find((candidate) => candidate.sessionId === worker.id)?.send("receipt", receipt)
     this.sendState()

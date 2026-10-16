@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import type { AvatarLoadout } from "@tiral/avatars"
+import type { LadderCounts } from "@tiral/game-core"
 import { COINS_CHANGED_EVENT, type WalletEntry } from "@/lib/useCoins"
 
 export type LifeEvent = {
@@ -42,6 +43,8 @@ type PlayerSnapshot = {
   entries: WalletEntry[]
   needs: PlayerNeeds
   life: Life | null
+  /** Jobs done towards the hustle ladder (which gigs are open). */
+  ladder: LadderCounts
 }
 
 type PlayerContextValue = {

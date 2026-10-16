@@ -4,6 +4,7 @@ import {
   findUserById,
   getCoinBalance,
   hasTikTokLink,
+  ladderCounts,
   listCoinLedger,
   loadNeeds,
   readLife,
@@ -42,9 +43,10 @@ export async function GET(request: NextRequest) {
     }
     // Independent reads run side by side; money is sequential because life
     // (rent, shocks) may move coins before the balance is read.
-    const [tiktokLinked, needs, money] = await Promise.all([
+    const [tiktokLinked, needs, ladder, money] = await Promise.all([
       hasTikTokLink(userId),
       loadNeeds(userId),
+      ladderCounts(userId),
       (async () => {
         if (!granted.has(userId)) {
           await ensureWelcomeGrant(userId)
@@ -76,7 +78,8 @@ export async function GET(request: NextRequest) {
         createdAt: entry.createdAt.toISOString()
       })),
       needs,
-      life
+      life,
+      ladder
     })
   } catch (error) {
     console.error("Player unavailable:", error)

@@ -94,6 +94,8 @@ const RENT_NOTICE_TEXT: Record<string, (meta: Record<string, unknown>) => { from
     from: "Your prize race",
     text: `Your ${bng(meta.amount)} BNG pot came back to you: ${PRIZE_REFUND_WHY[String(meta.why)] ?? "the race didn't happen"}.`
   }),
+  // The hustle ladder (packages/db/src/ladder.ts).
+  ladder_unlock: (meta) => ({ from: String(meta.from ?? "Kampala"), text: `🔓 ${String(meta.text ?? "")}` }),
   race_reminder: (meta) => ({
     from: `${String(meta.host)}'s prize race`,
     text: `Starts at ${kampalaClock(String(meta.startsAt))} for ${bng(meta.pot)} BNG. Join with code ${String(meta.code)}.`

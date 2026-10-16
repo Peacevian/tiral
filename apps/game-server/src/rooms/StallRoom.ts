@@ -25,6 +25,7 @@ import {
 import { buyRolexStock, chargeKccaFine, payHustle } from "@tiral/db"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { withRetry } from "../retry.js"
+import { announceUnlocks, refuseLockedGig } from "../ladder.js"
 import { testOverride } from "../testOverrides.js"
 import {
   BodySync,
@@ -95,9 +96,11 @@ export class StallRoom extends Room {
   private nextCarAt: number | null = null
   private carsDone = 0
 
-  static async onAuth(token: unknown) {
+  static async onAuth(token: unknown, options: any) {
     const identity = await verifyJoinToken(token)
     if (identity.guest) throw new ServerError(401, "Sign in to hustle")
+    // The hustle ladder: the car wash and the rolex stand are earned.
+    await refuseLockedGig(identity.userId, options?.stall === "carwash" ? "carwash" : "rolex")
     return identity
   }
 
@@ -227,6 +230,8 @@ export class StallRoom extends Room {
         this.raidAt = now + (RAID_DELAY_SECONDS ?? 30 + Math.random() * 90) * 1000
       }
       client.send("stockBought", { amount: pack.price, balance: result.balance })
+      // Rolex shifts count towards selling on live.
+      announceUnlocks(worker.userId, (text) => this.tell("notice", text))
       this.sendState()
     } catch (error) {
       console.error("Stock purchase failed:", error)
@@ -402,6 +407,7 @@ export class StallRoom extends Room {
       this.summary.earned += payout.net
       this.summary.served++
       this.carsDone++
+      announceUnlocks(worker.userId!, (text) => this.tell("notice", text))
     }
     this.tell("stallEvent", { kind: "car_done", car: car.typeId, ...payout, paid, limit, unpaid })
     this.sendState()
