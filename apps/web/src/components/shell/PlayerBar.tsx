@@ -31,7 +31,7 @@ export function PlayerStats() {
       <Link
         href="/home?tab=wallet"
         aria-label={`${formatCoins(player.balance)} Banange Coins`}
-        className="inline-flex min-h-[40px] items-center gap-1 rounded-xl border border-amber-300/40 bg-amber-300/10 px-2.5 font-mono text-xs font-black text-amber-200"
+        className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-amber-300/40 bg-amber-300/10 px-2.5 font-mono text-xs font-black text-amber-200"
       >
         <span aria-hidden>🪙</span>
         {formatCoins(player.balance)}
@@ -39,7 +39,7 @@ export function PlayerStats() {
       <Link
         href="/home?tab=body"
         aria-label={`Energy ${Math.round(player.needs.energy)}, health ${Math.round(player.needs.health)}`}
-        className="flex min-h-[40px] w-[4.5rem] flex-col justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 sm:w-24"
+        className="flex min-h-[44px] w-[4.5rem] flex-col justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 sm:w-24"
       >
         <span className="flex items-center gap-1 text-[11px] leading-none">
           <span aria-hidden>⚡</span>
@@ -58,7 +58,7 @@ export function PlayerStats() {
         href="/inbox"
         aria-label={`Stress ${Math.round(stress)} of 100`}
         title="Stress"
-        className="inline-flex min-h-[40px] items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 font-mono text-xs font-black"
+        className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 font-mono text-xs font-black"
         style={{ color: STRESS_COLOR(stress) }}
       >
         <span aria-hidden>😤</span>

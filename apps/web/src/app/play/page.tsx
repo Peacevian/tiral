@@ -322,6 +322,17 @@ export default function Home() {
     [joinByCode, runJoin, myLoadout]
   )
 
+  // A shared link (/play?join=CODE) drops a friend straight into that lobby.
+  const sharedJoinDone = useRef(false)
+  useEffect(() => {
+    if (sharedJoinDone.current || !player || connected || reconnecting) return
+    const code = new URLSearchParams(window.location.search).get("join")
+    if (!code) return
+    sharedJoinDone.current = true
+    window.history.replaceState(null, "", window.location.pathname)
+    handleJoinCode(code)
+  }, [player, connected, reconnecting, handleJoinCode])
+
   const onMapReady = useCallback((readyMap: maplibregl.Map) => {
     setMap(readyMap)
     // Keep the zone clear of the hub: side panel on wide screens, sheet on phones.
@@ -632,7 +643,7 @@ export default function Home() {
       {connected && collapsed && needs?.collapsedUntil && <CollapseOverlay until={needs.collapsedUntil} />}
 
       {connected && phase === "racing" && ownFinishPosition !== null && (
-        <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl md:backdrop-blur-md">
+        <div className="absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl md:backdrop-blur-md">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
             You finished {ownFinishPosition}
             {ownFinishPosition === 1 ? "st" : ownFinishPosition === 2 ? "nd" : ownFinishPosition === 3 ? "rd" : "th"}!

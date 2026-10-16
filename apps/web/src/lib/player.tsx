@@ -78,28 +78,40 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const inFlight = useRef<Promise<void> | null>(null)
+  // A refresh asked for while one is loading (a payout just landed) must not
+  // get the older answer: remember it and fetch once more afterwards.
+  const again = useRef<Promise<void> | null>(null)
 
-  const refresh = useCallback(() => {
-    // Collapse bursts of refresh requests into one fetch.
-    if (inFlight.current) return inFlight.current
-    const run = (async () => {
-      try {
-        // Give up after 10 s so a hung server shows as offline, not "checking…" forever.
-        const response = await fetch("/api/player", { cache: "no-store", signal: AbortSignal.timeout(10_000) })
-        if (!response.ok) throw new Error(String(response.status))
-        const body = (await response.json()) as Partial<PlayerSnapshot> & { user: PlayerUser | null }
-        setPlayer(body.user ? (body as PlayerSnapshot) : null)
-        setOffline(false)
-      } catch {
-        setOffline(true)
-      } finally {
-        setReady(true)
-        inFlight.current = null
-      }
-    })()
+  const load = useCallback(async () => {
+    try {
+      // Give up after 10 s so a hung server shows as offline, not "checking…" forever.
+      const response = await fetch("/api/player", { cache: "no-store", signal: AbortSignal.timeout(10_000) })
+      if (!response.ok) throw new Error(String(response.status))
+      const body = (await response.json()) as Partial<PlayerSnapshot> & { user: PlayerUser | null }
+      setPlayer(body.user ? (body as PlayerSnapshot) : null)
+      setOffline(false)
+    } catch {
+      setOffline(true)
+    } finally {
+      setReady(true)
+    }
+  }, [])
+
+  const refresh = useCallback((): Promise<void> => {
+    // Collapse bursts into at most one fetch now plus one queued after it.
+    if (inFlight.current) {
+      again.current ??= inFlight.current.then(() => {
+        again.current = null
+        return refresh()
+      })
+      return again.current
+    }
+    const run = load().finally(() => {
+      inFlight.current = null
+    })
     inFlight.current = run
     return run
-  }, [])
+  }, [load])
 
   useEffect(() => {
     void refresh()

@@ -71,7 +71,10 @@ export function ControlDeck({
             type="button"
             onClick={() => setDeckOpen(false)}
             aria-label="Collapse controls"
-            className="flex min-h-[28px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-slate-400"
+            // 28 px tall so the deck doesn't grow into the thumb sticks; the
+            // invisible ::before adds 8 px of touch area above (more would
+            // overlap the sticks on a 375×667 phone).
+            className="relative flex min-h-[28px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-slate-400 before:absolute before:inset-x-0 before:-top-2 before:bottom-0 before:content-['']"
           >
             ▾
           </button>

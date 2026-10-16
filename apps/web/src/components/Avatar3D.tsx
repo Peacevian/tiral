@@ -101,7 +101,11 @@ function GroundMarker({ color, rarity }: { color: string; rarity: Rarity }) {
 }
 
 const TRAIL_SIZE = 56
-const FLAG_COLORS = ["#111827", "#facc15", "#dc2626"]
+// Parsed once: setting a colour from a hex string per particle per frame adds up.
+const FLAG_COLORS = ["#111827", "#facc15", "#dc2626"].map((hex) => new THREE.Color(hex))
+const DUST_COLOR = new THREE.Color("#d6b98c")
+const SPARK_WHITE = new THREE.Color("#ffffff")
+const SPARK_YELLOW = new THREE.Color("#fde047")
 const FIRE_STOPS = [new THREE.Color("#fde047"), new THREE.Color("#f97316"), new THREE.Color("#b91c1c")]
 
 type TrailParticle = { x: number; y: number; z: number; vz: number; drift: number; age: number; life: number; seed: number }
@@ -180,17 +184,17 @@ function TrailEffect({
       let size: number
       if (kind === "dust") {
         size = 0.18 + k * 0.4
-        state.color.set("#d6b98c")
+        state.color.copy(DUST_COLOR)
       } else if (kind === "sparks") {
         size = 0.09 * (1 - k)
-        state.color.set(p.seed % 3 === 0 ? "#ffffff" : "#fde047")
+        state.color.copy(p.seed % 3 === 0 ? SPARK_WHITE : SPARK_YELLOW)
       } else if (kind === "fire") {
         size = 0.32 * (1 - k * 0.85)
         const stop = Math.min(1.999, k * 2)
         state.color.copy(FIRE_STOPS[Math.floor(stop)]!).lerp(FIRE_STOPS[Math.floor(stop) + 1]!, stop % 1)
       } else {
         size = 0.26 * (1 - k * k)
-        state.color.set(FLAG_COLORS[Math.floor(p.seed / 2) % 3]!)
+        state.color.copy(FLAG_COLORS[Math.floor(p.seed / 2) % 3]!)
       }
       const lx = (p.x - anchor.x) / scale + p.drift * k
       const ly = (p.y - anchor.y) / scale
@@ -268,16 +272,25 @@ function NameTag({
     el.appendChild(tag)
   }, [el, name, isSelf, place, rarity])
 
+  // Only touch the DOM when something changed (each write can restyle the page).
+  const shown = useRef<{ visible: boolean | null; x: number; y: number }>({ visible: null, x: NaN, y: NaN })
   useFrame(() => {
     const anchor = anchorRef.current
     if (!anchor) return
     anchor.getWorldPosition(point)
     point.applyMatrix4(camera.projectionMatrix)
     const visible = point.z > -1 && point.z < 1
-    el.style.display = visible ? "" : "none"
+    const last = shown.current
+    if (visible !== last.visible) {
+      el.style.display = visible ? "" : "none"
+      last.visible = visible
+    }
     if (!visible) return
-    const x = (point.x * 0.5 + 0.5) * size.width
-    const y = (-point.y * 0.5 + 0.5) * size.height
+    const x = Math.round((point.x * 0.5 + 0.5) * size.width * 2) / 2
+    const y = Math.round((-point.y * 0.5 + 0.5) * size.height * 2) / 2
+    if (x === last.x && y === last.y) return
+    last.x = x
+    last.y = y
     el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`
   })
 

@@ -242,6 +242,15 @@ export function useRoadMovement(
       if (key === "d" || key === "ArrowRight") requestTurn("right")
       if (key === "s" || key === "ArrowDown") turnAround()
       if (key === " ") updateMoving(false)
+      // A game key while a button still has focus (just clicked "Quick race",
+      // a tool...): Space would also press that button. Steering wins: drop the
+      // focus, and don't let Space click it. Dialogs keep their focus.
+      const GAME_KEYS = ["w", "a", "s", "d", " ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
+      const focused = document.activeElement
+      if (GAME_KEYS.includes(key) && focused instanceof HTMLButtonElement && !focused.closest('[role="dialog"], [role="alertdialog"]')) {
+        if (key === " ") event.preventDefault()
+        focused.blur()
+      }
     }
 
     const onKeyUp = (event: KeyboardEvent) => {

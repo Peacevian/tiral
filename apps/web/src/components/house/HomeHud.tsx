@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ConfirmButton } from "@/components/ui"
 
 // Slim top HUD over the full-bleed home scene.
 export function HomeHud({
@@ -64,17 +65,18 @@ export function HomeHud({
           >
             {showRoof ? "Hide roof" : "Show roof"}
           </button>
-          <button
-            type="button"
-            onClick={() => {
+          <ConfirmButton
+            onConfirm={() => {
               setMenuOpen(false)
               onReset()
             }}
+            confirmLabel="Tap again to undo all unsaved changes"
             disabled={!dirty || saving}
             className="min-h-[44px] rounded-xl bg-white/5 px-3 text-left text-sm font-bold text-slate-100 disabled:opacity-40"
+            armedClassName="!bg-rose-500 !text-white"
           >
             Reset changes
-          </button>
+          </ConfirmButton>
         </div>
       )}
       {notice && (

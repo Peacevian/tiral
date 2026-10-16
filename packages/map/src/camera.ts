@@ -16,10 +16,13 @@ export type MapTransformLike = {
   center: LatLng
 }
 
-function makePerspective(fov: number, aspect: number, near: number, far: number): THREE.Matrix4 {
+// Reused every frame: this runs once per rendered frame of the 3D overlay.
+const step = new THREE.Matrix4()
+
+function setPerspective(out: THREE.Matrix4, fov: number, aspect: number, near: number, far: number): THREE.Matrix4 {
   const f = 1 / Math.tan(fov / 2)
   const nf = 1 / (near - far)
-  return new THREE.Matrix4().set(
+  return out.set(
     f / aspect, 0, 0, 0,
     0, f, 0, 0,
     0, 0, (far + near) * nf, 2 * far * near * nf,
@@ -27,21 +30,20 @@ function makePerspective(fov: number, aspect: number, near: number, far: number)
   )
 }
 
-export function buildMercatorViewProjectionMatrix(t: MapTransformLike): THREE.Matrix4 {
+/** The map's view-projection in mercator units, written into `out` (no allocations). */
+export function buildMercatorViewProjectionMatrix(t: MapTransformLike, out = new THREE.Matrix4()): THREE.Matrix4 {
   const center = lngLatToMercator(t.center)
   const aspect = t.width / t.height
   const worldSize = t.worldSize
 
-  const matrix = makePerspective(t.fovInRadians, aspect, t.nearZ, t.farZ)
-  matrix.multiply(new THREE.Matrix4().makeScale(1, -1, 1))
-  matrix.multiply(new THREE.Matrix4().makeTranslation(0, 0, -t.cameraToCenterDistance))
-  if (t.rollInRadians) matrix.multiply(new THREE.Matrix4().makeRotationZ(-t.rollInRadians))
-  matrix.multiply(new THREE.Matrix4().makeRotationX(t.pitchInRadians))
-  matrix.multiply(new THREE.Matrix4().makeRotationZ(-t.bearingInRadians))
-  matrix.multiply(
-    new THREE.Matrix4().makeTranslation(-center.x * worldSize, -center.y * worldSize, 0)
-  )
-  matrix.multiply(new THREE.Matrix4().makeScale(worldSize, worldSize, worldSize))
+  const matrix = setPerspective(out, t.fovInRadians, aspect, t.nearZ, t.farZ)
+  matrix.multiply(step.makeScale(1, -1, 1))
+  matrix.multiply(step.makeTranslation(0, 0, -t.cameraToCenterDistance))
+  if (t.rollInRadians) matrix.multiply(step.makeRotationZ(-t.rollInRadians))
+  matrix.multiply(step.makeRotationX(t.pitchInRadians))
+  matrix.multiply(step.makeRotationZ(-t.bearingInRadians))
+  matrix.multiply(step.makeTranslation(-center.x * worldSize, -center.y * worldSize, 0))
+  matrix.multiply(step.makeScale(worldSize, worldSize, worldSize))
   return matrix
 }
 

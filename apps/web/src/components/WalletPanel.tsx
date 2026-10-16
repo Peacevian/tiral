@@ -23,7 +23,8 @@ export function WalletPanel() {
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Banange Coins</div>
         <div className="mt-0.5 font-mono text-2xl font-black text-amber-100">{formatCoins(player.balance)} BNG</div>
         <p className="mt-1 text-xs text-slate-300">
-          Earn by finishing races against other people: podiums, your first win of the day and daily streaks pay more.
+          Earn from hustles (porter loads, boda rides, the rolex stand, the car wash) and from racing other people:
+          podiums, your first win of the day and daily streaks pay more. Rent, food, fuel and family cost coins.
         </p>
       </Card>
       <div>

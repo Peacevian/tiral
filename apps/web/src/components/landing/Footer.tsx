@@ -14,7 +14,7 @@ export function Footer() {
     <footer className="border-t border-white/10">
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-4 px-4 py-8 text-center">
         <div className="text-sm font-black text-white">
-          Tiral <span className="font-normal text-slate-400">— Kampala Treasure Race</span>
+          Tiral <span className="font-normal text-slate-400">— Kampala Hustle</span>
         </div>
         <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           {LINKS.map((link) => (

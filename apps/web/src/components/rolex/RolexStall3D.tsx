@@ -46,16 +46,18 @@ const COOK_TOTAL = ROLEX_FLIP_WINDOW.end + 1.5
 
 const ease = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t))
 
+// Egg shades, made once (eggColor runs every frame while cooking).
+const EGG_RAW = new THREE.Color("#fde68a")
+const EGG_GOLDEN = new THREE.Color("#f59e0b")
+const EGG_BROWN = new THREE.Color("#92400e")
+const EGG_BURNT = new THREE.Color("#1c1009")
+
 /** Colour of the egg after `seconds` on the hot plate. */
 function eggColor(seconds: number, target: THREE.Color) {
   const { start, end } = ROLEX_FLIP_WINDOW
-  const raw = new THREE.Color("#fde68a")
-  const golden = new THREE.Color("#f59e0b")
-  const brown = new THREE.Color("#92400e")
-  const burnt = new THREE.Color("#1c1009")
-  if (seconds < start) return target.copy(raw).lerp(golden, ease(seconds / start))
-  if (seconds < end) return target.copy(golden).lerp(brown, ((seconds - start) / (end - start)) * 0.5)
-  return target.copy(brown).lerp(burnt, ease((seconds - end) / 1.2))
+  if (seconds < start) return target.copy(EGG_RAW).lerp(EGG_GOLDEN, ease(seconds / start))
+  if (seconds < end) return target.copy(EGG_GOLDEN).lerp(EGG_BROWN, ((seconds - start) / (end - start)) * 0.5)
+  return target.copy(EGG_BROWN).lerp(EGG_BURNT, ease((seconds - end) / 1.2))
 }
 
 // Shared canvas textures: built once per page (they never change), so the
