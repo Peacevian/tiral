@@ -32,6 +32,7 @@ import { StallScreen } from "@/components/hustle/StallScreen"
 import { JobBoard, clock, offerTitle, spotName, useNow } from "@/components/hustle/JobBoard"
 import type { HustlePin } from "@/components/hustle/HustlePins"
 import { ActionButton, Card, ConfirmButton } from "@/components/ui"
+import { LockedGig, useGigLocked } from "@/components/hub/HustleLadder"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const HustlePins = dynamic(
@@ -276,6 +277,7 @@ function MapHustle() {
 
   const gig = inShift ? hustle.hustle : requestedGig
   const gigInfo = findHustle(gig)!
+  const locked = useGigLocked(gig)
 
   return (
     <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-sheet text-sheet-ink">
@@ -325,6 +327,7 @@ function MapHustle() {
               {gigInfo.icon} {gigInfo.name}
             </h1>
             <p className="mt-1 text-sm leading-snug text-sheet-mute">{GIGS[gig].blurb}</p>
+            <LockedGig gig={gig} />
             {player && (
               <p className="mt-2 text-xs text-sheet-mute">
                 Your energy: <span className="font-bold text-sheet-ink">{Math.round(player.needs.energy)}/100</span> ·
@@ -342,7 +345,7 @@ function MapHustle() {
               <ActionButton
                 variant="primary"
                 className="flex-[2]"
-                disabled={starting || reconnecting || !ready || !player}
+                disabled={starting || reconnecting || !ready || !player || locked}
                 onClick={() => void begin()}
               >
                 {starting || reconnecting ? "Starting…" : !player && ready ? "Sign in first" : "Start shift"}

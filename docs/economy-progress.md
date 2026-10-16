@@ -1035,6 +1035,31 @@ migration. The /hustle page shows a stall screen for these gigs.
 
 ---
 
+## 17. The hustle ladder (16 Oct 2026)
+
+New players start as Kikuubo porters and work their way up; racing is never
+gated. Each step asks for experience; the real-life needs (bike rent, rolex
+stock, a TikTok account, bale money) are checked where they're paid for.
+
+| Step | Gig | Opens after |
+|---|---|---|
+| 1 | Kikuubo porter | always open |
+| 2 | Car wash | 5 porter loads |
+| 3 | Boda passengers | 15 jobs (porter loads + cars washed) |
+| 4 | Rolex stand | 20 boda trips |
+| 5 | Sell clothes on live (coming) | 5 rolex shifts + TikTok connected |
+
+- **Reset:** everyone started from step 1 when the ladder went live; only work
+  done since `LADDER_START` counts (packages/game-core/src/ladder.ts).
+- **Progress comes from the coin ledger** (`hustle_porter`, `hustle_carwash`,
+  `hustle_boda`, `rolex_stock`), so there's no extra table.
+- **Enforced by the game server** when a shift starts; the app shows the path
+  (Race sidebar → Earn BNG) and a locked card on closed gigs.
+- **Unlocking** writes one inbox note per gig (`ladder_unlock`) and a notice in
+  the shift.
+- **No daily ceiling across hustles:** players hustle their way; energy and
+  each gig's own limits are the brakes.
+
 ## 15. Revision log
 
 - **12 Oct 2026** — Doc created. Captured: code audit (no currency; points +
@@ -1070,3 +1095,5 @@ migration. The /hustle page shows a stall screen for these gigs.
 - **15 Oct 2026** — Rolex stand rebuilt as a 3D stall: walking customers,
   crack/veg/whisk/pour prep, egg that browns on the hot plate, flip, roll and
   hand-over. Customer patience 35 → 60 s.
+- **16 Oct 2026** — Hustle ladder (§17): porter → car wash → boda → rolex
+  stand → selling clothes on live; progress reset for everyone.

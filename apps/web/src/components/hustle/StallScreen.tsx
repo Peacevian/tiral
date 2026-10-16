@@ -30,6 +30,7 @@ import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import type { StallState } from "@/lib/useColyseus"
 import { ActionButton, Card, ConfirmButton, SectionLabel, actionButtonClass } from "@/components/ui"
+import { LockedGig, useGigLocked } from "@/components/hub/HustleLadder"
 import { AdaptivePanel } from "@/components/ui/AdaptivePanel"
 import { Modal } from "@/components/ui/Modal"
 import { useMyLoadout } from "@/lib/useMyLoadout"
@@ -199,6 +200,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
   const [pack, setPack] = useState<string>(ROLEX_PACKS[1].id)
   const packPrice = ROLEX_PACKS.find((candidate) => candidate.id === pack)?.price ?? 0
   const energy = player ? Math.round(player.needs.energy) : 0
+  const locked = useGigLocked(gig)
   const host = useStage(startScene(gig, loadout))
   if (!host) return null
   return createPortal(
@@ -213,6 +215,8 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
           <h1 className="mt-1 text-2xl font-black text-sheet-ink">
             {info.icon} {info.name}
           </h1>
+          {/* Closed gigs say so first (it's what fits in the sheet's resting height). */}
+          <LockedGig gig={gig} />
           {gig === "rolex" ? (
             <>
               <p className="mt-1 text-sm leading-snug text-sheet-mute">
@@ -321,7 +325,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
             <ActionButton
               variant="primary"
               className="min-w-0 flex-[2] whitespace-normal"
-              disabled={busy || !player || (gig === "rolex" && player.balance < packPrice)}
+              disabled={busy || !player || locked || (gig === "rolex" && player.balance < packPrice)}
               onClick={() => onStart(spot, pack)}
             >
               {busy ? "Opening…" : gig === "rolex" ? `Buy stock and open · ${formatCoins(packPrice)}` : "🧽 Start washing"}

@@ -3,12 +3,13 @@
 import { useState, type ReactNode } from "react"
 import Link from "next/link"
 import type { RaceListing } from "@/lib/useColyseus"
-import { HUSTLES, STRESSED_THRESHOLD } from "@tiral/game-core"
+import { STRESSED_THRESHOLD } from "@tiral/game-core"
 import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import { FoodGrid, FoodResultLine, useFoodPurchase } from "@/components/NeedsPanel"
 import { ActionButton, untilText } from "@/components/ui"
 import { PrizeRaces } from "@/components/hub/PrizeRaces"
+import { HustleLadder, nextUnlockText, useLadder } from "@/components/hub/HustleLadder"
 
 export type HubActions = {
   races: RaceListing[]
@@ -139,6 +140,7 @@ function NeedsAttention() {
   const { player } = usePlayer()
   const food = useFoodPurchase()
   const [open, setOpen] = useState<"food" | "earn" | null>(null)
+  const ladder = useLadder()
   if (!player) return null
   const life = player.life
   const short = life ? Math.max(0, life.tier.rent - player.balance) : 0
@@ -189,25 +191,8 @@ function NeedsAttention() {
             )}
           </>
         )}
-        <AttentionRow icon="💼" title="Earn BNG" detail="Porter, boda, rolex stand, car wash" onClick={() => toggle("earn")} expanded={open === "earn"} />
-        {open === "earn" && (
-          <ul className="flex flex-col gap-1 px-2 pb-2">
-            {HUSTLES.filter((hustle) => hustle.available).map((hustle) => (
-              <li key={hustle.id}>
-                <Link href={`/hustle?gig=${hustle.id}`} className="flex min-h-[48px] items-center gap-3 rounded-lg px-2 transition hover:bg-sheet-soft">
-                  <span aria-hidden className="w-6 text-center text-lg">
-                    {hustle.icon}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-sheet-ink">{hustle.name}</span>
-                    <span className="block truncate text-xs text-sheet-mute">{hustle.blurb}</span>
-                  </span>
-                  <span className="text-sm font-bold text-flame-deep">Work</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <AttentionRow icon="💼" title="Earn BNG" detail={nextUnlockText(ladder.next)} onClick={() => toggle("earn")} expanded={open === "earn"} />
+        {open === "earn" && <HustleLadder />}
       </div>
     </section>
   )
