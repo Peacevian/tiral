@@ -191,7 +191,7 @@ function NeedsAttention() {
             )}
           </>
         )}
-        <AttentionRow icon="💼" title="Earn BNG" detail={nextUnlockText(ladder.next)} onClick={() => toggle("earn")} expanded={open === "earn"} />
+        <AttentionRow icon="💼" title="Earn BNG" detail={nextUnlockText(ladder.next, ladder.balance)} onClick={() => toggle("earn")} expanded={open === "earn"} />
         {open === "earn" && <HustleLadder />}
       </div>
     </section>
