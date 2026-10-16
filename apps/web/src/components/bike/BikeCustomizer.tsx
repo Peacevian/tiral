@@ -18,17 +18,17 @@ import { SectionLabel } from "@/components/ui"
 const RARITY_DOT: Record<BikeItemRarity, string> = {
   common: "bg-sky-400",
   rare: "bg-violet-400",
-  epic: "bg-amber-400"
+  epic: "bg-flame"
 }
 
 /** "owned" / "free" / "15,000" for an option's item id (null = free default). */
 function PriceTag({ itemId, owned }: { itemId: string | null; owned: ReadonlySet<string> }) {
-  if (itemId === null) return <span className="text-[11px] text-slate-400">free</span>
-  if (owned.has(itemId)) return <span className="text-[11px] font-bold text-emerald-300">owned</span>
+  if (itemId === null) return <span className="text-[11px] text-sheet-mute">free</span>
+  if (owned.has(itemId)) return <span className="text-[11px] font-bold text-leaf">owned</span>
   const item = findBikeItem(itemId)
   if (!item) return null
   return (
-    <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-amber-200">
+    <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-sheet-blue">
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${RARITY_DOT[item.rarity]}`} />
       {formatCoins(item.price)}
     </span>
@@ -58,7 +58,7 @@ function Option({
       aria-label={label}
       title={label}
       className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-center transition ${
-        selected ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5 hover:bg-white/10"
+        selected ? "border-flame bg-flame-soft" : "border-sheet-line bg-sheet-card hover:bg-sheet-soft"
       }`}
     >
       {children}
@@ -68,7 +68,7 @@ function Option({
 }
 
 function Swatch({ color }: { color: string }) {
-  return <span aria-hidden className="h-6 w-6 rounded-full border border-white/30" style={{ background: color }} />
+  return <span aria-hidden className="h-6 w-6 rounded-full border border-sheet-handle" style={{ background: color }} />
 }
 
 // Pick paint, seat cover, mudflap slogan, grips and extras. Every change shows
@@ -117,7 +117,7 @@ export function BikeCustomizer({
               owned={owned}
               label={seat.name}
             >
-              <span className="flex items-center gap-1.5 text-xs font-bold text-white">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-sheet-ink">
                 <Swatch color={seat.color} />
                 {seat.name}
               </span>
@@ -130,7 +130,7 @@ export function BikeCustomizer({
         <SectionLabel>Mudflap slogan</SectionLabel>
         <div className="grid grid-cols-2 gap-1.5">
           <Option selected={look.slogan === null} onClick={() => set({ slogan: null })} itemId={null} owned={owned} label="Plain flap">
-            <span className="text-xs font-bold text-slate-300">Plain</span>
+            <span className="text-xs font-bold text-sheet-mute">Plain</span>
           </Option>
           {MUDFLAP_SLOGANS.map((slogan, index) => (
             <Option
@@ -141,7 +141,7 @@ export function BikeCustomizer({
               owned={owned}
               label={slogan}
             >
-              <span className="text-xs font-black uppercase text-amber-200">{slogan}</span>
+              <span className="text-xs font-black uppercase text-sheet-blue">{slogan}</span>
             </Option>
           ))}
         </div>
@@ -183,7 +183,7 @@ export function BikeCustomizer({
               owned={owned}
               label={name}
             >
-              <span className="text-xs font-bold text-white">
+              <span className="text-xs font-bold text-sheet-ink">
                 <span aria-hidden>{icon}</span> {name}
               </span>
             </Option>
@@ -195,7 +195,7 @@ export function BikeCustomizer({
         <SectionLabel>Underglow</SectionLabel>
         <div className="grid grid-cols-5 gap-1.5">
           <Option selected={look.underglow === null} onClick={() => set({ underglow: null })} itemId={null} owned={owned} label="No underglow">
-            <span className="text-xs font-bold text-slate-300">Off</span>
+            <span className="text-xs font-bold text-sheet-mute">Off</span>
           </Option>
           {UNDERGLOW_COLORS.map((glow) => (
             <Option
@@ -211,7 +211,7 @@ export function BikeCustomizer({
           ))}
         </div>
       </div>
-      <p className="text-[11px] text-slate-400">
+      <p className="text-[11px] text-sheet-mute">
         Buy a part once and use it on any of your bikes. Looks only: parts never change speed or pay.
       </p>
     </div>

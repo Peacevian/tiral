@@ -36,26 +36,26 @@ export default async function PrizeRacePage({ params }: { params: Promise<{ code
   const payable = Math.floor(race.pot * (1 - PRIZE_CUT_SHARE))
   const open = race.status === "scheduled"
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-slate-950 px-5 py-10 text-center text-white">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-sheet px-5 py-10 text-center text-sheet-ink">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/share/race/${race.roomCode}`} alt="" width={1080} height={1920} className="w-full max-w-[340px] rounded-2xl border border-amber-300/30 shadow-2xl" />
+      <img src={`/api/share/race/${race.roomCode}`} alt="" width={1080} height={1920} className="w-full max-w-[340px] rounded-2xl border border-flame/30 shadow-2xl" />
       <div>
-        <h1 className="text-2xl font-black text-amber-300">{race.pot.toLocaleString("en-US")} BNG prize race</h1>
-        <p className="mt-1 text-sm text-slate-300">
-          Hosted by <span className="font-bold text-white">{race.host.name}</span> ·{" "}
+        <h1 className="text-2xl font-black text-flame-deep">{race.pot.toLocaleString("en-US")} BNG prize race</h1>
+        <p className="mt-1 text-sm text-sheet-mute">
+          Hosted by <span className="font-bold text-sheet-ink">{race.host.name}</span> ·{" "}
           {race.shares.map((share, index) => `${index + 1}. ${Math.floor((payable * share) / 100).toLocaleString("en-US")}`).join(" · ")}
         </p>
       </div>
       {open ? (
-        <Link href={`/play?join=${race.roomCode}`} className="min-h-[52px] rounded-2xl bg-amber-400 px-8 py-3.5 text-base font-black text-slate-950">
+        <Link href={`/play?join=${race.roomCode}`} className="min-h-[52px] rounded-2xl bg-flame px-8 py-3.5 text-base font-black text-white">
           Join the race →
         </Link>
       ) : (
-        <Link href="/play" className="min-h-[52px] rounded-2xl bg-amber-400 px-8 py-3.5 text-base font-black text-slate-950">
+        <Link href="/play" className="min-h-[52px] rounded-2xl bg-flame px-8 py-3.5 text-base font-black text-white">
           {race.status === "live" ? "It's racing now: play Tiral →" : "This race is over: play Tiral →"}
         </Link>
       )}
-      <p className="text-xs text-slate-400">Free to play in your browser. No install.</p>
+      <p className="text-xs text-sheet-mute">Free to play in your browser. No install.</p>
     </main>
   )
 }

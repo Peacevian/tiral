@@ -35,16 +35,16 @@ export default async function WinPage({ params }: { params: Promise<{ code: stri
   const found = await load(code, place)
   if (!found) notFound()
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-slate-950 px-5 py-10 text-center text-white">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-sheet px-5 py-10 text-center text-sheet-ink">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/share/win/${found.race.roomCode}/${found.won.place}`} alt="" width={1080} height={1920} className="w-full max-w-[340px] rounded-2xl border border-amber-300/30 shadow-2xl" />
-      <h1 className="text-2xl font-black text-amber-300">
+      <img src={`/api/share/win/${found.race.roomCode}/${found.won.place}`} alt="" width={1080} height={1920} className="w-full max-w-[340px] rounded-2xl border border-flame/30 shadow-2xl" />
+      <h1 className="text-2xl font-black text-flame-deep">
         {found.won.name} won {found.won.amount.toLocaleString("en-US")} BNG
       </h1>
-      <Link href="/play" className="min-h-[52px] rounded-2xl bg-amber-400 px-8 py-3.5 text-base font-black text-slate-950">
+      <Link href="/play" className="min-h-[52px] rounded-2xl bg-flame px-8 py-3.5 text-base font-black text-white">
         Race on Tiral →
       </Link>
-      <p className="text-xs text-slate-400">Free to play in your browser. No install.</p>
+      <p className="text-xs text-sheet-mute">Free to play in your browser. No install.</p>
     </main>
   )
 }

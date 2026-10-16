@@ -5,7 +5,7 @@ import { FOODS, findFood } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
 import { usePlayer } from "@/lib/player"
 import { useColyseusContext } from "@/components/ColyseusProvider"
-import { ActionButton, Card, SectionLabel, Skeleton, StatMeter } from "@/components/ui"
+import { ActionButton, Card, SectionLabel, Skeleton, StatMeter, useSurfaceTone } from "@/components/ui"
 
 export type FoodResult = { ok: boolean; text: string }
 
@@ -33,10 +33,13 @@ export function useFoodPurchase(onBought?: () => void) {
   return { buy, result }
 }
 
-export function FoodResultLine({ result }: { result: FoodResult | null }) {
+export function FoodResultLine({ result, tone }: { result: FoodResult | null; tone?: "dark" | "light" }) {
+  const surface = useSurfaceTone()
   if (!result) return null
+  tone ??= surface
+  const colour = tone === "light" ? (result.ok ? "text-leaf" : "text-flame-deep") : result.ok ? "text-emerald-300" : "text-rose-300"
   return (
-    <p role="status" className={`mt-2 text-xs font-bold ${result.ok ? "text-emerald-300" : "text-rose-300"}`}>
+    <p role="status" className={`mt-2 text-xs font-bold ${colour}`}>
       {result.text}
     </p>
   )
@@ -62,8 +65,8 @@ export function NeedsPanel() {
       <Card className="flex flex-col gap-2">
         <StatMeter label="Energy" icon="⚡" value={energy} color="#fbbf24" />
         <StatMeter label="Health" icon="❤" value={health} color="#f87171" />
-        {live && <p className="text-[11px] font-bold text-emerald-300">● Live from your current race</p>}
-        <p className="text-[11px] leading-snug text-slate-400">
+        {live && <p className="text-[11px] font-bold text-leaf">● Live from your current race</p>}
+        <p className="text-[11px] leading-snug text-sheet-mute">
           Energy fuels Sprint and refills on its own (full in about 4 hours). Sprinting on empty burns health, and at
           zero you collapse.
         </p>
@@ -72,13 +75,13 @@ export function NeedsPanel() {
       <ActionButton
         onClick={() => void setResting(!player.needs.resting)}
         disabled={busy !== null}
-        className={player.needs.resting ? "!bg-indigo-400 !text-slate-950" : "border border-indigo-300/50 !bg-transparent text-indigo-200"}
+        className={player.needs.resting ? "!bg-sheet-blue !text-white" : "border border-sheet-blue/40 !bg-sheet-card !text-sheet-blue"}
       >
         {player.needs.resting ? "😴 Sleeping. Tap to wake up" : "🛏 Sleep in your bed (heals faster)"}
       </ActionButton>
 
       <div>
-        <SectionLabel aside={<span className="font-mono text-amber-200">🪙 {formatCoins(player.balance)}</span>}>
+        <SectionLabel aside={<span className="font-mono text-sheet-blue">🪙 {formatCoins(player.balance)}</span>}>
           Street food
         </SectionLabel>
         <FoodGrid onBuy={buy} />
@@ -89,8 +92,10 @@ export function NeedsPanel() {
 }
 
 /** Street food buttons; `limit` shows only the cheapest few (hub quick-food). */
-export function FoodGrid({ onBuy, limit }: { onBuy(foodId: string): void; limit?: number }) {
+export function FoodGrid({ onBuy, limit, tone }: { onBuy(foodId: string): void; limit?: number; tone?: "dark" | "light" }) {
   const { player, busy } = usePlayer()
+  const surface = useSurfaceTone()
+  const light = (tone ?? surface) === "light"
   const foods = limit ? FOODS.slice(0, limit) : FOODS
   return (
     <ul className={`grid gap-1.5 ${limit === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
@@ -102,13 +107,15 @@ export function FoodGrid({ onBuy, limit }: { onBuy(foodId: string): void; limit?
               type="button"
               onClick={() => onBuy(food.id)}
               disabled={busy !== null || !affordable}
-              className="flex min-h-[44px] w-full flex-col items-start rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left transition hover:bg-white/10 disabled:opacity-40"
+              className={`flex min-h-[44px] w-full flex-col items-start rounded-xl border px-3 py-2 text-left transition disabled:opacity-40 ${
+                light ? "border-sheet-line bg-sheet-card hover:bg-sheet-soft" : "border-white/10 bg-white/5 hover:bg-white/10"
+              }`}
             >
-              <span className="text-sm font-black text-white">{food.name}</span>
-              <span className="text-[11px] text-slate-300">
+              <span className={`text-sm font-black ${light ? "text-sheet-ink" : "text-white"}`}>{food.name}</span>
+              <span className={`text-[11px] ${light ? "text-sheet-mute" : "text-slate-300"}`}>
                 +{food.energy} ⚡{food.health > 0 ? ` · +${food.health} ❤` : ""}
               </span>
-              <span className="mt-0.5 font-mono text-xs font-bold text-amber-200">
+              <span className={`mt-0.5 font-mono text-xs font-bold ${light ? "text-flame-deep" : "text-amber-200"}`}>
                 {busy === `food:${food.id}` ? "…" : `${formatCoins(food.price)} BNG`}
               </span>
             </button>

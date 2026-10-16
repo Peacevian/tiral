@@ -37,14 +37,37 @@ export function AdaptivePanel({
   children,
   peekHeight = 216,
   initial = "peek",
-  label
+  label,
+  tone = "light"
 }: {
   children: ReactNode
   /** Height of the collapsed sheet on phones (show the primary action). */
   peekHeight?: number
   initial?: PanelSnap
   label: string
+  /** "light" (default): sky and orange; "dark" is the old navy look. */
+  tone?: "dark" | "light"
 }) {
+  const light = tone === "light"
+  const look = light
+    ? {
+        shell: "border-sheet-line bg-sheet text-sheet-ink shadow-[0_-6px_24px_rgba(14,42,77,0.12)] md:shadow-[0_8px_32px_rgba(14,42,77,0.18)]",
+        handle: "bg-sheet-handle",
+        focus: "focus-visible:outline-flame",
+        header: "border-sheet-line",
+        title: "text-sheet-mute",
+        hide: "text-sheet-mute hover:bg-sheet-soft hover:text-sheet-ink",
+        show: "border-sheet-line bg-sheet text-sheet-ink hover:bg-sheet-soft"
+      }
+    : {
+        shell: "border-white/10 bg-slate-950/95 text-white shadow-2xl md:backdrop-blur-md",
+        handle: "bg-white/25",
+        focus: "focus-visible:outline-amber-300",
+        header: "border-white/10",
+        title: "text-slate-400",
+        hide: "text-slate-300 hover:bg-white/10 hover:text-white",
+        show: "border-white/10 bg-slate-950/90 text-white hover:bg-slate-900 md:backdrop-blur-md"
+      }
   const [snap, setSnap] = useState<PanelSnap>(initial)
   const [height, setHeight] = useState<number | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -123,7 +146,7 @@ export function AdaptivePanel({
     <>
     <section
       aria-label={label}
-      className={`fixed inset-x-0 bottom-[var(--shell-bottom)] z-30 flex flex-col overflow-hidden rounded-t-3xl border border-b-0 border-white/10 bg-slate-950/95 text-white shadow-2xl md:backdrop-blur-md md:bottom-2 md:left-auto md:right-2 md:top-[calc(var(--shell-top)+0.5rem)] md:w-[24rem] md:rounded-2xl md:border-b xl:w-[26rem] max-md:[height:var(--sheet-h)] ${
+      className={`fixed inset-x-0 bottom-[var(--shell-bottom)] z-30 flex flex-col overflow-hidden rounded-t-3xl border border-b-0 ${look.shell} md:bottom-2 md:left-auto md:right-2 md:top-[calc(var(--shell-top)+0.5rem)] md:w-[24rem] md:rounded-2xl md:border-b xl:w-[26rem] max-md:[height:var(--sheet-h)] ${
         sideOpen ? "" : "md:pointer-events-none md:invisible md:translate-x-[calc(100%+1rem)]"
       }`}
       style={
@@ -151,18 +174,18 @@ export function AdaptivePanel({
           if (event.key === "ArrowUp") setSnap(snap === "peek" ? "half" : "full")
           if (event.key === "ArrowDown") setSnap(snap === "full" ? "half" : "peek")
         }}
-        className="flex min-h-[44px] w-full shrink-0 touch-none items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-amber-300 md:hidden"
+        className={`flex min-h-[44px] w-full shrink-0 touch-none items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 ${look.focus} md:hidden`}
       >
-        <span aria-hidden className="h-1.5 w-10 rounded-full bg-white/25" />
+        <span aria-hidden className={`h-1.5 w-10 rounded-full ${look.handle}`} />
       </button>
-      <div className="hidden shrink-0 items-center justify-between border-b border-white/10 py-1.5 pl-4 pr-1.5 md:flex">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</span>
+      <div className={`hidden shrink-0 items-center justify-between border-b ${look.header} py-1.5 pl-4 pr-1.5 md:flex`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${look.title}`}>{label}</span>
         <button
           type="button"
           onClick={() => toggleSide(false)}
           aria-label={`Hide ${label}`}
           title="Hide panel"
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg px-2.5 text-xs font-bold text-slate-300 transition hover:bg-white/10 hover:text-white"
+          className={`inline-flex min-h-[36px] items-center gap-1 rounded-lg px-2.5 text-xs font-bold transition ${look.hide}`}
         >
           Hide <span aria-hidden>›</span>
         </button>
@@ -176,7 +199,7 @@ export function AdaptivePanel({
         type="button"
         onClick={() => toggleSide(true)}
         aria-label={`Show ${label}`}
-        className="fixed right-2 top-[calc(var(--shell-top)+0.5rem)] z-30 hidden min-h-[44px] items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-3 text-sm font-black text-white shadow-2xl md:backdrop-blur-md transition hover:bg-slate-900 md:inline-flex"
+        className={`fixed right-2 top-[calc(var(--shell-top)+0.5rem)] z-30 hidden min-h-[44px] items-center gap-1.5 rounded-xl border px-3 text-sm font-black shadow-2xl transition md:inline-flex ${look.show}`}
       >
         <span aria-hidden>‹</span> {label}
       </button>

@@ -19,16 +19,16 @@ export function PrizeBanner({ prize, counting }: { prize: PrizeSummary; counting
   }, [])
   const payable = Math.floor(prize.pot * (1 - PRIZE_CUT_SHARE))
   return (
-    <div className="mx-2.5 mt-1 rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-2 text-center">
-      <div className="text-sm font-black text-amber-100">
+    <div className="mx-2.5 mt-1 rounded-xl border border-flame/40 bg-flame-soft px-3 py-2 text-center">
+      <div className="text-sm font-black text-flame-deep">
         🏆 {formatCoins(prize.pot)} BNG prize · hosted by {prize.host}
       </div>
-      <div className="text-[11px] text-amber-100/90">
+      <div className="text-[11px] text-flame-deep">
         {prize.shares.map((share, index) => `${PLACE[index]} ${formatCoins(Math.floor((payable * share) / 100))}`).join(" · ")}
       </div>
-      {prize.message && <div className="truncate text-[11px] italic text-slate-200">“{prize.message}”</div>}
+      {prize.message && <div className="truncate text-[11px] italic text-sheet-ink">“{prize.message}”</div>}
       {!counting && (
-        <div className="mt-0.5 text-[11px] font-bold text-white">
+        <div className="mt-0.5 text-[11px] font-bold text-sheet-ink">
           Starts {startLabel(prize.startsAt)} · {untilLabel(prize.startsAt)}
         </div>
       )}
@@ -46,7 +46,7 @@ export function PrizeResultLines({ result, sessionId }: { result: PrizeResult; s
           ? "nobody reached the treasure"
           : "the race didn't count"
     return (
-      <p className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
+      <p className="mt-3 rounded-lg border border-sheet-line bg-sheet-card px-3 py-2 text-xs text-sheet-mute">
         🏆 No prize this time: {why}. {result.host}&apos;s pot went back to them.
       </p>
     )
@@ -58,9 +58,9 @@ function PrizePayouts({ result, sessionId }: { result: Extract<PrizeResult, { ki
   const [sharing, setSharing] = useState(false)
   const mine = result.payouts.find((payout) => payout.sessionId === sessionId)
   return (
-    <div className="mt-3 rounded-lg border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+    <div className="mt-3 rounded-lg border border-flame/30 bg-flame-soft px-3 py-2 text-xs text-flame-deep">
       {mine && (
-        <div className="mb-1 text-sm font-black text-amber-200">
+        <div className="mb-1 text-sm font-black text-sheet-blue">
           🏆 You won {formatCoins(mine.amount)} BNG from {result.host}&apos;s prize!
         </div>
       )}
@@ -68,7 +68,7 @@ function PrizePayouts({ result, sessionId }: { result: Extract<PrizeResult, { ki
         <button
           type="button"
           onClick={() => setSharing(true)}
-          className="mb-2 min-h-[44px] w-full rounded-xl bg-amber-400 px-3 text-sm font-black text-slate-950"
+          className="mb-2 min-h-[44px] w-full rounded-xl bg-flame px-3 text-sm font-black text-white"
         >
           Share your win
         </button>

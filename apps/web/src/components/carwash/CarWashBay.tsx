@@ -471,7 +471,7 @@ function Scene({
 
   return (
     <>
-      <hemisphereLight args={["#fff4d6", "#334155", 0.9]} />
+      <hemisphereLight args={["#fff4d6", "#9fb08a", 1.0]} />
       <directionalLight position={[5, 9, 6]} intensity={2.2} castShadow shadow-mapSize={[1024, 1024]} />
       <directionalLight position={[-6, 4, -3]} intensity={0.6} color="#bcd3ff" />
       <Bay />
@@ -518,8 +518,8 @@ export const CarWashBay = memo(function CarWashBay(props: {
         dpr={quality.dpr}
         style={{ touchAction: "none" }}
       >
-        <color attach="background" args={["#0f172a"]} />
-        <fog attach="fog" args={["#0f172a", 14, 26]} />
+        <color attach="background" args={["#CFE2F7"]} />
+        <fog attach="fog" args={["#DCE8F6", 14, 26]} />
         <Scene {...props} step={step} />
       </Canvas>
       {!props.showcase && (
@@ -528,7 +528,7 @@ export const CarWashBay = memo(function CarWashBay(props: {
           type="button"
           onClick={() => setStep((value) => value - 1)}
           aria-label="Walk left around the car"
-          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-slate-950/80 text-xl font-black text-white"
+          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full border border-sheet-line bg-sheet-card/95 text-xl font-black text-sheet-ink"
         >
           ↺
         </button>
@@ -536,7 +536,7 @@ export const CarWashBay = memo(function CarWashBay(props: {
           type="button"
           onClick={() => setStep((value) => value + 1)}
           aria-label="Walk right around the car"
-          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-slate-950/80 text-xl font-black text-white"
+          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full border border-sheet-line bg-sheet-card/95 text-xl font-black text-sheet-ink"
         >
           ↻
         </button>

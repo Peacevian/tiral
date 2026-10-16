@@ -59,10 +59,10 @@ function useTicker(ms: number) {
 const COOK_TOTAL = ROLEX_FLIP_WINDOW.end + 1.5
 
 const FLIP_TEXT = {
-  perfect: { text: "Perfect! +500 tip", tone: "text-emerald-300" },
-  good: { text: "Good rolex", tone: "text-emerald-200" },
-  raw: { text: "Too early: raw, half price", tone: "text-amber-300" },
-  burnt: { text: "Burnt! Ingredients wasted", tone: "text-rose-300" }
+  perfect: { text: "Perfect! +500 tip", tone: "text-leaf" },
+  good: { text: "Good rolex", tone: "text-leaf" },
+  raw: { text: "Too early: raw, half price", tone: "text-flame-deep" },
+  burnt: { text: "Burnt! Ingredients wasted", tone: "text-flame-deep" }
 } as const
 
 const OUTCOME_TEXT: Record<string, string> = {
@@ -84,7 +84,7 @@ function BackToBase() {
         if (connected) leaveRoom()
         router.push("/play")
       }}
-      className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-white/15 text-sm font-bold text-slate-200"
+      className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-sheet-line text-sm font-bold text-sheet-ink"
     >
       Back to base
     </button>
@@ -169,7 +169,7 @@ function startScene(gig: "rolex" | "carwash", loadout: AvatarLoadout): StageScen
   return gig === "carwash"
     ? {
         kind: "carwash",
-        backdrop: "bg-[radial-gradient(ellipse_at_70%_60%,#334155,#0f172a_70%)]",
+        backdrop: "bg-[radial-gradient(ellipse_at_70%_60%,#EEF4FB,#CFE2F7_70%)]",
         props: { showcase: true, carId: "showcase", carType: "saloon", zones: NO_CUSTOMERS, tool: "soap", loadout, onWash: noop }
       }
     : {
@@ -207,15 +207,15 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
           screens, a bottom sheet on phones. */}
       <AdaptivePanel label={info.name} initial="half" peekHeight={260}>
         <div className="flex flex-col pb-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-flame-deep">
             Hustle{gig === "carwash" ? " · Nakivubo washing bay" : ""}
           </div>
-          <h1 className="mt-1 text-2xl font-black text-white">
+          <h1 className="mt-1 text-2xl font-black text-sheet-ink">
             {info.icon} {info.name}
           </h1>
           {gig === "rolex" ? (
             <>
-              <p className="mt-1 text-sm leading-snug text-slate-300">
+              <p className="mt-1 text-sm leading-snug text-sheet-mute">
                 Buy ingredients, then cook rolexes to order: flip the egg at the right moment. Unsold stock spoils, and KCCA
                 raids stalls. 2 shifts a day.
               </p>
@@ -229,10 +229,10 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                     type="button"
                     onClick={() => setSpot(candidate.id)}
                     aria-pressed={spot === candidate.id}
-                    className={`min-w-0 rounded-xl border p-2 text-left text-xs ${spot === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
+                    className={`min-w-0 rounded-xl border p-2 text-left text-xs ${spot === candidate.id ? "border-flame bg-flame-soft" : "border-sheet-line bg-sheet-card"}`}
                   >
-                    <span className="block font-black text-white">{candidate.name}</span>
-                    <span className="block text-[11px] text-slate-400">
+                    <span className="block font-black text-sheet-ink">{candidate.name}</span>
+                    <span className="block text-[11px] text-sheet-mute">
                       {candidate.customersPerMinute >= 5 ? "busiest" : candidate.customersPerMinute >= 4 ? "busy" : "quieter"} · KCCA{" "}
                       {Math.round(candidate.raidChance * 100)}%
                     </span>
@@ -249,30 +249,30 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                     type="button"
                     onClick={() => setPack(candidate.id)}
                     aria-pressed={pack === candidate.id}
-                    className={`rounded-xl border p-2 text-left text-xs ${pack === candidate.id ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5"}`}
+                    className={`rounded-xl border p-2 text-left text-xs ${pack === candidate.id ? "border-flame bg-flame-soft" : "border-sheet-line bg-sheet-card"}`}
                   >
-                    <span className="block font-black text-white">{candidate.rolexes} rolexes</span>
-                    <span className="block font-mono text-amber-200">{formatCoins(candidate.price)} BNG</span>
+                    <span className="block font-black text-sheet-ink">{candidate.rolexes} rolexes</span>
+                    <span className="block font-mono text-sheet-blue">{formatCoins(candidate.price)} BNG</span>
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">Each rolex sells for 2,000 (+500 tip if perfect).</p>
+              <p className="mt-2 text-[11px] text-sheet-mute">Each rolex sells for 2,000 (+500 tip if perfect).</p>
             </>
           ) : (
             <>
-              <p className="mt-1 text-sm leading-snug text-slate-300">
+              <p className="mt-1 text-sm leading-snug text-sheet-mute">
                 Drivers pull in covered in Kampala mud. Wash every panel before they lose patience.
               </p>
               <ol className="mt-4 grid grid-cols-3 gap-1.5">
                 {TOOLS.map((entry, index) => (
-                  <li key={entry.id} className="flex flex-col items-center rounded-2xl border border-white/10 bg-white/5 px-1 py-2 text-center">
+                  <li key={entry.id} className="flex flex-col items-center rounded-2xl border border-sheet-line bg-sheet-card px-1 py-2 text-center">
                     <span aria-hidden className="text-xl">
                       {entry.icon}
                     </span>
-                    <span className="text-xs font-black text-white">
+                    <span className="text-xs font-black text-sheet-ink">
                       {index + 1}. {entry.label}
                     </span>
-                    <span className="text-[11px] leading-tight text-slate-400">{entry.hint}</span>
+                    <span className="text-[11px] leading-tight text-sheet-mute">{entry.hint}</span>
                   </li>
                 ))}
               </ol>
@@ -281,41 +281,41 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {CAR_TYPES.map((car) => (
-                  <div key={car.id} className="rounded-2xl border border-white/10 bg-white/5 p-2 text-center">
+                  <div key={car.id} className="rounded-2xl border border-sheet-line bg-sheet-card p-2 text-center">
                     <span aria-hidden className="block text-2xl">
                       {CAR_ICONS[car.id]}
                     </span>
-                    <span className="block text-xs font-black text-white">{car.id === "taxi" ? "Matatu" : car.id === "saloon" ? "Saloon" : car.name}</span>
-                    <span className="block font-mono text-sm font-black text-amber-200">{formatCoins(car.pay)}</span>
-                    <span className="block text-[11px] text-slate-400">
+                    <span className="block text-xs font-black text-sheet-ink">{car.id === "taxi" ? "Matatu" : car.id === "saloon" ? "Saloon" : car.name}</span>
+                    <span className="block font-mono text-sm font-black text-sheet-blue">{formatCoins(car.pay)}</span>
+                    <span className="block text-[11px] text-sheet-mute">
                       {car.zones} panels · {car.seconds / 60} min
                     </span>
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] leading-snug text-slate-400">
+              <p className="mt-2 text-[11px] leading-snug text-sheet-mute">
                 500 soap comes off each car. Under 70% clean, the driver won&apos;t pay. 4 paid cars a day.
               </p>
             </>
           )}
           {player && (
             <div className="mt-4 grid grid-cols-2 gap-1.5 text-xs">
-              <div className="rounded-xl bg-white/5 px-3 py-2">
-                <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">Balance</span>
-                <span className="font-mono font-black text-amber-200">{formatCoins(player.balance)}</span>
+              <div className="rounded-xl bg-sheet-card px-3 py-2">
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-sheet-mute">Balance</span>
+                <span className="font-mono font-black text-sheet-blue">{formatCoins(player.balance)}</span>
               </div>
-              <div className="rounded-xl bg-white/5 px-3 py-2">
-                <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">Energy</span>
+              <div className="rounded-xl bg-sheet-card px-3 py-2">
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-sheet-mute">Energy</span>
                 <span className="flex items-center gap-2">
-                  <span className="font-mono font-black text-white">{energy}</span>
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                  <span className="font-mono font-black text-sheet-ink">{energy}</span>
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-sheet-soft">
                     <span className={`block h-full rounded-full ${energy < 25 ? "bg-rose-400" : "bg-emerald-400"}`} style={{ width: `${energy}%` }} />
                   </span>
                 </span>
               </div>
             </div>
           )}
-          {error && <p className="mt-2 text-xs font-bold text-rose-300">{error}</p>}
+          {error && <p className="mt-2 text-xs font-bold text-flame-deep">{error}</p>}
           <div className="mt-4 flex gap-2">
             <BackToBase />
             <ActionButton
@@ -443,14 +443,14 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
     <>
       {/* Top: what to do next. */}
       <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+3.5rem)] mx-auto w-[min(94vw,40rem)] px-1">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 md:backdrop-blur-md">
+        <div className="rounded-2xl border border-sheet-line bg-sheet-card/95 p-3 md:backdrop-blur-md">
           <div className="flex items-center gap-2">
             <span aria-hidden className="text-2xl">
               {shownStep.icon}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-black text-white">{shownStep.label}</div>
-              <div className="text-[11px] text-slate-300">{hintText ?? (customers.length === 0 && step !== "flip" ? "Prep while you wait for customers" : shownStep.hint)}</div>
+              <div className="text-sm font-black text-sheet-ink">{shownStep.label}</div>
+              <div className="text-[11px] text-sheet-mute">{hintText ?? (customers.length === 0 && step !== "flip" ? "Prep while you wait for customers" : shownStep.hint)}</div>
             </div>
             {flipText && <span className={`text-right text-xs font-black ${flipText.tone}`}>{flipText.text}</span>}
           </div>
@@ -462,11 +462,11 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
               { done: prep.veg, label: "🍅🧅🥬" },
               { done: prep.whisked, label: "🥄" }
             ].map((item, index) => (
-              <span key={index} className={`rounded-full px-2 py-0.5 ${item.done ? "bg-emerald-400/20 text-emerald-200" : "bg-white/5 text-slate-400 grayscale"}`}>
+              <span key={index} className={`rounded-full px-2 py-0.5 ${item.done ? "bg-leaf-soft text-leaf" : "bg-sheet-card text-sheet-mute grayscale"}`}>
                 {item.label}
               </span>
             ))}
-            <span className="ml-auto text-slate-400">
+            <span className="ml-auto text-sheet-mute">
               {selected ? `Cooking for 🧑🏾 ${selected.served}/${selected.wants}` : customers.length ? `${customers.length} waiting` : "No customers yet"}
             </span>
           </div>
@@ -476,12 +476,12 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
       <div className="absolute inset-x-0 bottom-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto flex w-[min(100%,40rem)] flex-col gap-2">
           {state.cooking && (
-            <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-2 md:backdrop-blur-md">
-              <div className="relative h-4 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="rounded-2xl border border-sheet-line bg-sheet-card/95 p-2 md:backdrop-blur-md">
+              <div className="relative h-4 w-full overflow-hidden rounded-full bg-sheet-soft">
                 <span className="absolute inset-y-0 bg-emerald-400/40" style={{ left: `${windowStart * 100}%`, width: `${(windowEnd - windowStart) * 100}%` }} />
                 <span className="absolute inset-y-0 left-0 bg-amber-300/80" style={{ width: `${progress * 100}%` }} />
               </div>
-              <p className="mt-1 text-center text-[11px] text-slate-300">Flip when the bar is in the green and the egg is golden.</p>
+              <p className="mt-1 text-center text-[11px] text-sheet-mute">Flip when the bar is in the green and the egg is golden.</p>
             </div>
           )}
           {/* The queue as buttons too: picking a customer shouldn't need a precise 3D tap. */}
@@ -497,14 +497,14 @@ function RolexStand({ state, now, send }: { state: StallState; now: number; send
                     onClick={() => pick(customer.id)}
                     aria-pressed={chosen}
                     className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold ${
-                      chosen ? "border-amber-300 bg-amber-300/20 text-amber-100" : "border-white/15 bg-slate-950/85 text-white"
+                      chosen ? "border-flame bg-flame-soft text-flame-deep" : "border-sheet-line bg-sheet-card/95 text-sheet-ink"
                     }`}
                   >
                     <span aria-hidden>🧑🏾</span>
                     <span>
                       Customer {index + 1}: {customer.served}/{customer.wants}
                     </span>
-                    <span className={secondsLeft <= 10 ? "text-rose-300" : "text-slate-400"}>{secondsLeft}s</span>
+                    <span className={secondsLeft <= 10 ? "text-flame-deep" : "text-sheet-mute"}>{secondsLeft}s</span>
                   </button>
                 )
               })}
@@ -564,33 +564,33 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
       {/* Top: the car, the clock and how clean it is. */}
       <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+3.5rem)] mx-auto w-[min(94vw,40rem)] px-1">
         {car && type ? (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 md:backdrop-blur-md">
+          <div className="rounded-2xl border border-sheet-line bg-sheet-card/95 p-3 md:backdrop-blur-md">
             <div className="flex items-baseline justify-between">
-              <span className="text-sm font-black text-white">
+              <span className="text-sm font-black text-sheet-ink">
                 {car.type === "taxi" ? "🚐" : car.type === "suv" ? "🚙" : "🚗"} {type.name}
               </span>
-              <span className="font-mono text-sm font-black text-amber-200">{formatCoins(type.pay)}</span>
+              <span className="font-mono text-sm font-black text-sheet-blue">{formatCoins(type.pay)}</span>
             </div>
-            <div className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            <div className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 text-[11px] font-bold uppercase tracking-wide text-sheet-mute">
               <span>
-                Time <span className="font-mono normal-case text-slate-200">{Math.floor(left / 60_000)}:{String(Math.floor((left % 60_000) / 1000)).padStart(2, "0")}</span>
+                Time <span className="font-mono normal-case text-sheet-ink">{Math.floor(left / 60_000)}:{String(Math.floor((left % 60_000) / 1000)).padStart(2, "0")}</span>
               </span>
-              <span className="h-2 overflow-hidden rounded-full bg-white/10">
+              <span className="h-2 overflow-hidden rounded-full bg-sheet-soft">
                 <span className="block h-full rounded-full" style={{ width: `${(left / (type.seconds * 1000)) * 100}%`, background: left < 15_000 ? "#f43f5e" : "#38bdf8" }} />
               </span>
               <span>Clean</span>
-              <span className="h-2 overflow-hidden rounded-full bg-white/10">
+              <span className="h-2 overflow-hidden rounded-full bg-sheet-soft">
                 <span className="block h-full rounded-full bg-emerald-400 transition-[width]" style={{ width: `${share * 100}%` }} />
               </span>
             </div>
-            <p className="mt-1 text-[11px] text-slate-300">
+            <p className="mt-1 text-[11px] text-sheet-mute">
               {clean}/{car.zones.length} parts clean · soap it, scrub the mud off, then rinse
             </p>
             {focused && focus !== null && <PanelStatus label={labels[focus] ?? "Panel"} zone={focused} />}
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/85 p-3 text-center text-sm text-slate-300 md:backdrop-blur-md">
-            🚿 Bay is empty. Next car coming… <span className="block text-[11px] text-slate-400">{state.carsDone} washed this shift</span>
+          <div className="rounded-2xl border border-sheet-line bg-sheet-card/95 p-3 text-center text-sm text-sheet-mute md:backdrop-blur-md">
+            🚿 Bay is empty. Next car coming… <span className="block text-[11px] text-sheet-mute">{state.carsDone} washed this shift</span>
           </div>
         )}
       </div>
@@ -605,7 +605,7 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
               aria-pressed={tool === entry.id}
               title={entry.hint}
               className={`flex min-h-[64px] flex-1 flex-col items-center justify-center rounded-2xl border text-xs font-black transition ${
-                tool === entry.id ? "border-amber-300 bg-amber-400 text-slate-950" : "border-white/15 bg-slate-950/85 text-white"
+                tool === entry.id ? "border-flame bg-flame text-white" : "border-sheet-line bg-sheet-card/95 text-sheet-ink"
               }`}
             >
               <span aria-hidden className="text-xl">
@@ -616,8 +616,8 @@ function CarWash({ state, now, send }: { state: StallState; now: number; send(ty
           ))}
           {/* Below the pay line the driver won't pay: make sure that's meant. */}
           <ConfirmButton
-            className={`${actionButtonClass("primary")} flex-[1.4] text-xs`}
-            armedClassName="!bg-rose-500 !text-white"
+            className={`${actionButtonClass("flame")} flex-[1.4] text-xs`}
+            armedClassName="!bg-flame-deep !text-white"
             disabled={!car}
             confirm={!!car && car.zones.filter((zone) => zone.clean).length / car.zones.length < CAR_MIN_CLEAN_SHARE}
             confirmLabel={`Under ${Math.round(CAR_MIN_CLEAN_SHARE * 100)}% clean: no pay. Tap again`}
@@ -643,13 +643,13 @@ function PanelStatus({ label, zone }: { label: string; zone: { soap: number; dir
         : "🧴 Soap it first"
       : "💦 Rinse the foam off"
   return (
-    <div className="mt-2 flex items-center gap-2 rounded-xl bg-white/5 px-2 py-1.5 text-[11px]">
-      <span className="font-black text-white">{label}</span>
-      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10">
+    <div className="mt-2 flex items-center gap-2 rounded-xl bg-sheet-card px-2 py-1.5 text-[11px]">
+      <span className="font-black text-sheet-ink">{label}</span>
+      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-sheet-soft">
         <span className="block h-full rounded-full bg-amber-700 transition-[width]" style={{ width: `${zone.clean ? 0 : mud}%` }} />
       </span>
-      <span className="text-slate-400">{zone.clean ? "no mud" : `mud ${mud}%`}</span>
-      <span className={`ml-auto font-bold ${zone.clean ? "text-emerald-300" : "text-amber-200"}`}>{next}</span>
+      <span className="text-sheet-mute">{zone.clean ? "no mud" : `mud ${mud}%`}</span>
+      <span className={`ml-auto font-bold ${zone.clean ? "text-leaf" : "text-sheet-blue"}`}>{next}</span>
     </div>
   )
 }
@@ -659,37 +659,37 @@ function Summary({ state, onAgain }: { state: StallState; onAgain(): void }) {
   const profit = summary.earned - summary.spent - summary.fined
   return (
     <Card className="mx-auto w-full max-w-md">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">Shift over</div>
-      <div className="mt-1 text-lg font-black text-white">{OUTCOME_TEXT[summary.outcome] ?? "Shift over."}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-flame-deep">Shift over</div>
+      <div className="mt-1 text-lg font-black text-sheet-ink">{OUTCOME_TEXT[summary.outcome] ?? "Shift over."}</div>
       <dl className="mt-3 flex flex-col gap-1 font-mono text-sm">
-        <div className="flex justify-between text-slate-300">
+        <div className="flex justify-between text-sheet-mute">
           <dt>
             Earned ({summary.served} {state.stall === "rolex" ? "customer" : "car"}
             {summary.served === 1 ? "" : "s"})
           </dt>
-          <dd className="text-emerald-300">+{formatCoins(summary.earned)}</dd>
+          <dd className="text-leaf">+{formatCoins(summary.earned)}</dd>
         </div>
         {summary.spent > 0 && (
-          <div className="flex justify-between text-slate-300">
+          <div className="flex justify-between text-sheet-mute">
             <dt>Stock</dt>
-            <dd className="text-rose-300">−{formatCoins(summary.spent)}</dd>
+            <dd className="text-flame-deep">−{formatCoins(summary.spent)}</dd>
           </div>
         )}
         {summary.fined > 0 && (
-          <div className="flex justify-between text-slate-300">
+          <div className="flex justify-between text-sheet-mute">
             <dt>KCCA fine</dt>
-            <dd className="text-rose-300">−{formatCoins(summary.fined)}</dd>
+            <dd className="text-flame-deep">−{formatCoins(summary.fined)}</dd>
           </div>
         )}
         {summary.spoiled > 0 && (
-          <div className="flex justify-between text-slate-400">
+          <div className="flex justify-between text-sheet-mute">
             <dt>Spoiled</dt>
             <dd>{summary.spoiled} rolex{summary.spoiled === 1 ? "" : "es"} of stock</dd>
           </div>
         )}
-        <div className="mt-1 flex justify-between border-t border-white/10 pt-1 font-black">
-          <dt className="text-white">{profit >= 0 ? "Profit" : "Loss"}</dt>
-          <dd className={profit >= 0 ? "text-amber-200" : "text-rose-300"}>
+        <div className="mt-1 flex justify-between border-t border-sheet-line pt-1 font-black">
+          <dt className="text-sheet-ink">{profit >= 0 ? "Profit" : "Loss"}</dt>
+          <dd className={profit >= 0 ? "text-sheet-blue" : "text-flame-deep"}>
             {profit >= 0 ? "+" : "−"}
             {formatCoins(Math.abs(profit))}
           </dd>
@@ -759,7 +759,7 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
 
   return (
     <StageContext.Provider value={stage}>
-      <main className="tiral-game relative min-h-dvh w-screen overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 text-white">
+      <main className="tiral-game relative min-h-dvh w-screen overflow-y-auto bg-gradient-to-b from-sheet-soft to-[#EEF4FB] text-sheet-ink">
         {/* Kept across the start card and the shift (not the summary). */}
         {(starting || stall?.phase !== "closed") && <StallStage store={stageStore} onHost={setStageHost} />}
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -779,13 +779,13 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
             </div>
           ) : (
             <>
-              <div className="relative z-20 flex min-h-[48px] items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/85 py-1 pl-3 pr-1">
+              <div className="relative z-20 flex min-h-[48px] items-center gap-2 rounded-2xl border border-sheet-line bg-sheet-card/95 py-1 pl-3 pr-1">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-black">
                     {info.icon} {info.name}
                     {spot && stall.stall === "rolex" ? ` · ${spot.name}` : ""}
                   </div>
-                  <div className="truncate font-mono text-[11px] text-cyan-300">
+                  <div className="truncate font-mono text-[11px] text-sheet-blue">
                     {stall.stall === "rolex" ? `${stall.stock} rolexes of stock left · ` : `${stall.carsDone} cars · `}+
                     {formatCoins(stall.summary.earned)} BNG
                   </div>
@@ -793,8 +793,8 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
                 <ConfirmButton
                   onConfirm={() => sendStall("close")}
                   confirmLabel={stall.stall === "rolex" ? "Tap again to close" : "Tap again to end"}
-                  className="inline-flex min-h-[44px] items-center rounded-xl border border-rose-300/30 px-3 text-xs font-bold text-rose-200"
-                  armedClassName="!border-rose-400 !bg-rose-500 !text-white"
+                  className="inline-flex min-h-[44px] items-center rounded-xl border border-flame-deep/30 px-3 text-xs font-bold text-flame-deep"
+                  armedClassName="!border-rose-400 !bg-flame-deep !text-white"
                 >
                   {stall.stall === "rolex" ? "Close stall" : "End shift"}
                 </ConfirmButton>
@@ -804,32 +804,32 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
           )}
 
           {toast && stall?.phase !== "closed" && (
-            <div role="status" className="pointer-events-none fixed inset-x-0 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+9.5rem)] z-50 mx-auto w-[min(90vw,340px)] rounded-2xl border border-white/15 bg-slate-950/95 px-4 py-3 text-center text-sm font-bold shadow-2xl">
+            <div role="status" className="pointer-events-none fixed inset-x-0 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+9.5rem)] z-50 mx-auto w-[min(90vw,340px)] rounded-2xl border border-sheet-line bg-sheet px-4 py-3 text-center text-sm font-bold shadow-2xl">
               {toast.kind === "sale" ? (
-                <span className="text-emerald-300">
+                <span className="text-leaf">
                   +{formatCoins(toast.amount)} BNG · {toast.rolexes} rolex{toast.rolexes === 1 ? "" : "es"} sold
                 </span>
               ) : toast.kind === "customer_left" ? (
-                <span className="text-rose-300">A customer got tired of waiting and left.</span>
+                <span className="text-flame-deep">A customer got tired of waiting and left.</span>
               ) : toast.kind === "car_done" ? (
                 toast.paid ? (
-                  <span className="text-emerald-300">
+                  <span className="text-leaf">
                     +{formatCoins(toast.net)} BNG
-                    <span className="block text-[11px] font-normal text-slate-300">
+                    <span className="block text-[11px] font-normal text-sheet-mute">
                       {formatCoins(toast.pay)} wash{toast.tip ? ` + ${formatCoins(toast.tip)} tip` : ""} − {formatCoins(toast.soap)} soap
                     </span>
                   </span>
                 ) : toast.limit ? (
-                  <span className="text-amber-300">That&apos;s 4 cars today: no more paid washes until tomorrow.</span>
+                  <span className="text-flame-deep">That&apos;s 4 cars today: no more paid washes until tomorrow.</span>
                 ) : toast.unpaid === "guest" ? (
-                  <span className="text-amber-300">Sign in to get paid for washes.</span>
+                  <span className="text-flame-deep">Sign in to get paid for washes.</span>
                 ) : toast.unpaid === "error" ? (
-                  <span className="text-rose-300">The driver was happy, but the payment didn&apos;t go through. Try the next car.</span>
+                  <span className="text-flame-deep">The driver was happy, but the payment didn&apos;t go through. Try the next car.</span>
                 ) : (
-                  <span className="text-rose-300">Only {Math.round(toast.cleanShare * 100)}% clean: the driver refused to pay.</span>
+                  <span className="text-flame-deep">Only {Math.round(toast.cleanShare * 100)}% clean: the driver refused to pay.</span>
                 )
               ) : (
-                <span className="text-amber-200">{toast.text}</span>
+                <span className="text-sheet-blue">{toast.text}</span>
               )}
             </div>
           )}
@@ -839,12 +839,12 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
           <Modal
             alert
             labelledBy="kcca-title"
-            backdropClassName="fixed inset-0 z-50 grid place-items-center bg-rose-950/85 p-6 text-center"
+            backdropClassName="fixed inset-0 z-50 grid place-items-center bg-flame-soft p-6 text-center"
             className=""
           >
             <div aria-hidden className="text-5xl">🚨</div>
             <div id="kcca-title" className="mt-2 text-3xl font-black">KCCA! Pack up!</div>
-            <p className="mt-1 text-sm text-rose-100">
+            <p className="mt-1 text-sm text-flame-deep">
               Run now or lose your stall and pay a fine. {Math.ceil(Math.max(0, (stall.raidInMs ?? 0) - (now - stall.receivedAt)) / 1000)}s
             </p>
             <ActionButton variant="primary" size="lg" className="mt-5 w-56" onClick={() => sendStall("run")}>

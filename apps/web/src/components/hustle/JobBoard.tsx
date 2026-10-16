@@ -49,30 +49,30 @@ function OfferCard({
 }) {
   const tooTired = energy < offer.energy
   return (
-    <li className="rounded-xl border border-white/10 bg-white/5 p-3">
+    <li className="rounded-xl border border-sheet-line bg-sheet-card p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-sm font-black text-white">
+          <div className="text-sm font-black text-sheet-ink">
             {offerTitle(offer)}
             {offer.kind === "porter" && offer.heavy && (
-              <span className="ml-1.5 rounded bg-rose-400/20 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-rose-200">
+              <span className="ml-1.5 rounded bg-flame-soft px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-flame-deep">
                 heavy
               </span>
             )}
             {offer.kind === "boda" && offer.rush && (
-              <span className="ml-1.5 rounded bg-amber-400/20 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-amber-200">
+              <span className="ml-1.5 rounded bg-flame-soft px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-flame-deep">
                 rush ×1.5
               </span>
             )}
           </div>
-          <div className="mt-0.5 text-xs leading-snug text-slate-300">
-            {spotName(offer.pickupId)} <span className="text-slate-400">→</span> {spotName(offer.dropoffId)}
+          <div className="mt-0.5 text-xs leading-snug text-sheet-mute">
+            {spotName(offer.pickupId)} <span className="text-sheet-mute">→</span> {spotName(offer.dropoffId)}
           </div>
         </div>
-        <div className="shrink-0 text-right font-mono text-base font-black text-amber-200">+{formatCoins(offerPay(offer))}</div>
+        <div className="shrink-0 text-right font-mono text-base font-black text-sheet-blue">+{formatCoins(offerPay(offer))}</div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-400">
+        <span className="text-[11px] text-sheet-mute">
           {offer.meters >= 1000 ? `${(offer.meters / 1000).toFixed(1)} km` : `${offer.meters} m`} · ⚡{Math.round(offer.energy)}
           {offer.kind === "porter" ? ` · ${clock(offer.timeLimitSeconds * 1000)} to deliver` : " · fuel extra"} · gone in{" "}
           {clock(offer.expiresAt - now)}
@@ -108,38 +108,38 @@ function JobCard({
       ? Math.max(0, Math.min(1, (job.deadline - now) / (bodaGiveUpSeconds(offer.meters, patienceFactor) * 1000)))
       : null
   return (
-    <div className={`rounded-2xl border p-3 ${carrying ? "border-emerald-300/40 bg-emerald-400/10" : "border-amber-300/40 bg-amber-300/10"}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">
+    <div className={`rounded-2xl border p-3 ${carrying ? "border-leaf/40 bg-leaf-soft" : "border-flame/40 bg-flame-soft"}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sheet-mute">
         {carrying ? (boda ? "Riding" : "Carrying") : boda ? "Go to the stage" : "Go to the pickup"}
       </div>
       <div className="mt-1 text-base font-black">{offerTitle(offer)}</div>
-      <div className="mt-1 text-sm text-slate-200">
+      <div className="mt-1 text-sm text-sheet-ink">
         {carrying ? (boda ? "Drop them at " : "Deliver to ") : boda ? "Pick up at " : "Collect at "}
-        <span className="font-bold text-white">{spotName(carrying ? offer.dropoffId : offer.pickupId)}</span>
+        <span className="font-bold text-sheet-ink">{spotName(carrying ? offer.dropoffId : offer.pickupId)}</span>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl bg-black/20 py-2">
+        <div className="rounded-xl bg-sheet-soft py-2">
           <div className="font-mono text-lg font-black">{distanceToTarget === null ? "…" : `${distanceToTarget}m`}</div>
-          <div className="text-[11px] uppercase tracking-wide text-slate-400">away</div>
+          <div className="text-[11px] uppercase tracking-wide text-sheet-mute">away</div>
         </div>
-        <div className="rounded-xl bg-black/20 py-2">
-          <div className={`font-mono text-lg font-black ${job.deadline - now < 15_000 ? "text-rose-300" : ""}`}>{clock(job.deadline - now)}</div>
-          <div className="text-[11px] uppercase tracking-wide text-slate-400">{boda && carrying ? "patience" : "left"}</div>
+        <div className="rounded-xl bg-sheet-soft py-2">
+          <div className={`font-mono text-lg font-black ${job.deadline - now < 15_000 ? "text-flame-deep" : ""}`}>{clock(job.deadline - now)}</div>
+          <div className="text-[11px] uppercase tracking-wide text-sheet-mute">{boda && carrying ? "patience" : "left"}</div>
         </div>
-        <div className="rounded-xl bg-black/20 py-2">
-          <div className="font-mono text-lg font-black text-amber-200">{formatCoins(offerPay(offer))}</div>
-          <div className="text-[11px] uppercase tracking-wide text-slate-400">{boda ? "fare" : "pay"}</div>
+        <div className="rounded-xl bg-sheet-soft py-2">
+          <div className="font-mono text-lg font-black text-sheet-blue">{formatCoins(offerPay(offer))}</div>
+          <div className="text-[11px] uppercase tracking-wide text-sheet-mute">{boda ? "fare" : "pay"}</div>
         </div>
       </div>
       {patience !== null && (
         <div className="mt-2">
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="h-2 overflow-hidden rounded-full bg-sheet-soft">
             <div
               className="h-full rounded-full transition-[width] duration-500"
               style={{ width: `${patience * 100}%`, background: fullFareLeft !== null && fullFareLeft > 0 ? "#34d399" : "#f59e0b" }}
             />
           </div>
-          <p className="mt-1 text-[11px] text-slate-300">
+          <p className="mt-1 text-[11px] text-sheet-mute">
             {fullFareLeft !== null && fullFareLeft > 0
               ? `Full fare for ${clock(fullFareLeft)} more. Quick rides get tipped.`
               : "Running late: half fare now. Don't let them give up."}
@@ -147,11 +147,11 @@ function JobCard({
         </div>
       )}
       {carrying && offer.kind === "porter" && offer.heavy && (
-        <p className="mt-2 text-[11px] text-slate-300">Heavy load: sprinting drains energy much faster.</p>
+        <p className="mt-2 text-[11px] text-sheet-mute">Heavy load: sprinting drains energy much faster.</p>
       )}
       <ConfirmButton
-        className={`${actionButtonClass("danger")} mt-3 w-full text-xs`}
-        armedClassName="!bg-rose-500 !text-white"
+        className={`${actionButtonClass("sheet-danger")} mt-3 w-full text-xs`}
+        armedClassName="!bg-flame-deep !text-white"
         confirmLabel="Tap again: no pay, and it stresses you"
         onConfirm={onAbandon}
       >
@@ -190,19 +190,19 @@ export function JobBoard({
   return (
     <section
       aria-label="Jobs"
-      className={`fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] flex-col overflow-hidden rounded-t-3xl border border-b-0 border-white/10 bg-slate-950/95 text-white shadow-2xl md:backdrop-blur-md md:bottom-2 md:left-auto md:right-2 md:top-2 md:flex md:max-h-none md:w-[24rem] md:rounded-2xl md:border-b ${
+      className={`fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] flex-col overflow-hidden rounded-t-3xl border border-b-0 border-sheet-line bg-sheet text-sheet-ink shadow-2xl md:backdrop-blur-md md:bottom-2 md:left-auto md:right-2 md:top-2 md:flex md:max-h-none md:w-[24rem] md:rounded-2xl md:border-b ${
         openOnPhone ? "flex" : "hidden"
       }`}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-2.5">
+      <div className="flex shrink-0 items-center justify-between border-b border-sheet-line px-4 py-2.5">
         <div className="min-w-0">
           <div className="text-sm font-black">
             {hustle?.icon} {hustle?.name ?? "Hustle"}
-            {boda?.rush && <span className="ml-1.5 text-[11px] font-bold text-amber-300">· rush hour</span>}
+            {boda?.rush && <span className="ml-1.5 text-[11px] font-bold text-flame-deep">· rush hour</span>}
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-sheet-mute">
             This shift: {state.shift.jobs} job{state.shift.jobs === 1 ? "" : "s"} ·{" "}
-            <span className="font-mono font-bold text-amber-200">{formatCoins(state.shift.earned)} BNG</span>
+            <span className="font-mono font-bold text-sheet-blue">{formatCoins(state.shift.earned)} BNG</span>
             {state.shift.failed > 0 ? ` · ${state.shift.failed} failed` : ""}
           </div>
         </div>
@@ -210,22 +210,22 @@ export function JobBoard({
           type="button"
           onClick={onClosePhone}
           aria-label="Close jobs"
-          className="min-h-[44px] min-w-[44px] rounded-lg text-lg font-black text-slate-300 md:hidden"
+          className="min-h-[44px] min-w-[44px] rounded-lg text-lg font-black text-sheet-mute md:hidden"
         >
           ✕
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {boda && (
-          <div className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
-            <span className="text-slate-300">
+          <div className="mb-3 flex items-center justify-between rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-[11px]">
+            <span className="text-sheet-mute">
               {boda.bike.own
                 ? `🛵 Your ${boda.bike.name} · wear ${boda.bike.wear}%`
                 : boda.bikeReady
                   ? "🛵 Stage bike, rented for today"
                   : `🛵 Stage bike: ${formatCoins(boda.rent)} rent with your first ride`}
             </span>
-            <span className="font-mono text-slate-400">
+            <span className="font-mono text-sheet-mute">
               {boda.bike.look.model === "zemboE" ? "battery" : "fuel"} {formatCoins(boda.fuel)}
             </span>
           </div>
@@ -245,7 +245,7 @@ export function JobBoard({
                 <OfferCard key={offer.id} offer={offer} now={now} energy={energy} onAccept={() => onAccept(offer.id)} />
               ))}
             </ul>
-            <p className="mt-3 text-[11px] leading-snug text-slate-400">
+            <p className="mt-3 text-[11px] leading-snug text-sheet-mute">
               {boda
                 ? "Ride to the stage, pick your passenger up, and drop them before they lose patience. Quick rides get tipped; fuel comes off each fare."
                 : "Walk to the shop to collect the load, then carry it to the drop-off before time runs out. Dropped or late jobs pay nothing and stress you out. Low on energy? Eat or sleep at Home."}

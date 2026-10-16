@@ -543,7 +543,7 @@ function PatienceBar({ leavesInMs, received }: { leavesInMs: number; received: n
   }, [])
   const left = Math.max(0, leavesInMs - (now - received))
   return (
-    <span className="block h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+    <span className="block h-1.5 w-full overflow-hidden rounded-full bg-sheet-line">
       <span
         className="block h-full rounded-full"
         style={{ width: `${(left / (ROLEX_PATIENCE_SECONDS * 1000)) * 100}%`, background: left < 12_000 ? "#f43f5e" : "#34d399" }}
@@ -609,8 +609,8 @@ const Customer = memo(function Customer({
           <button
             type="button"
             onClick={() => onPick(customer.id)}
-            className={`flex w-[74px] flex-col items-center gap-1 rounded-xl border px-1.5 py-1 text-[11px] font-black text-white shadow-lg ${
-              selected ? "border-amber-300 bg-amber-500/90 text-slate-950" : cooking ? "border-orange-300 bg-orange-600/90" : "border-white/20 bg-slate-950/85"
+            className={`flex w-[74px] flex-col items-center gap-1 rounded-xl border px-1.5 py-1 text-[11px] font-black text-sheet-ink shadow-lg ${
+              selected ? "border-flame bg-amber-500/90 text-sheet-ink" : cooking ? "border-orange-300 bg-orange-600/90" : "border-sheet-line bg-sheet-card/95"
             }`}
           >
             <span>

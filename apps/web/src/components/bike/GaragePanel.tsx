@@ -48,7 +48,7 @@ function Stats({ stats }: { stats: BikeStats }) {
     <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
       {STAT_LABELS.map((stat) => (
         <div key={stat.key}>
-          <div className="flex justify-between text-[11px] font-bold uppercase tracking-wide text-slate-400">
+          <div className="flex justify-between text-[11px] font-bold uppercase tracking-wide text-sheet-mute">
             <span>{stat.label}</span>
             <span>{stats[stat.key]}/5</span>
           </div>
@@ -81,17 +81,17 @@ function Row({
         onClick={onClick}
         aria-pressed={selected}
         className={`flex min-h-[52px] w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition ${
-          selected ? "border-amber-300/70 bg-amber-300/10" : "border-white/10 bg-white/5 hover:bg-white/10"
+          selected ? "border-flame bg-flame-soft" : "border-sheet-line bg-sheet-card hover:bg-sheet-soft"
         }`}
       >
         <span className="min-w-0">
-          <span className="block truncate text-sm font-black text-white">
+          <span className="block truncate text-sm font-black text-sheet-ink">
             {title}
-            {tag && <span className="ml-1.5 rounded bg-emerald-400/20 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-emerald-200">{tag}</span>}
+            {tag && <span className="ml-1.5 rounded bg-leaf-soft px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-leaf">{tag}</span>}
           </span>
-          <span className="block truncate text-[11px] text-slate-400">{detail}</span>
+          <span className="block truncate text-[11px] text-sheet-mute">{detail}</span>
         </span>
-        {right && <span className="shrink-0 font-mono text-xs font-black text-amber-200">{right}</span>}
+        {right && <span className="shrink-0 font-mono text-xs font-black text-sheet-blue">{right}</span>}
       </button>
     </li>
   )
@@ -191,8 +191,8 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
     return (
       <div className="flex min-h-full flex-col gap-4">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-black text-white">Customising your {bike?.name}</span>
-          <span className="font-mono text-[11px] text-amber-200">🪙 {formatCoins(balance)}</span>
+          <span className="text-sm font-black text-sheet-ink">Customising your {bike?.name}</span>
+          <span className="font-mono text-[11px] text-sheet-blue">🪙 {formatCoins(balance)}</span>
         </div>
         <BikeCustomizer
           look={customizing.draft}
@@ -202,12 +202,12 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
             setConfirm(null)
           }}
         />
-        <div className="sticky bottom-[-0.75rem] -mx-3 -mb-3 mt-auto border-t border-white/10 bg-slate-950 px-3 pb-3 pt-3 md:bottom-[-1rem] md:-mb-4 md:pb-4">
+        <div className="sticky bottom-[-0.75rem] -mx-3 -mb-3 mt-auto border-t border-sheet-line bg-sheet px-3 pb-3 pt-3 md:bottom-[-1rem] md:-mb-4 md:pb-4">
           <div className="mb-2 flex items-baseline justify-between text-xs">
-            <span className="text-slate-300">
+            <span className="text-sheet-mute">
               {cost.items.length === 0 ? "Nothing new to buy" : `${cost.items.length} new part${cost.items.length === 1 ? "" : "s"}`}
             </span>
-            <span className={`font-mono font-black ${balance < cost.total ? "text-rose-300" : "text-amber-200"}`}>
+            <span className={`font-mono font-black ${balance < cost.total ? "text-flame-deep" : "text-sheet-blue"}`}>
               {formatCoins(cost.total)} BNG
             </span>
           </div>
@@ -236,7 +236,7 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
                     : `Apply · ${formatCoins(cost.total)}`}
             </ActionButton>
           </div>
-          {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
+          {notice && <p className="mt-2 text-xs font-bold text-flame-deep">{notice}</p>}
         </div>
       </div>
     )
@@ -272,7 +272,7 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
       </div>
 
       <div>
-        <SectionLabel aside={<span className="font-mono text-amber-200">🪙 {formatCoins(balance)}</span>}>Showroom</SectionLabel>
+        <SectionLabel aside={<span className="font-mono text-sheet-blue">🪙 {formatCoins(balance)}</span>}>Showroom</SectionLabel>
         <ul className="flex flex-col gap-1.5">
           {BIKE_MODELS.filter((bike) => bike.id !== "rental").map((bike) => (
             <Row
@@ -288,10 +288,10 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
       </div>
 
       {/* Details and actions for the selected bike: always in view. */}
-      <div className="sticky bottom-[-0.75rem] -mx-3 -mb-3 mt-auto border-t border-white/10 bg-slate-950 px-3 pb-3 pt-3 md:bottom-[-1rem] md:-mb-4 md:pb-4">
+      <div className="sticky bottom-[-0.75rem] -mx-3 -mb-3 mt-auto border-t border-sheet-line bg-sheet px-3 pb-3 pt-3 md:bottom-[-1rem] md:-mb-4 md:pb-4">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <span className="text-base font-black text-white">{selectedBike?.name ?? model.name}</span>
-          <span className="font-mono text-[11px] text-slate-400">
+          <span className="text-base font-black text-sheet-ink">{selectedBike?.name ?? model.name}</span>
+          <span className="font-mono text-[11px] text-sheet-mute">
             {formatCoins(Math.round(bikeFuelPerMeter(model.stats) * 1000))}/km {model.build.electric ? "battery" : "fuel"}
           </span>
         </div>
@@ -301,7 +301,7 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
           <div className="mt-3">
             <StatMeter label="Wear" icon="🔧" value={selectedBike.wear} color={selectedBike.wear >= 60 ? "#f43f5e" : "#f59e0b"} />
             {selectedBike.lease && selectedBike.status === "leasing" && (
-              <p className={`mt-1 text-[11px] ${selectedBike.lease.missedAt ? "font-bold text-rose-300" : "text-slate-400"}`}>
+              <p className={`mt-1 text-[11px] ${selectedBike.lease.missedAt ? "font-bold text-flame-deep" : "text-sheet-mute"}`}>
                 Lease week {selectedBike.lease.weeksPaid}/{selectedBike.lease.weeksTotal} ·{" "}
                 {selectedBike.lease.missedAt
                   ? "payment missed! Have the money ready or they take it back."
@@ -360,7 +360,7 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
                 })()}
             </>
           ) : selectedBike?.status === "repossessed" ? (
-            <p className="text-[11px] text-slate-400">The lessor took this one back.</p>
+            <p className="text-[11px] text-sheet-mute">The lessor took this one back.</p>
           ) : (
             <>
               <ActionButton
@@ -395,14 +395,14 @@ export function GaragePanel({ onShow }: { onShow(look: BikeLook): void }) {
           )}
         </div>
         {selection.kind === "model" && !canBuy(model.id) && (
-          <p className="mt-2 text-[11px] text-slate-400">Lease only, like real e-boda schemes.</p>
+          <p className="mt-2 text-[11px] text-sheet-mute">Lease only, like real e-boda schemes.</p>
         )}
         {selection.kind === "model" && canLease(model.id) && (
-          <p className="mt-2 text-[11px] leading-snug text-slate-400">
+          <p className="mt-2 text-[11px] leading-snug text-sheet-mute">
             Leasing costs more overall; miss a week (2 days&apos; grace) and the bike is taken back with nothing returned.
           </p>
         )}
-        {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
+        {notice && <p className="mt-2 text-xs font-bold text-flame-deep">{notice}</p>}
       </div>
     </div>
   )

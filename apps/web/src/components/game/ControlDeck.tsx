@@ -73,7 +73,7 @@ export function ControlDeck({
     <>
       {deckOpen ? (
       <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-slate-950/80 shadow-2xl md:backdrop-blur-md">
+        <div className="mx-auto w-full max-w-xl rounded-2xl border border-sheet-line bg-sheet-card/95 shadow-2xl md:backdrop-blur-md">
           <button
             type="button"
             onClick={() => setDeckOpen(false)}
@@ -81,7 +81,7 @@ export function ControlDeck({
             // 28 px tall so the deck doesn't grow into the thumb sticks; the
             // invisible ::before adds 8 px of touch area above (more would
             // overlap the sticks on a 375×667 phone).
-            className="relative flex min-h-[28px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-slate-400 before:absolute before:inset-x-0 before:-top-2 before:bottom-0 before:content-['']"
+            className="relative flex min-h-[28px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-sheet-mute before:absolute before:inset-x-0 before:-top-2 before:bottom-0 before:content-['']"
           >
             ▾
           </button>
@@ -93,13 +93,13 @@ export function ControlDeck({
                 onClick={onTogglePlacement}
                 className={`min-h-[44px] w-full rounded-xl px-3 py-2 text-sm font-black transition ${
                   placementArmed
-                    ? "bg-amber-400 text-slate-950 hover:bg-amber-300"
-                    : "border border-amber-300/50 text-amber-200 hover:bg-amber-400/10"
+                    ? "bg-flame text-white hover:bg-flame-dark"
+                    : "border border-flame/50 text-flame-deep hover:bg-flame-soft"
                 }`}
               >
                 {placementArmed ? "Done ✓" : "📍 Set my start"}
               </button>
-              <div className="mt-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs font-bold text-slate-300">
+              <div className="mt-1.5 rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-center text-xs font-bold text-sheet-mute">
                 {placementArmed
                   ? "Tap anywhere on the map to drop your pin"
                   : "No start yet — tap Set my start"}
@@ -107,13 +107,13 @@ export function ControlDeck({
             </div>
           )}
           {showStarts && rivals.length > 0 && (
-            <p className="truncate px-3 pt-1.5 text-center text-[11px] text-slate-300" title="Rivals' starts stay secret until the race begins">
-              <span className="text-slate-400">Rivals · starts revealed at the gun: </span>
+            <p className="truncate px-3 pt-1.5 text-center text-[11px] text-sheet-mute" title="Rivals' starts stay secret until the race begins">
+              <span className="text-sheet-mute">Rivals · starts revealed at the gun: </span>
               {rivals.map((rival, index) => (
                 <span key={rival.id}>
                   {index > 0 && " · "}
-                  <span className="font-bold text-white">{rival.name}</span>{" "}
-                  {rival.ready ? <span className="text-emerald-300">✓</span> : <span className="text-slate-400">choosing…</span>}
+                  <span className="font-bold text-sheet-ink">{rival.name}</span>{" "}
+                  {rival.ready ? <span className="text-leaf">✓</span> : <span className="text-sheet-mute">choosing…</span>}
                 </span>
               ))}
             </p>
@@ -123,42 +123,42 @@ export function ControlDeck({
               <button
                 type="button"
                 onClick={onStartNow}
-                className="mt-1 min-h-[44px] w-full rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-400"
+                className="mt-1 min-h-[44px] w-full rounded-xl bg-sheet-blue px-3 py-2 text-sm font-black text-white transition hover:bg-sheet-ink"
               >
                 Start now (solo)
               </button>
             </div>
           )}
           {notice && (
-            <div className="mx-3 mb-2 rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-2 text-center text-xs font-bold text-amber-100">
+            <div className="mx-3 mb-2 rounded-xl border border-flame/40 bg-flame-soft px-3 py-2 text-center text-xs font-bold text-flame-deep">
               {notice}
             </div>
           )}
           <div className="flex items-center justify-between gap-2 px-2.5 pb-2 pt-1.5">
-            <div className="min-w-0 flex-1 truncate text-[11px] text-slate-300">
+            <div className="min-w-0 flex-1 truncate text-[11px] text-sheet-mute">
               {turnIntent ? (
-                <span className="font-bold text-amber-200">
+                <span className="font-bold text-sheet-blue">
                   {turnIntent === "straight" ? "→ Straight" : turnIntent === "left" ? "← Left" : "Right →"}
                 </span>
               ) : (
                 statusText
               )}
-              {feedback ? <span className="text-slate-400"> · {feedback}</span> : null}
+              {feedback ? <span className="text-sheet-mute"> · {feedback}</span> : null}
             </div>
             {nearJunction && distanceToJunction !== null && (
-              <div className="shrink-0 rounded-lg bg-amber-400/15 px-2 py-1 text-[11px] font-bold text-amber-200">
+              <div className="shrink-0 rounded-lg bg-flame-soft px-2 py-1 text-[11px] font-bold text-sheet-blue">
                 ⑂ {Math.ceil(distanceToJunction)}m
               </div>
             )}
             {locked && !showStarts && (
-              <div className="shrink-0 text-[11px] font-bold text-slate-400">🔒</div>
+              <div className="shrink-0 text-[11px] font-bold text-sheet-mute">🔒</div>
             )}
           </div>
           {/* Mouse-and-keyboard players have no thumb sticks: show the keys. */}
-          <div className="tiral-keyboard-hint border-t border-white/5 px-2.5 py-1.5 text-[11px] text-slate-400">
-            <kbd className="font-bold text-slate-200">Hold W</kbd>/↑ walk · <kbd className="font-bold text-slate-200">A</kbd>/← left ·{" "}
-            <kbd className="font-bold text-slate-200">D</kbd>/→ right · <kbd className="font-bold text-slate-200">S</kbd>/↓ turn around ·{" "}
-            <kbd className="font-bold text-slate-200">Shift</kbd> sprint · <kbd className="font-bold text-slate-200">Space</kbd> stop
+          <div className="tiral-keyboard-hint border-t border-sheet-line px-2.5 py-1.5 text-[11px] text-sheet-mute">
+            <kbd className="font-bold text-sheet-ink">Hold W</kbd>/↑ walk · <kbd className="font-bold text-sheet-ink">A</kbd>/← left ·{" "}
+            <kbd className="font-bold text-sheet-ink">D</kbd>/→ right · <kbd className="font-bold text-sheet-ink">S</kbd>/↓ turn around ·{" "}
+            <kbd className="font-bold text-sheet-ink">Shift</kbd> sprint · <kbd className="font-bold text-sheet-ink">Space</kbd> stop
           </div>
         </div>
       </div>
@@ -168,7 +168,7 @@ export function ControlDeck({
           type="button"
           onClick={() => setDeckOpen(true)}
           aria-label="Show controls"
-          className="rounded-full border border-white/15 bg-slate-950/80 px-5 py-2 text-[11px] font-bold tracking-[0.2em] text-slate-300 shadow-xl md:backdrop-blur-md"
+          className="rounded-full border border-sheet-line bg-sheet-card/95 px-5 py-2 text-[11px] font-bold tracking-[0.2em] text-sheet-mute shadow-xl md:backdrop-blur-md"
         >
           ▴ CONTROLS
         </button>

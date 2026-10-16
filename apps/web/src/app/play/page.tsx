@@ -29,7 +29,7 @@ function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
   if (campaigns.length === 0) return null
   const names = [...new Set(campaigns.map((campaign) => campaign.brandName))].slice(0, 3)
   return (
-    <div className="mt-2 text-center text-[11px] text-slate-400">
+    <div className="mt-2 text-center text-[11px] text-sheet-mute">
       Sponsored by {names.join(" · ")}
     </div>
   )
@@ -301,6 +301,26 @@ export default function Home() {
     }
   }, [connected, reconnecting, refreshRaces, player !== null])
 
+  // Keep the open races live between races, quietly (no spinner, and an
+  // error from a join attempt stays on screen).
+  useEffect(() => {
+    if (connected || reconnecting || !player) return
+    const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return
+      listRaces()
+        .then(setRaces)
+        .catch(() => {})
+    }, 10_000)
+    return () => clearInterval(id)
+  }, [connected, reconnecting, listRaces, player !== null])
+
+  // Any race counts as the first one (friends' races and prize races too),
+  // so the first-run highlight on "Race now" goes away.
+  const markRaced = firstRun.markRaced
+  useEffect(() => {
+    if (connected) markRaced()
+  }, [connected, markRaced])
+
   const runJoin = useCallback(
     async (action: () => Promise<void>) => {
       setJoining(true)
@@ -485,7 +505,7 @@ export default function Home() {
 
   if (!connected && !reconnecting) {
     return (
-      <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950">
+      <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-sheet">
         <div className="absolute inset-x-0 bottom-0 top-[var(--shell-top)]">
           <MapView
             center={fallbackStart.position}
@@ -508,17 +528,14 @@ export default function Home() {
         )}
         {player ? (
           <>
-            <AdaptivePanel label="Race hub">
+            <AdaptivePanel label="Race" peekHeight={250} tone="light">
               <Hub
                 races={races}
                 loadingRaces={lobbyLoading}
                 joining={joining}
                 error={lobbyError}
                 onRefresh={() => void refreshRaces()}
-                onQuickRace={() => {
-                  firstRun.markRaced()
-                  void runJoin(() => quickPlay(myLoadout))
-                }}
+                onQuickRace={() => void runJoin(() => quickPlay(myLoadout))}
                 onCreate={() => void runJoin(() => createRace(myLoadout))}
                 onJoin={(roomId) => void runJoin(() => joinRace(roomId, myLoadout))}
                 onJoinCode={handleJoinCode}
@@ -532,12 +549,12 @@ export default function Home() {
           <>
             <Link
               href="/"
-              className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl bg-slate-950/80 px-3 py-2 text-sm font-black text-white shadow-xl md:backdrop-blur-md"
+              className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl border border-flame bg-flame px-3 py-2 text-sm font-black text-white shadow-xl"
             >
               Tiral
             </Link>
             <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-              <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 pt-3 shadow-2xl md:backdrop-blur-md">
+              <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-flame/30 bg-flame-soft pt-3 text-sheet-ink shadow-[0_-6px_24px_rgba(14,42,77,0.14)]">
                 {authReady && offline ? (
                   <ServerUnreachable
                     retrying={retryingPlayer}
@@ -549,7 +566,7 @@ export default function Home() {
                 ) : authReady ? (
                   <SignInGate busy={authBusy === "guest"} error={authFailure} authError={authError} onGuest={playAsGuest} />
                 ) : (
-                  <p className="px-4 pb-5 pt-2 text-center text-sm text-slate-400">Checking who you are…</p>
+                  <p className="px-4 pb-5 pt-2 text-center text-sm text-sheet-mute">Checking who you are…</p>
                 )}
               </div>
             </div>
@@ -560,7 +577,7 @@ export default function Home() {
   }
 
   return (
-    <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950">
+    <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-sheet">
       {/* Same element type and position as the lobby screen's map wrapper, so
           React keeps the one map (no teardown, refetch or blank flash) when a
           race is joined or left. */}
@@ -668,12 +685,12 @@ export default function Home() {
       {connected && collapsed && needs?.collapsedUntil && <CollapseOverlay until={needs.collapsedUntil} />}
 
       {connected && phase === "racing" && ownFinishPosition !== null && (
-        <div className="absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-30 -translate-x-1/2 rounded-2xl border border-emerald-300/30 bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl md:backdrop-blur-md">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
+        <div className="absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-30 -translate-x-1/2 rounded-2xl border border-leaf/30 bg-sheet-card/95 px-5 py-3 text-center text-sheet-ink shadow-2xl md:backdrop-blur-md">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">
             You finished {ownFinishPosition}
             {ownFinishPosition === 1 ? "st" : ownFinishPosition === 2 ? "nd" : ownFinishPosition === 3 ? "rd" : "th"}!
           </div>
-          <div className="mt-1 text-sm text-slate-300">Others are still racing…</div>
+          <div className="mt-1 text-sm text-sheet-mute">Others are still racing…</div>
         </div>
       )}
 
@@ -684,9 +701,9 @@ export default function Home() {
           focus="panel"
           backdropClassName="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
           // Scrolls on short screens (landscape phones, 10 racers) so the buttons stay reachable.
-          className="max-h-[calc(100dvh-2rem)] w-[min(92vw,380px)] overflow-y-auto overscroll-contain rounded-2xl border border-amber-300/30 bg-slate-950/95 p-5 text-white shadow-2xl"
+          className="max-h-[calc(100dvh-2rem)] w-[min(92vw,380px)] overflow-y-auto overscroll-contain rounded-2xl border border-flame/30 bg-sheet p-5 text-sheet-ink shadow-2xl"
         >
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-flame-deep">
             Race finished
           </div>
           <div className="mt-1 text-2xl font-black">
@@ -703,8 +720,8 @@ export default function Home() {
                   key={result.sessionId}
                   className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
                     result.sessionId === sessionId
-                      ? "bg-amber-300/20 font-bold text-amber-100"
-                      : "bg-white/5 text-slate-200"
+                      ? "bg-flame-soft font-bold text-flame-deep"
+                      : "bg-sheet-card text-sheet-ink"
                   }`}
                 >
                   <span>
@@ -720,23 +737,23 @@ export default function Home() {
           {earnings && player && !player.user.tiktokLinked && (
             <a
               href="/api/auth/tiktok"
-              className="mt-3 block rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs leading-snug text-slate-200"
+              className="mt-3 block rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-xs leading-snug text-sheet-ink"
             >
-              <span className="font-bold text-white">Connect TikTok</span> so you never lose these coins. Guest
+              <span className="font-bold text-sheet-ink">Connect TikTok</span> so you never lose these coins. Guest
               accounts live on this device only. →
             </a>
           )}
           <button
             type="button"
             onClick={sendPlayAgain}
-            className="mt-4 min-h-[48px] w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+            className="mt-4 min-h-[48px] w-full rounded-xl bg-flame px-4 py-3 text-sm font-black text-white transition hover:bg-flame-dark"
           >
             Race again
           </button>
           <button
             type="button"
             onClick={leaveRoom}
-            className="mt-2 min-h-[48px] w-full rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-slate-200"
+            className="mt-2 min-h-[48px] w-full rounded-xl border border-sheet-line px-4 py-3 text-center text-sm font-bold text-sheet-ink"
           >
             Back to base
           </button>

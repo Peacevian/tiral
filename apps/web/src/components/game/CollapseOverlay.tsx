@@ -26,7 +26,7 @@ export function CollapseOverlay({ until }: { until: number }) {
   const seconds = Math.max(0, Math.ceil((until - now) / 1000))
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center bg-red-950/30">
+    <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center bg-flame-soft/60">
       <div className={styles.burst}>
         <div className="relative">
           <svg viewBox="0 0 400 200" className="absolute -inset-x-8 -inset-y-6 h-[calc(100%+3rem)] w-[calc(100%+4rem)]">
@@ -43,9 +43,9 @@ export function CollapseOverlay({ until }: { until: number }) {
           </span>
         </div>
       </div>
-      <div className="mt-12 rounded-xl bg-slate-950/85 px-4 py-2 text-center text-sm font-bold text-white shadow-xl">
+      <div className="mt-12 rounded-xl bg-sheet-card/95 px-4 py-2 text-center text-sm font-bold text-sheet-ink shadow-xl">
         You collapsed. Back up in {seconds}s.
-        <div className="text-xs font-semibold text-slate-400">Sprinting on an empty tank burns your health.</div>
+        <div className="text-xs font-semibold text-sheet-mute">Sprinting on an empty tank burns your health.</div>
       </div>
     </div>
   )

@@ -12,7 +12,7 @@ const STATUS_LABEL: Partial<Record<LifeEvent["status"], string>> = {
   expired: "Ignored"
 }
 
-export const STRESS_COLOR = (stress: number) => (stress >= STRESSED_THRESHOLD ? "#f43f5e" : "#a78bfa")
+export const STRESS_COLOR = (stress: number) => (stress >= STRESSED_THRESHOLD ? "#C2410C" : "#1E56A8")
 
 /** Where you live, when rent is due, and how stressed you are. */
 export function HomeStatusCard({ life, balance }: { life: Life; balance: number }) {
@@ -22,24 +22,24 @@ export function HomeStatusCard({ life, balance }: { life: Life; balance: number 
     <Card tone={short ? "rose" : "default"}>
       <div className="flex items-baseline justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Rent</div>
-          <div className="truncate text-sm font-black text-white">{life.tier.name}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sheet-mute">Rent</div>
+          <div className="truncate text-sm font-black text-sheet-ink">{life.tier.name}</div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="font-mono text-sm font-black text-amber-200">{formatCoins(life.tier.rent)}</div>
-          <div className={`text-[11px] ${short ? "font-bold text-rose-300" : "text-slate-400"}`}>
+          <div className="font-mono text-sm font-black text-sheet-blue">{formatCoins(life.tier.rent)}</div>
+          <div className={`text-[11px] ${short ? "font-bold text-flame-deep" : "text-sheet-mute"}`}>
             due {untilText(life.rentDueAt)}
           </div>
         </div>
       </div>
       {short && (
-        <p className="mt-1 text-[11px] leading-snug text-rose-200">
+        <p className="mt-1 text-[11px] font-bold leading-snug text-flame-deep">
           You&apos;re {formatCoins(life.tier.rent - balance)} short. Miss it and you move somewhere cheaper.
         </p>
       )}
       <div className="mt-3">
         <StatMeter label="Stress" icon="😤" value={life.stress} color={STRESS_COLOR(life.stress)} />
-        <p className="mt-1 text-[11px] leading-snug text-slate-400">
+        <p className="mt-1 text-[11px] leading-snug text-sheet-mute">
           {stressed
             ? "You're stressed: energy refills slower. Paying rent, helping family and winning races calm you down."
             : "Missed rent, ignored family and bad luck push stress up. It eases off on its own."}
@@ -63,18 +63,18 @@ export function MessageList({ events, empty = "Quiet for now." }: { events: Life
           <li
             key={event.id}
             className={`rounded-xl border px-3 py-2 ${
-              event.status === "pending" ? "border-amber-300/40 bg-amber-300/10" : "border-white/10 bg-white/5"
+              event.status === "pending" ? "border-flame/40 bg-flame-soft" : "border-sheet-line bg-sheet-card"
             }`}
           >
             <div className="flex items-baseline justify-between gap-2 text-[11px] font-bold">
-              <span className="text-white">{event.from}</span>
-              <span className="text-slate-400">
+              <span className="text-sheet-ink">{event.from}</span>
+              <span className="text-sheet-mute">
                 {event.status === "pending" && event.expiresAt
                   ? `answer ${untilText(event.expiresAt)}`
                   : STATUS_LABEL[event.status] ?? ""}
               </span>
             </div>
-            <p className="mt-0.5 text-xs leading-snug text-slate-200">{event.text}</p>
+            <p className="mt-0.5 text-xs leading-snug text-sheet-ink">{event.text}</p>
             {event.status === "pending" && (
               <div className="mt-2 flex gap-1.5">
                 <ActionButton
@@ -102,7 +102,7 @@ export function MessageList({ events, empty = "Quiet for now." }: { events: Life
           </li>
         ))}
       </ul>
-      {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
+      {notice && <p className="mt-2 text-xs font-bold text-flame-deep">{notice}</p>}
     </>
   )
 }
@@ -126,28 +126,28 @@ export function MoveHouse({ life }: { life: Life }) {
                 }}
                 confirmLabel={
                   <>
-                    <span className="font-bold text-white">Move to {tier.name}? Tap again</span>
-                    <span className="font-mono font-bold text-amber-200">{formatCoins(tier.rent)} rent</span>
+                    <span className="font-bold text-sheet-ink">Move to {tier.name}? Tap again</span>
+                    <span className="font-mono font-bold text-sheet-blue">{formatCoins(tier.rent)} rent</span>
                   </>
                 }
                 className={`flex min-h-[44px] w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs transition ${
-                  current ? "border-amber-300/60 bg-amber-300/10" : "border-white/10 bg-white/5 hover:bg-white/10"
+                  current ? "border-flame bg-flame-soft" : "border-sheet-line bg-sheet-card hover:bg-sheet-soft"
                 }`}
-                armedClassName="!border-amber-300 !bg-amber-300/20"
+                armedClassName="!border-flame !bg-flame-soft"
               >
-                <span className="font-bold text-white">
+                <span className="font-bold text-sheet-ink">
                   {tier.name}
-                  {current && <span className="ml-1 text-amber-300">· you</span>}
+                  {current && <span className="ml-1 text-flame-deep">· you</span>}
                 </span>
-                <span className="font-mono font-bold text-amber-200">{formatCoins(tier.rent)}</span>
+                <span className="font-mono font-bold text-sheet-blue">{formatCoins(tier.rent)}</span>
               </ConfirmButton>
             </li>
           )
         })}
       </ul>
-      <p className="mt-1 text-[11px] text-slate-400">New rent applies from your next due date.</p>
+      <p className="mt-1 text-[11px] text-sheet-mute">New rent applies from your next due date.</p>
       {notice && (
-        <p role="alert" className="mt-1 text-xs font-bold text-rose-300">
+        <p role="alert" className="mt-1 text-xs font-bold text-flame-deep">
           {notice}
         </p>
       )}

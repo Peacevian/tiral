@@ -18,7 +18,7 @@ body {
   height: 100dvh;
   /* No pull-to-refresh or overscroll chaining over the full-screen game */
   overscroll-behavior: none;
-  background-color: #020617;
+  background-color: #f4f8fd;
 }
 
 /* App shell: pages place their own panels between the fixed top bar and
@@ -104,9 +104,9 @@ body.has-shell {
   width: 116px;
   border-radius: 6px;
   overflow: hidden;
-  background: #0f172a;
-  border: 2px solid #fbbf24;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.5);
+  background: #ffffff;
+  border: 2px solid #E85F0C;
+  box-shadow: 0 6px 14px rgba(14, 42, 77, 0.35), 0 0 0 1px rgba(14, 42, 77, 0.5);
   transition: transform 0.15s ease;
 }
 .tiral-bb:hover .tiral-bb__panel,
@@ -122,7 +122,7 @@ body.has-shell {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #1e293b;
+  background: #E3EDFA;
 }
 .tiral-bb__art > img,
 .tiral-bb__badge > img {
@@ -141,7 +141,7 @@ body.has-shell {
   justify-content: center;
   font-size: 22px;
   font-weight: 900;
-  color: #fbbf24;
+  color: #E85F0C;
 }
 .tiral-bb__tag {
   position: absolute;
@@ -149,8 +149,8 @@ body.has-shell {
   left: 3px;
   padding: 0 4px;
   border-radius: 3px;
-  background: rgba(15, 23, 42, 0.75);
-  color: #fde68a;
+  background: rgba(14, 42, 77, 0.75);
+  color: #FFE9D9;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -159,8 +159,8 @@ body.has-shell {
 .tiral-bb__caption {
   display: block;
   padding: 2px 6px 3px;
-  background: #fbbf24;
-  color: #0f172a;
+  background: #E85F0C;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 800;
   line-height: 14px;
@@ -184,7 +184,7 @@ body.has-shell {
   height: 5px;
   margin-top: -2px;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(14, 42, 77, 0.35);
 }
 .tiral-bb__badge {
   display: block;
@@ -192,9 +192,9 @@ body.has-shell {
   height: 30px;
   border-radius: 9999px;
   overflow: hidden;
-  background: #0f172a;
-  border: 2px solid #fbbf24;
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.4);
+  background: #ffffff;
+  border: 2px solid #E85F0C;
+  box-shadow: 0 3px 8px rgba(14, 42, 77, 0.4);
 }
 .tiral-bb__badge .tiral-bb__fallback {
   font-size: 13px;
@@ -205,7 +205,7 @@ body.has-shell {
   border-radius: 5px;
   border: 1.5px dashed rgba(71, 85, 105, 0.7);
   background: rgba(255, 255, 255, 0.82);
-  color: #334155;
+  color: #0E2A4D;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -245,8 +245,8 @@ body.has-shell {
   user-select: none;
 }
 .tiral-nametag[data-self] {
-  background: #f59e0b;
-  color: #0f172a;
+  background: #E85F0C;
+  color: #ffffff;
 }
 .tiral-nametag__name {
   max-width: 110px;

@@ -81,7 +81,7 @@ export default function HustlePage() {
   }, [])
   // A shift in progress wins; a finished one only shows on its own page.
   if (stall && stall.phase !== "closed") return <StallScreen gig={stall.stall} />
-  if (gigParam === null) return <main className="h-dvh w-screen bg-slate-950" />
+  if (gigParam === null) return <main className="h-dvh w-screen bg-sheet" />
   if (isStallGig(gigParam)) return <StallScreen gig={gigParam} />
   return <MapHustle />
 }
@@ -278,7 +278,7 @@ function MapHustle() {
   const gigInfo = findHustle(gig)!
 
   return (
-    <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950 text-white">
+    <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-sheet text-sheet-ink">
       {/* Between the app shell's bars before a shift (they hide during one). */}
       <div className="absolute inset-x-0 bottom-[var(--shell-bottom)] top-[var(--shell-top)]">
         <MapView center={KIKUUBO_CENTER} zoom={16} pitch={48} bearing={-18} onMapReady={onMapReady} />
@@ -319,23 +319,23 @@ function MapHustle() {
         // Start screen.
         // Clear of the app shell (top bar; tab bar on phones), shown before a shift.
         <div className="absolute inset-x-0 bottom-[var(--shell-bottom)] z-30 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:inset-auto md:right-3 md:top-[calc(var(--shell-top)+0.75rem)] md:w-[24rem] md:p-0">
-          <Card className="!bg-slate-950/95 shadow-2xl md:backdrop-blur-md">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">Hustle</div>
+          <Card className="!bg-sheet shadow-2xl md:backdrop-blur-md">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-flame-deep">Hustle</div>
             <h1 className="mt-1 text-xl font-black">
               {gigInfo.icon} {gigInfo.name}
             </h1>
-            <p className="mt-1 text-sm leading-snug text-slate-300">{GIGS[gig].blurb}</p>
+            <p className="mt-1 text-sm leading-snug text-sheet-mute">{GIGS[gig].blurb}</p>
             {player && (
-              <p className="mt-2 text-xs text-slate-400">
-                Your energy: <span className="font-bold text-white">{Math.round(player.needs.energy)}/100</span> ·
-                balance <span className="font-mono font-bold text-amber-200">{formatCoins(player.balance)} BNG</span>
+              <p className="mt-2 text-xs text-sheet-mute">
+                Your energy: <span className="font-bold text-sheet-ink">{Math.round(player.needs.energy)}/100</span> ·
+                balance <span className="font-mono font-bold text-sheet-blue">{formatCoins(player.balance)} BNG</span>
               </p>
             )}
-            {startError && <p className="mt-2 text-xs font-bold text-rose-300">{startError}</p>}
+            {startError && <p className="mt-2 text-xs font-bold text-flame-deep">{startError}</p>}
             <div className="mt-4 flex gap-2">
               <Link
                 href="/play"
-                className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-white/15 text-sm font-bold text-slate-200"
+                className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-sheet-line text-sm font-bold text-sheet-ink"
               >
                 Back to base
               </Link>
@@ -354,7 +354,7 @@ function MapHustle() {
         <>
           {/* Top bar: what to do now, and End shift. */}
           <div className="absolute inset-x-0 top-0 z-30 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-[max(0.5rem,env(safe-area-inset-top))] md:right-[25rem]">
-            <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/85 py-1 pl-3 pr-1 shadow-xl md:backdrop-blur-md">
+            <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-sheet-line bg-sheet-card/95 py-1 pl-3 pr-1 shadow-xl md:backdrop-blur-md">
               <div className="min-w-0 flex-1">
                 {hustle.job ? (
                   <>
@@ -368,14 +368,14 @@ function MapHustle() {
                           : "📦 Collect at "}
                       {spotName(hustle.job.stage === "carrying" ? hustle.job.offer.dropoffId : hustle.job.offer.pickupId)}
                     </div>
-                    <div className="truncate font-mono text-[11px] text-cyan-300">
+                    <div className="truncate font-mono text-[11px] text-sheet-blue">
                       {distanceToTarget ?? "…"} m · {clock(hustle.job.deadline - now)} · {offerTitle(hustle.job.offer)}
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="truncate text-xs font-black">🧺 Pick a job</div>
-                    <div className="truncate font-mono text-[11px] text-cyan-300">
+                    <div className="truncate font-mono text-[11px] text-sheet-blue">
                       {hustle.shift.jobs} done · +{formatCoins(hustle.shift.earned)} BNG this shift
                     </div>
                   </>
@@ -384,7 +384,7 @@ function MapHustle() {
               <button
                 type="button"
                 onClick={() => setBoardOpen((open) => !open)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-white/15 px-3 text-xs font-bold text-slate-200 md:hidden"
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-sheet-line px-3 text-xs font-bold text-sheet-ink md:hidden"
               >
                 📋 Jobs
               </button>
@@ -392,7 +392,7 @@ function MapHustle() {
                 type="button"
                 onClick={recenter}
                 aria-label="Recenter on me"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/15 text-lg font-black text-slate-200"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sheet-line text-lg font-black text-sheet-ink"
               >
                 ◎
               </button>
@@ -402,8 +402,8 @@ function MapHustle() {
                   router.push("/play")
                 }}
                 confirmLabel="Tap again to end"
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-rose-300/30 px-3 text-xs font-bold text-rose-200"
-                armedClassName="!border-rose-400 !bg-rose-500 !text-white"
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-flame-deep/30 px-3 text-xs font-bold text-flame-deep"
+                armedClassName="!border-rose-400 !bg-flame-deep !text-white"
               >
                 End shift
               </ConfirmButton>
@@ -429,12 +429,12 @@ function MapHustle() {
           {showPickedUp && hustle.job && (
             <div
               role="status"
-              className="absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border border-amber-300/40 bg-amber-950/90 px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)]"
+              className="absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border border-flame/40 bg-flame-soft px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)]"
             >
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-flame-deep">
                 {onBike ? "🛵 Passenger on" : "📦 Picked up"}
               </div>
-              <div className="mt-0.5 text-sm font-bold text-white">
+              <div className="mt-0.5 text-sm font-bold text-sheet-ink">
                 {onBike ? "Take them to " : "Now carry it to "}
                 {spotName(hustle.job.offer.dropoffId)} 🏁
               </div>
@@ -445,23 +445,23 @@ function MapHustle() {
               role="status"
               className={`absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)] ${
                 toast.kind === "receipt" && toast.receipt.paid
-                  ? "border-emerald-300/40 bg-emerald-950/90"
+                  ? "border-leaf/40 bg-leaf-soft"
                   : toast.kind === "rented"
-                    ? "border-amber-300/40 bg-amber-950/90"
-                    : "border-rose-300/40 bg-rose-950/90"
+                    ? "border-flame/40 bg-flame-soft"
+                    : "border-flame-deep/40 bg-flame-soft"
               }`}
             >
               {toast.kind === "receipt" ? (
                 toast.receipt.paid ? (
                   <>
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">{toast.receipt.title}</div>
-                    <div className="mt-0.5 font-mono text-2xl font-black text-amber-100">+{formatCoins(toast.receipt.net)} BNG</div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">{toast.receipt.title}</div>
+                    <div className="mt-0.5 font-mono text-2xl font-black text-flame-deep">+{formatCoins(toast.receipt.net)} BNG</div>
                     {toast.receipt.lines.length > 1 && (
                       <dl className="mx-auto mt-1 w-full max-w-[220px] font-mono text-[11px]">
                         {toast.receipt.lines.map((line) => (
-                          <div key={line.label} className="flex justify-between text-slate-300">
+                          <div key={line.label} className="flex justify-between text-sheet-mute">
                             <dt>{line.label}</dt>
-                            <dd className={line.amount < 0 ? "text-rose-300" : ""}>
+                            <dd className={line.amount < 0 ? "text-flame-deep" : ""}>
                               {line.amount < 0 ? "−" : "+"}
                               {formatCoins(Math.abs(line.amount))}
                             </dd>
@@ -469,25 +469,25 @@ function MapHustle() {
                         ))}
                       </dl>
                     )}
-                    <div className="mt-0.5 text-[11px] text-slate-400">balance {formatCoins(toast.receipt.balance)}</div>
+                    <div className="mt-0.5 text-[11px] text-sheet-mute">balance {formatCoins(toast.receipt.balance)}</div>
                   </>
                 ) : (
-                  <div className="text-sm font-bold text-rose-100">
+                  <div className="text-sm font-bold text-flame-deep">
                     {toast.receipt.reason === "daily_limit"
                       ? "Done, but that's today's limit: no more paid jobs of this kind until tomorrow."
                       : "Delivered, but the pay didn't go through. Try another job."}
                   </div>
                 )
               ) : toast.kind === "failed" ? (
-                <div className="text-sm font-bold text-rose-100">{FAILURE_TEXT[toast.reason]}</div>
+                <div className="text-sm font-bold text-flame-deep">{FAILURE_TEXT[toast.reason]}</div>
               ) : toast.kind === "breakdown" ? (
-                <div className="text-sm font-bold text-rose-100">
+                <div className="text-sm font-bold text-flame-deep">
                   🔧 Roadside repair: −{formatCoins(toast.charged)} BNG. Service your bike at Home → Bike.
                 </div>
               ) : toast.kind === "rented" ? (
-                <div className="text-sm font-bold text-amber-100">🛵 Bike rented for today: −{formatCoins(toast.amount)} BNG</div>
+                <div className="text-sm font-bold text-flame-deep">🛵 Bike rented for today: −{formatCoins(toast.amount)} BNG</div>
               ) : (
-                <div className="text-sm font-bold text-rose-100">{toast.text}</div>
+                <div className="text-sm font-bold text-flame-deep">{toast.text}</div>
               )}
             </div>
           )}

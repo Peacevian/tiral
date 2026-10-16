@@ -41,11 +41,11 @@ export function AppNav() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-slate-950/90 pt-[env(safe-area-inset-top)] md:backdrop-blur-md">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-sheet-line bg-sheet text-sheet-ink pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 w-full items-center gap-2 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:gap-4 md:px-4">
           <Link
             href="/"
-            className="hidden shrink-0 font-black tracking-[0.18em] text-amber-300 md:block"
+            className="hidden shrink-0 font-black tracking-[0.18em] text-flame-deep md:block"
             aria-label="Tiral home page"
           >
             TIRAL
@@ -57,7 +57,7 @@ export function AppNav() {
                 href={item.href}
                 aria-current={active(item.href) ? "page" : undefined}
                 className={`relative inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-sm font-bold transition ${
-                  active(item.href) ? "bg-white/10 text-amber-300" : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  active(item.href) ? "bg-sheet-soft text-flame-deep" : "text-sheet-mute hover:bg-sheet-soft hover:text-sheet-ink"
                 }`}
               >
                 <span aria-hidden>{item.icon}</span>
@@ -68,7 +68,7 @@ export function AppNav() {
           </nav>
           <div className="ml-auto flex min-w-0 items-center gap-2 md:ml-0">
             {offline && (
-              <span role="status" className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-bold text-rose-300" title="Can't reach the server">
+              <span role="status" className="rounded-full bg-flame-soft px-2 py-0.5 text-[11px] font-bold text-flame-deep" title="Can't reach the server">
                 ⚠ Offline
               </span>
             )}
@@ -81,7 +81,7 @@ export function AppNav() {
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] md:backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-sheet-line bg-sheet pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <div className="grid h-16 grid-cols-4">
           {DESTINATIONS.map((item) => (
@@ -90,7 +90,7 @@ export function AppNav() {
               href={item.href}
               aria-current={active(item.href) ? "page" : undefined}
               className={`relative flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold ${
-                active(item.href) ? "text-amber-300" : "text-slate-400"
+                active(item.href) ? "text-flame-deep" : "text-sheet-mute"
               }`}
             >
               <span aria-hidden className="text-lg leading-none">
