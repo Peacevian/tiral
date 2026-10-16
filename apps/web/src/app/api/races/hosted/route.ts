@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { PRIZE_PROBLEM_TEXT, type PrizeProblem } from "@tiral/game-core"
 import { createHostedRace, listHostedRaces } from "@tiral/db"
 import { readSessionCookie, verifySession } from "@/lib/session"
+import { refreshTikTokAvatar } from "@/lib/avatars"
 
 async function viewer(request: NextRequest) {
   const token = readSessionCookie(request.headers.get("cookie"))
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest) {
       startsAt,
       countdownSeconds: Number(body?.countdownSeconds)
     })
+    // The share poster shows the host's photo: refresh our copy now (in the background).
+    if (result.ok) void refreshTikTokAvatar(claims.userId)
     if (!result.ok) {
       const error =
         result.reason === "guest"

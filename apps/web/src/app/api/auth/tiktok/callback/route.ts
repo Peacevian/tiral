@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { upsertTikTokAccount } from "@tiral/db"
+import { setAvatarUrl, upsertTikTokAccount } from "@tiral/db"
 import { exchangeCode, fetchTikTokUser, getTikTokConfig } from "@/lib/tiktok"
+import { storeAvatar } from "@/lib/avatars"
 import {
   isSecureRequest,
   mintSession,
@@ -52,9 +53,12 @@ export async function GET(request: NextRequest) {
       },
       oauthState.guestUserId ?? undefined
     )
+    // TikTok's photo links expire within days: keep our own copy.
+    const stored = await storeAvatar(user.id, tiktokUser.avatarUrl)
+    if (stored) await setAvatarUrl(user.id, stored)
     const token = await mintSession(user.id, {
       displayName: user.displayName,
-      avatarUrl: user.avatarUrl
+      avatarUrl: stored ?? user.avatarUrl
     })
     const response = NextResponse.redirect(new URL("/play", request.url))
     response.headers.set("Set-Cookie", sessionCookie(token, isSecureRequest(request.url)))

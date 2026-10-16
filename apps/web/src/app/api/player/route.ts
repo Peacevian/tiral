@@ -11,6 +11,7 @@ import {
   touchLastSeen
 } from "@tiral/db"
 import { clearSessionCookie, readSessionCookie, verifySession } from "@/lib/session"
+import { isRemoteAvatar, refreshTikTokAvatar } from "@/lib/avatars"
 
 // The app polls this every minute and after every payout, from every open tab.
 // Settling life (rent, requests, shocks) takes a lock and writes, so it runs at
@@ -57,6 +58,8 @@ export async function GET(request: NextRequest) {
         return { life, balance, entries }
       })()
     ])
+    // Still pointing at TikTok's expiring photo link: swap in our own copy (next load shows it).
+    if (isRemoteAvatar(user.avatarUrl)) void refreshTikTokAvatar(user.id)
     const { life, balance, entries } = money
     if (Date.now() - (lastSeen.get(user.id) ?? 0) >= SEEN_EVERY_MS) {
       lastSeen.set(user.id, Date.now())

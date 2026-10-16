@@ -4,26 +4,32 @@ import { ImageResponse } from "next/og"
 import qrcode from "qrcode-generator"
 import { PRIZE_CUT_SHARE } from "@tiral/game-core"
 import type { SharedPrizeRace } from "@tiral/db"
+import { readAvatar } from "@/lib/avatars"
 
-// Share images for prize races, drawn on the server (next/og):
+// Share images for prize races, drawn on the server (next/og). The layout
+// borrows from Kampala's taxi and boda sign painting (checker bands, a label,
+// a slogan, the race code on a number plate) in calm cream-and-terracotta.
 //   story   1080×1920  to post on WhatsApp Status / TikTok / Instagram
 //   preview 1200×630   what a pasted link shows in chats (Open Graph)
-// for the race itself (before it runs) and for each winner (a brag card).
-// Text is Noto Sans Bold/Black (assets/fonts); no emoji font, so emoji are
-// dropped from text and the trophy is drawn.
+// for the race itself and for each winner (a brag card). Text is Noto Sans
+// Bold/Black (assets/fonts); there's no emoji font, so emoji are dropped.
 
 const SITE = (process.env.PUBLIC_BASE_URL ?? "https://playtiral.com").replace(/\/$/, "")
 const HOST = SITE.replace(/^https?:\/\//, "")
 
+// Cream and terracotta: calm, printed-poster colours with one warm accent.
 const C = {
-  ink: "#0f172a",
-  night: "#020617",
-  amber: "#fbbf24",
-  amberSoft: "#fde68a",
-  cream: "#fff7e6",
-  slate: "#94a3b8",
-  emerald: "#34d399"
+  paper: "#F6EFE3",
+  ink: "#2A2522",
+  accent: "#C65D3B",
+  onAccent: "#FFFFFF",
+  check: "#E4D8C4",
+  soft: "#B7A891",
+  white: "#FFFFFF"
 }
+
+/** Painted on taxis and bodas around Kampala; used when the host left no message. */
+const SLOGANS = ["CHASE ME IF YOU CAN", "I HAVE TO WIN", "KEEP IT BURNING", "NO SLEEP TILL KIKUUBO", "GOD'S PLAN", "TRY ME"]
 
 let fonts: Promise<Array<{ name: string; data: Buffer; weight: 700 | 900; style: "normal" }>> | null = null
 function loadFonts() {
@@ -41,16 +47,39 @@ function loadFonts() {
 /** Emoji have no glyphs in our font: drop them (and tidy the spaces they leave). */
 const plain = (text: string) => text.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, "").replace(/\s+/g, " ").trim()
 const bng = (amount: number) => amount.toLocaleString("en-US")
-const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`
+const ordinal = (n: number) => `${n}${n === 1 ? "ST" : n === 2 ? "ND" : n === 3 ? "RD" : "TH"}`
+const shout = (text: string) => plain(text).toUpperCase()
 
-/** "Friday 18:00" in Kampala time (players are there; the server may not be). */
-function kampalaTime(iso: string) {
-  return `${new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Kampala", weekday: "long", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} EAT`
+function slogan(race: SharedPrizeRace) {
+  const message = race.message ? shout(race.message) : ""
+  if (message) return message
+  let hash = 0
+  for (const char of race.roomCode) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return SLOGANS[hash % SLOGANS.length]!
 }
 
-/** The host's TikTok photo as a data URL, or null (TikTok's photo links expire; never let that break the image). */
-async function photo(url: string | null): Promise<string | null> {
-  if (!url || !/^https:\/\//.test(url)) return null
+/** "FRIDAY 16 OCT · 12:30 EAT" in Kampala time (players are there; the server may not be). */
+function kampalaTime(iso: string) {
+  const date = new Date(iso)
+  const part = (options: Intl.DateTimeFormatOptions) => date.toLocaleString("en-GB", { timeZone: "Africa/Kampala", ...options })
+  return `${part({ weekday: "long" })} ${part({ day: "numeric", month: "short" })} · ${part({ hour: "2-digit", minute: "2-digit" })} EAT`.toUpperCase()
+}
+
+function when(race: SharedPrizeRace) {
+  if (race.status === "scheduled") return kampalaTime(race.startsAt)
+  if (race.status === "live") return "RACING NOW"
+  if (race.status === "paid") return "RACE FINISHED"
+  return "RACE CALLED OFF"
+}
+
+/** The host's photo as a data URL: our stored copy, or (older accounts) TikTok's own link. */
+async function photo(url: string | null, userId: string): Promise<string | null> {
+  if (!url) return null
+  if (url.startsWith("/api/avatars/")) {
+    const stored = await readAvatar(userId)
+    return stored ? `data:${stored.type};base64,${stored.bytes.toString("base64")}` : null
+  }
+  if (!/^https:\/\//.test(url)) return null
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(2500) })
     const type = response.headers.get("content-type") ?? ""
@@ -63,23 +92,65 @@ async function photo(url: string | null): Promise<string | null> {
   }
 }
 
-function Avatar({ src, name, size }: { src: string | null; name: string; size: number }) {
-  const ring = { width: size, height: size, borderRadius: size, border: `${Math.round(size / 18)}px solid ${C.amber}` }
-  // eslint-disable-next-line @next/next/no-img-element
-  if (src) return <img src={src} width={size} height={size} style={{ ...ring, objectFit: "cover" }} />
+/** Black-and-yellow checker band (taxi style). */
+function Checkers({ width, size, rows = 2 }: { width: number; size: number; rows?: number }) {
+  const cols = Math.ceil(width / size)
+  const cells: React.ReactElement[] = []
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      if ((row + col) % 2 === 0) cells.push(<rect key={`${row}-${col}`} x={col * size} y={row * size} width={size} height={size} fill={C.check} />)
+    }
+  }
   return (
-    <div style={{ ...ring, display: "flex", alignItems: "center", justifyContent: "center", background: "#1e293b", color: C.amber, fontSize: size * 0.48, fontWeight: 900 }}>
-      {plain(name).charAt(0).toUpperCase() || "T"}
+    <svg width={width} height={size * rows} viewBox={`0 0 ${width} ${size * rows}`} style={{ flexShrink: 0 }}>
+      <rect x={0} y={0} width={width} height={size * rows} fill={C.paper} />
+      {cells}
+    </svg>
+  )
+}
+
+/** A strip of red tape with white lettering, slapped on at an angle. */
+function Tape({ text, size, angle = -2 }: { text: string; size: number; angle?: number }) {
+  return (
+    <div style={{ display: "flex", background: C.accent, color: C.onAccent, fontSize: size, fontWeight: 900, letterSpacing: size * 0.06, padding: `${size * 0.14}px ${size * 0.5}px`, borderRadius: size * 0.12, transform: `rotate(${angle}deg)` }}>
+      {text}
     </div>
   )
 }
 
-/** A drawn trophy (no emoji font). */
-function Trophy({ size }: { size: number }) {
+/** The painted slogan banner. */
+function Banner({ text, size }: { text: string; size: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64">
-      <path d="M18 6h28v8h10v6c0 9-7 15-15 16-2 5-5 8-7 9v7h8v6H22v-6h8v-7c-2-1-5-4-7-9-8-1-15-7-15-16v-6h10V6zm-4 14c0 5 3 9 8 10-1-3-2-7-2-10h-6zm36 0h-6c0 3-1 7-2 10 5-1 8-5 8-10z" fill={C.amber} />
-    </svg>
+    <div style={{ display: "flex", justifyContent: "center", color: C.ink, borderTop: `${Math.max(3, size * 0.08)}px solid ${C.ink}`, borderBottom: `${Math.max(3, size * 0.08)}px solid ${C.ink}`, fontSize: size, fontWeight: 900, letterSpacing: size * 0.04, padding: `${size * 0.3}px ${size * 0.4}px`, textAlign: "center" }}>
+      {`“${text}”`}
+    </div>
+  )
+}
+
+/** A round photo sticker with a thick black ring, slightly crooked. */
+function Sticker({ src, name, size }: { src: string | null; name: string; size: number }) {
+  const ring = Math.round(size * 0.06)
+  return (
+    <div style={{ display: "flex", padding: Math.round(size * 0.04), background: C.white, borderRadius: size, transform: "rotate(-4deg)" }}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} width={size} height={size} style={{ width: size, height: size, borderRadius: size, border: `${ring}px solid ${C.ink}`, objectFit: "cover" }} />
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: size, height: size, borderRadius: size, border: `${ring}px solid ${C.ink}`, background: C.ink, color: C.paper, fontSize: size * 0.5, fontWeight: 900 }}>
+          {shout(name).charAt(0) || "T"}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A Ugandan-style number plate: yellow, thick black border, the code in big black letters. */
+function Plate({ text, width, height, caption }: { text: string; width: number; height: number; caption?: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width, height, background: C.white, border: `${Math.round(height * 0.06)}px solid ${C.ink}`, borderRadius: height * 0.12 }}>
+      {caption && <div style={{ display: "flex", fontSize: height * 0.13, fontWeight: 900, letterSpacing: height * 0.02, color: C.accent }}>{caption}</div>}
+      <div style={{ display: "flex", fontSize: height * (caption ? 0.48 : 0.58), fontWeight: 900, letterSpacing: height * 0.08, color: C.ink, lineHeight: 1 }}>{text}</div>
+    </div>
   )
 }
 
@@ -91,7 +162,7 @@ function Qr({ text, size }: { text: string; size: number }) {
   let d = ""
   for (let row = 0; row < count; row++) for (let col = 0; col < count; col++) if (qr.isDark(row, col)) d += `M${col} ${row}h1v1h-1z`
   return (
-    <div style={{ display: "flex", padding: size * 0.06, background: "#ffffff", borderRadius: size * 0.08 }}>
+    <div style={{ display: "flex", padding: size * 0.06, background: C.white, border: `${Math.round(size * 0.035)}px solid ${C.ink}`, borderRadius: size * 0.06 }}>
       <svg width={size} height={size} viewBox={`0 0 ${count} ${count}`}>
         <path d={d} fill={C.ink} />
       </svg>
@@ -99,47 +170,31 @@ function Qr({ text, size }: { text: string; size: number }) {
   )
 }
 
-/** Night-time Kampala streets: a dark gradient with a faint road grid. */
-function Backdrop({ width, height }: { width: number; height: number }) {
-  const roads = [
-    "M-50 300 C 300 220, 600 420, 1300 260",
-    "M-50 900 C 400 760, 700 1040, 1300 820",
-    "M-50 1500 C 300 1400, 800 1650, 1300 1450",
-    "M200 -50 C 260 600, 120 1200, 260 2000",
-    "M760 -50 C 700 500, 880 1300, 720 2000",
-    "M-50 1150 L 1300 1000"
-  ]
+function Chips({ race, size }: { race: SharedPrizeRace; size: number }) {
+  const payable = Math.floor(race.pot * (1 - PRIZE_CUT_SHARE))
   return (
-    <div style={{ position: "absolute", left: 0, top: 0, width, height, display: "flex", background: `linear-gradient(160deg, #1e293b 0%, ${C.night} 55%, #3b1d06 100%)` }}>
-      <svg width={width} height={height} viewBox={`0 0 1200 ${Math.round((1200 * height) / width)}`} style={{ position: "absolute", left: 0, top: 0 }}>
-        {roads.map((d) => (
-          <path key={d} d={d} stroke="rgba(251,191,36,0.13)" strokeWidth="18" fill="none" />
-        ))}
-      </svg>
+    <div style={{ display: "flex", gap: size * 0.4 }}>
+      {race.shares.map((share, index) => (
+        <div key={index} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: C.ink, color: C.paper, borderRadius: size * 0.3, padding: `${size * 0.25}px ${size * 0.5}px` }}>
+          <div style={{ display: "flex", fontSize: size * 0.7, fontWeight: 900, color: C.soft }}>{ordinal(index + 1)}</div>
+          <div style={{ display: "flex", fontSize: size, fontWeight: 900 }}>{bng(Math.floor((payable * share) / 100))}</div>
+        </div>
+      ))}
     </div>
   )
 }
 
 function Brand({ size }: { size: number }) {
   return (
-    <div style={{ display: "flex", alignItems: "baseline", gap: size * 0.4 }}>
-      <div style={{ fontSize: size, fontWeight: 900, letterSpacing: size * 0.18, color: C.amber }}>TIRAL</div>
-      <div style={{ fontSize: size * 0.42, fontWeight: 700, color: C.slate, letterSpacing: size * 0.05 }}>KAMPALA HUSTLE</div>
+    <div style={{ display: "flex", alignItems: "baseline", gap: size * 0.5, color: C.ink }}>
+      <div style={{ display: "flex", fontSize: size, fontWeight: 900, letterSpacing: size * 0.15 }}>TIRAL</div>
+      <div style={{ display: "flex", fontSize: size * 0.5, fontWeight: 900, letterSpacing: size * 0.08 }}>· KAMPALA HUSTLE</div>
     </div>
   )
 }
 
-function payouts(race: SharedPrizeRace) {
-  const payable = Math.floor(race.pot * (1 - PRIZE_CUT_SHARE))
-  return race.shares.map((share, index) => ({ place: index + 1, amount: Math.floor((payable * share) / 100) }))
-}
-
-function statusLine(race: SharedPrizeRace) {
-  if (race.status === "scheduled") return { text: kampalaTime(race.startsAt), tone: C.cream }
-  if (race.status === "live") return { text: "Racing now", tone: C.emerald }
-  if (race.status === "paid") return { text: "Race finished", tone: C.slate }
-  return { text: "Race called off", tone: C.slate }
-}
+/** Shrink huge numbers and long names so they still fit the width. */
+const fit = (text: string, base: number, maxChars: number) => (text.length > maxChars ? Math.floor((base * maxChars) / text.length) : base)
 
 async function render(node: React.ReactElement, width: number, height: number) {
   return new ImageResponse(node, {
@@ -150,87 +205,86 @@ async function render(node: React.ReactElement, width: number, height: number) {
   })
 }
 
-const font = { fontFamily: "Noto Sans", color: C.cream }
+const page = { fontFamily: "Noto Sans", color: C.ink, background: C.paper, display: "flex", flexDirection: "column" as const }
 
-/** The race poster for stories. */
+/** The race poster for stories (1080×1920). */
 export async function raceStory(race: SharedPrizeRace) {
-  const avatar = await photo(race.hostAvatarUrl)
-  const when = statusLine(race)
-  const link = `${SITE}/r/${race.roomCode}`
+  const avatar = await photo(race.hostAvatarUrl, race.host.id)
+  const pot = bng(race.pot)
+  const line = slogan(race)
   return render(
-    <div style={{ ...font, width: 1080, height: 1920, display: "flex", flexDirection: "column", alignItems: "center", position: "relative", padding: "90px 80px" }}>
-      <Backdrop width={1080} height={1920} />
-      <Brand size={64} />
-      <div style={{ display: "flex", marginTop: 90 }}>
-        <Trophy size={220} />
-      </div>
-      <div style={{ fontSize: 54, fontWeight: 900, letterSpacing: 6, color: C.amberSoft, marginTop: 30 }}>PRIZE RACE</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 24, marginTop: 10 }}>
-        <div style={{ fontSize: 170, fontWeight: 900, color: C.amber, lineHeight: 1 }}>{bng(race.pot)}</div>
-        <div style={{ fontSize: 64, fontWeight: 900, color: C.amber }}>BNG</div>
-      </div>
-      <div style={{ display: "flex", gap: 22, marginTop: 40 }}>
-        {payouts(race).map((payout) => (
-          <div key={payout.place} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 26px", borderRadius: 24, background: "rgba(251,191,36,0.14)", border: "3px solid rgba(251,191,36,0.4)" }}>
-            <div style={{ fontSize: 30, fontWeight: 700, color: C.amberSoft }}>{ordinal(payout.place)}</div>
-            <div style={{ fontSize: 40, fontWeight: 900 }}>{bng(payout.amount)}</div>
+    <div style={{ ...page, width: 1080, height: 1920 }}>
+      <Checkers width={1080} size={60} />
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "36px 64px 34px" }}>
+        <Brand size={44} />
+        <div style={{ display: "flex", marginTop: 34, marginLeft: -90 }}>
+          <Tape text="PRIZE RACE" size={88} />
+        </div>
+        <div style={{ display: "flex", fontSize: fit(pot, 300, 6), fontWeight: 900, letterSpacing: -12, lineHeight: 1, marginTop: 26, marginBottom: 14 }}>{pot}</div>
+        <div style={{ display: "flex", fontSize: 92, fontWeight: 900, letterSpacing: 2, lineHeight: 1 }}>BNG UP FOR GRABS</div>
+        <div style={{ display: "flex", marginTop: 30 }}>
+          <Chips race={race} size={56} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 44, marginTop: 44 }}>
+          <Sticker src={avatar} name={race.host.name} size={210} />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", fontSize: 40, fontWeight: 900, letterSpacing: 4 }}>HOSTED BY</div>
+            <div style={{ display: "flex", fontSize: fit(race.host.name, 84, 12), fontWeight: 900, lineHeight: 1.05, maxWidth: 560 }}>{shout(race.host.name)}</div>
           </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 30, marginTop: 70 }}>
-        <Avatar src={avatar} name={race.host.name} size={150} />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 32, fontWeight: 700, color: C.slate }}>Hosted by</div>
-          <div style={{ fontSize: 56, fontWeight: 900, maxWidth: 640 }}>{plain(race.host.name)}</div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 46 }}>
+          <Banner text={line} size={fit(line, 56, 22)} />
+        </div>
+        <div style={{ display: "flex", flexGrow: 1 }} />
+        <div style={{ display: "flex", fontSize: 46, fontWeight: 900, letterSpacing: 2, marginBottom: 22 }}>{when(race)}</div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 36 }}>
+          <Qr text={`${SITE}/r/${race.roomCode}`} size={210} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Plate text={race.roomCode} caption="RACE CODE" width={600} height={170} />
+            <div style={{ display: "flex", fontSize: 36, fontWeight: 900, letterSpacing: 1 }}>{`PLAY FREE · ${HOST.toUpperCase()}`}</div>
+          </div>
         </div>
       </div>
-      {race.message && plain(race.message) && (
-        <div style={{ fontSize: 40, fontWeight: 700, color: C.amberSoft, marginTop: 36, textAlign: "center", maxWidth: 900 }}>{`“${plain(race.message)}”`}</div>
-      )}
-      <div style={{ fontSize: 46, fontWeight: 900, color: when.tone, marginTop: 50 }}>{when.text}</div>
-      <div style={{ display: "flex", flexGrow: 1 }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 50 }}>
-        <Qr text={link} size={300} />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 34, fontWeight: 700, color: C.slate }}>Race code</div>
-          <div style={{ fontSize: 110, fontWeight: 900, letterSpacing: 12, color: C.amber }}>{race.roomCode}</div>
-          <div style={{ fontSize: 34, fontWeight: 700 }}>{HOST}</div>
-        </div>
-      </div>
+      <Checkers width={1080} size={60} />
     </div>,
     1080,
     1920
   )
 }
 
-/** What a pasted race link shows in WhatsApp and other chats. */
+/** What a pasted race link shows in WhatsApp and other chats (1200×630). */
 export async function racePreview(race: SharedPrizeRace) {
-  const avatar = await photo(race.hostAvatarUrl)
-  const when = statusLine(race)
+  const avatar = await photo(race.hostAvatarUrl, race.host.id)
+  const pot = bng(race.pot)
   return render(
-    <div style={{ ...font, width: 1200, height: 630, display: "flex", position: "relative", padding: 60 }}>
-      <Backdrop width={1200} height={630} />
-      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
-        <Brand size={40} />
-        <div style={{ display: "flex", alignItems: "center", gap: 24, marginTop: 40 }}>
-          <Trophy size={110} />
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: 4, color: C.amberSoft }}>PRIZE RACE</div>
-            <div style={{ fontSize: 96, fontWeight: 900, color: C.amber, lineHeight: 1 }}>{`${bng(race.pot)} BNG`}</div>
+    <div style={{ ...page, width: 1200, height: 630 }}>
+      <Checkers width={1200} size={36} />
+      <div style={{ display: "flex", flexGrow: 1, padding: "30px 48px 26px" }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+          <Brand size={30} />
+          <div style={{ display: "flex", marginTop: 22, marginLeft: -64 }}>
+            <Tape text="PRIZE RACE" size={52} />
           </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 18, marginTop: 14 }}>
+            <div style={{ display: "flex", fontSize: fit(pot, 150, 7), fontWeight: 900, letterSpacing: -6, lineHeight: 1 }}>{pot}</div>
+            <div style={{ display: "flex", fontSize: 56, fontWeight: 900 }}>BNG</div>
+          </div>
+          <div style={{ display: "flex", marginTop: 14 }}>
+            <Chips race={race} size={34} />
+          </div>
+          <div style={{ display: "flex", flexGrow: 1 }} />
+          <div style={{ display: "flex", fontSize: 34, fontWeight: 900 }}>{when(race)}</div>
         </div>
-        <div style={{ fontSize: 34, fontWeight: 700, marginTop: 26 }}>
-          {payouts(race).map((payout) => `${ordinal(payout.place)} ${bng(payout.amount)}`).join("  ·  ")}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", width: 360 }}>
+          <Sticker src={avatar} name={race.host.name} size={170} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ display: "flex", fontSize: 24, fontWeight: 900, letterSpacing: 3 }}>HOSTED BY</div>
+            <div style={{ display: "flex", fontSize: fit(race.host.name, 40, 14), fontWeight: 900 }}>{shout(race.host.name)}</div>
+          </div>
+          <Plate text={race.roomCode} width={330} height={110} />
         </div>
-        <div style={{ display: "flex", flexGrow: 1 }} />
-        <div style={{ fontSize: 40, fontWeight: 900, color: when.tone }}>{when.text}</div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 320 }}>
-        <Avatar src={avatar} name={race.host.name} size={170} />
-        <div style={{ fontSize: 26, fontWeight: 700, color: C.slate, marginTop: 18 }}>Hosted by</div>
-        <div style={{ fontSize: 38, fontWeight: 900, textAlign: "center" }}>{plain(race.host.name)}</div>
-        <div style={{ fontSize: 60, fontWeight: 900, letterSpacing: 8, color: C.amber, marginTop: 20 }}>{race.roomCode}</div>
-      </div>
+      <Checkers width={1200} size={36} />
     </div>,
     1200,
     630
@@ -241,58 +295,76 @@ function winner(race: SharedPrizeRace, place: number) {
   return race.winners.find((entry) => entry.place === place) ?? null
 }
 
-/** A winner's brag card for stories. */
+/** A winner's brag card for stories (1080×1920). */
 export async function winStory(race: SharedPrizeRace, place: number) {
   const won = winner(race, place)
   if (!won) return null
-  const avatar = await photo(race.hostAvatarUrl)
+  const avatar = await photo(race.hostAvatarUrl, race.host.id)
+  const amount = bng(won.amount)
   return render(
-    <div style={{ ...font, width: 1080, height: 1920, display: "flex", flexDirection: "column", alignItems: "center", position: "relative", padding: "90px 80px" }}>
-      <Backdrop width={1080} height={1920} />
-      <Brand size={64} />
-      <div style={{ display: "flex", marginTop: 120 }}>
-        <Trophy size={300} />
-      </div>
-      <div style={{ fontSize: 60, fontWeight: 900, color: C.amberSoft, marginTop: 30, letterSpacing: 4 }}>{`${ordinal(place).toUpperCase()} PLACE`}</div>
-      <div style={{ fontSize: 96, fontWeight: 900, marginTop: 30, textAlign: "center", maxWidth: 920 }}>{plain(won.name)}</div>
-      <div style={{ fontSize: 48, fontWeight: 700, color: C.slate, marginTop: 20 }}>won</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 24 }}>
-        <div style={{ fontSize: 180, fontWeight: 900, color: C.amber, lineHeight: 1.05 }}>{bng(won.amount)}</div>
-        <div style={{ fontSize: 64, fontWeight: 900, color: C.amber }}>BNG</div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 26, marginTop: 70 }}>
-        <Avatar src={avatar} name={race.host.name} size={110} />
-        <div style={{ fontSize: 44, fontWeight: 700 }}>{`in ${plain(race.host.name)}'s prize race`}</div>
-      </div>
-      <div style={{ display: "flex", flexGrow: 1 }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 50 }}>
-        <Qr text={SITE} size={240} />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 46, fontWeight: 900, color: C.amber }}>Think you can beat me?</div>
-          <div style={{ fontSize: 38, fontWeight: 700, marginTop: 8 }}>{`Play free at ${HOST}`}</div>
+    <div style={{ ...page, width: 1080, height: 1920 }}>
+      <Checkers width={1080} size={60} />
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "36px 64px 34px" }}>
+        <Brand size={44} />
+        <div style={{ display: "flex", marginTop: 34, marginLeft: -90 }}>
+          <Tape text={`${ordinal(place)} PLACE`} size={92} />
+        </div>
+        <div style={{ display: "flex", fontSize: fit(shout(won.name), 120, 12), fontWeight: 900, lineHeight: 1.05, marginTop: 40 }}>{shout(won.name)}</div>
+        <div style={{ display: "flex", fontSize: 60, fontWeight: 900, marginTop: 8 }}>WON</div>
+        <div style={{ display: "flex", fontSize: fit(amount, 300, 6), fontWeight: 900, letterSpacing: -12, lineHeight: 1, marginBottom: 10 }}>{amount}</div>
+        <div style={{ display: "flex", fontSize: 92, fontWeight: 900, lineHeight: 1 }}>BNG</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 36, marginTop: 40 }}>
+          <Sticker src={avatar} name={race.host.name} size={150} />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", fontSize: 38, fontWeight: 900, letterSpacing: 3 }}>IN THE PRIZE RACE BY</div>
+            <div style={{ display: "flex", fontSize: fit(race.host.name, 70, 14), fontWeight: 900 }}>{shout(race.host.name)}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexGrow: 1 }} />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 44 }}>
+          <Banner text="THINK YOU CAN BEAT ME?" size={50} />
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 36 }}>
+          <Qr text={SITE} size={210} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Plate text="TIRAL" caption="PLAY FREE AT" width={600} height={170} />
+            <div style={{ display: "flex", fontSize: 40, fontWeight: 900 }}>{HOST.toUpperCase()}</div>
+          </div>
         </div>
       </div>
+      <Checkers width={1080} size={60} />
     </div>,
     1080,
     1920
   )
 }
 
-/** What a pasted brag link shows in chats. */
+/** What a pasted brag link shows in chats (1200×630). */
 export async function winPreview(race: SharedPrizeRace, place: number) {
   const won = winner(race, place)
   if (!won) return null
+  const avatar = await photo(race.hostAvatarUrl, race.host.id)
+  const amount = bng(won.amount)
   return render(
-    <div style={{ ...font, width: 1200, height: 630, display: "flex", alignItems: "center", position: "relative", padding: 60, gap: 50 }}>
-      <Backdrop width={1200} height={630} />
-      <Trophy size={260} />
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <Brand size={36} />
-        <div style={{ fontSize: 40, fontWeight: 900, color: C.amberSoft, marginTop: 30 }}>{`${ordinal(place).toUpperCase()} PLACE`}</div>
-        <div style={{ fontSize: 64, fontWeight: 900, maxWidth: 760 }}>{plain(won.name)}</div>
-        <div style={{ fontSize: 90, fontWeight: 900, color: C.amber, lineHeight: 1.1 }}>{`won ${bng(won.amount)} BNG`}</div>
-        <div style={{ fontSize: 34, fontWeight: 700, color: C.slate, marginTop: 10 }}>{`in ${plain(race.host.name)}'s prize race`}</div>
+    <div style={{ ...page, width: 1200, height: 630 }}>
+      <Checkers width={1200} size={36} />
+      <div style={{ display: "flex", flexGrow: 1, alignItems: "center", padding: "26px 48px", gap: 40 }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+          <Brand size={30} />
+          <div style={{ display: "flex", marginTop: 22, marginLeft: -64 }}>
+            <Tape text={`${ordinal(place)} PLACE`} size={52} />
+          </div>
+          <div style={{ display: "flex", fontSize: fit(shout(won.name), 64, 14), fontWeight: 900, marginTop: 22 }}>{shout(won.name)}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+            <div style={{ display: "flex", fontSize: 44, fontWeight: 900 }}>WON</div>
+            <div style={{ display: "flex", fontSize: fit(amount, 130, 7), fontWeight: 900, letterSpacing: -5, lineHeight: 1.05 }}>{amount}</div>
+            <div style={{ display: "flex", fontSize: 50, fontWeight: 900 }}>BNG</div>
+          </div>
+          <div style={{ display: "flex", fontSize: 30, fontWeight: 900, marginTop: 8 }}>{`IN ${shout(race.host.name)}'S PRIZE RACE`}</div>
+        </div>
+        <Sticker src={avatar} name={race.host.name} size={210} />
       </div>
+      <Checkers width={1200} size={36} />
     </div>,
     1200,
     630

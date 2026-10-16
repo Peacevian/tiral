@@ -223,3 +223,29 @@ export async function getRecentRaces(
     .limit(limit)
   return rows
 }
+
+/** A player's stored TikTok tokens (to refresh their profile photo), or null if not linked. */
+export async function getTikTokTokens(
+  userId: string,
+  db: Database = getDatabase()
+): Promise<{ accessToken: string; refreshToken: string; expiresAt: Date } | null> {
+  const [row] = await db
+    .select({ accessToken: tiktokAccounts.accessToken, refreshToken: tiktokAccounts.refreshToken, expiresAt: tiktokAccounts.expiresAt })
+    .from(tiktokAccounts)
+    .where(eq(tiktokAccounts.userId, userId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function saveTikTokTokens(
+  userId: string,
+  tokens: { accessToken: string; refreshToken: string; expiresAt: Date },
+  db: Database = getDatabase()
+): Promise<void> {
+  await db.update(tiktokAccounts).set({ ...tokens, updatedAt: new Date() }).where(eq(tiktokAccounts.userId, userId))
+}
+
+/** Point the player's photo at our own stored copy (TikTok's own links expire within days). */
+export async function setAvatarUrl(userId: string, avatarUrl: string | null, db: Database = getDatabase()): Promise<void> {
+  await db.update(users).set({ avatarUrl }).where(eq(users.id, userId))
+}
