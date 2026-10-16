@@ -42,6 +42,8 @@ type PlayerInfo = Runner & {
   loadout: AvatarLoadout
   startPointId: string | null
   startAt: { lat: number; lng: number } | null
+  /** Chose a start themselves (everyone else gets the default one at the gun). */
+  pickedStart: boolean
   finishPosition: number | null
   connected: boolean
 }
@@ -119,6 +121,7 @@ export class RaceRoom extends Room {
       const nearest = findNearestEdge(this.roadGraph, start.position)
       if (!nearest) return
       player.startPointId = start.id
+      player.pickedStart = true
       player.roadPosition = {
         edgeId: nearest.edgeId,
         distanceAlongEdge: nearest.distanceAlongEdge,
@@ -127,7 +130,7 @@ export class RaceRoom extends Room {
       player.coordinate = getRoadCoordinate(this.roadGraph, player.roadPosition)
       player.moving = false
       player.turnIntent = null
-      this.broadcast("roomState", this.getRoomState())
+      this.sendRoomState()
     })
 
     // Tap-to-place start: player drops a pin anywhere in the zone,
@@ -154,9 +157,10 @@ export class RaceRoom extends Room {
       }
       player.coordinate = getRoadCoordinate(this.roadGraph, player.roadPosition)
       player.startAt = player.coordinate ? { ...player.coordinate } : null
+      player.pickedStart = true
       player.moving = false
       player.turnIntent = null
-      this.broadcast("roomState", this.getRoomState())
+      this.sendRoomState()
     })
 
     this.onMessage("walk", (client, on: boolean) => {
@@ -181,7 +185,7 @@ export class RaceRoom extends Room {
       const player = this.players[client.sessionId]
       if (!player || !player.roadPosition || this.phase !== "racing" || player.finishPosition !== null) return
       turnAround(player)
-      this.broadcast("roomState", this.getRoomState())
+      this.sendRoomState()
     })
 
     this.onMessage("playAgain", () => {
@@ -200,7 +204,7 @@ export class RaceRoom extends Room {
       .then((graph) => {
         this.roadGraph = graph
         this.snapUnplacedPlayers()
-        this.broadcast("roomState", this.getRoomState())
+        this.sendRoomState()
       })
       .catch((error) => {
         console.error("Failed to load road graph:", error)
@@ -255,6 +259,7 @@ export class RaceRoom extends Room {
         coordinate: null,
         moving: false,
         turnIntent: null,
+        pickedStart: false,
         finishPosition: null,
         connected: true,
         ...freshBody()
@@ -263,7 +268,7 @@ export class RaceRoom extends Room {
       void this.body.load(joined, () => this.players[client.sessionId] === joined)
     }
     // No auto-placement: the player stays off-map until they drop a start pin.
-    this.broadcast("roomState", this.getRoomState())
+    this.sendRoomState()
     this.syncMetadata()
 
     if (Object.keys(this.players).length >= 2 && this.phase === "lobby") {
@@ -276,21 +281,21 @@ export class RaceRoom extends Room {
     if (!player) return
     player.connected = false
     player.moving = false
-    this.broadcast("roomState", this.getRoomState())
+    this.sendRoomState()
     this.syncMetadata()
     try {
       await this.allowReconnection(client, RECONNECT_SECONDS)
       const rejoined = this.players[client.sessionId]
       if (rejoined) {
         rejoined.connected = true
-        this.broadcast("roomState", this.getRoomState())
+        this.sendRoomState()
         this.syncMetadata()
       }
     } catch {
       const gone = this.players[client.sessionId]
       if (gone) void this.body.flush([gone])
       delete this.players[client.sessionId]
-      this.broadcast("roomState", this.getRoomState())
+      this.sendRoomState()
       this.syncMetadata()
     }
   }
@@ -308,7 +313,7 @@ export class RaceRoom extends Room {
       this.phase = "lobby"
       this.countdownSeconds = COUNTDOWN_SECONDS
     }
-    this.broadcast("roomState", this.getRoomState())
+    this.sendRoomState()
     this.syncMetadata()
   }
 
@@ -402,7 +407,7 @@ export class RaceRoom extends Room {
       this.broadcast("positions", this.getPositions())
     }
     if (arrived) {
-      this.broadcast("roomState", this.getRoomState())
+      this.sendRoomState()
     }
 
     const racers = Object.values(this.players).filter((player) => player.roadPosition)
@@ -437,7 +442,7 @@ export class RaceRoom extends Room {
     const field = this.fieldSize()
     if (winner && field >= 2) winner.pendingStress += STRESS.raceWin
     void this.body.flush(Object.values(this.players))
-    this.broadcast("roomState", this.getRoomState())
+    this.sendRoomState()
     this.broadcast(
       "raceFinished",
       this.finishOrder.map((sessionId, index) => ({
@@ -507,7 +512,7 @@ export class RaceRoom extends Room {
       player.finishPosition = null
     }
     this.snapUnplacedPlayers()
-    this.broadcast("roomState", this.getRoomState())
+    this.sendRoomState()
     this.syncMetadata()
 
     if (Object.keys(this.players).length >= 2) {
@@ -540,20 +545,45 @@ export class RaceRoom extends Room {
     return positions
   }
 
-  private getRoomState() {
+  /**
+   * The room as `viewer` may see it. Before the race, rivals' starts stay
+   * secret: seeing them would let the last player to pick sit in the middle
+   * of everyone, or drop a pin to push the treasure (never placed near any
+   * start) away from a rival. Each player only learns whether the others have
+   * picked (`hasStart`); all starts are revealed when the race begins.
+   */
+  private getRoomState(viewer: string | null = null) {
+    const secret = this.phase === "lobby" || this.phase === "countdown"
+    const players: Record<string, PlayerInfo & { hasStart: boolean }> = {}
+    for (const [id, player] of Object.entries(this.players)) {
+      const hasStart = player.pickedStart
+      players[id] =
+        secret && id !== viewer
+          ? { ...player, startAt: null, startPointId: null, coordinate: null, roadPosition: null, hasStart }
+          : { ...player, hasStart }
+    }
     return {
       phase: this.phase,
       countdownSeconds: this.countdownSeconds,
       destinationId: this.destinationId,
       startedAt: this.startedAt,
       roomCode: this.roomCode,
-      players: this.players
+      players
+    }
+  }
+
+  /** Room state to everyone: each player's own view before the race, one shared view after. */
+  private sendRoomState() {
+    if (this.phase === "lobby" || this.phase === "countdown") {
+      for (const client of this.clients) client.send("roomState", this.getRoomState(client.sessionId))
+    } else {
+      this.broadcast("roomState", this.getRoomState())
     }
   }
 
   private beginCountdown() {
     this.phase = "countdown"
-    this.broadcast("roomState", this.getRoomState())
+    this.sendRoomState()
     this.syncMetadata()
 
     let remaining = COUNTDOWN_SECONDS
@@ -647,7 +677,7 @@ export class RaceRoom extends Room {
       player.turnIntent = null
       player.finishPosition = null
     }
-    this.broadcast("roomState", this.getRoomState())
+    this.sendRoomState()
     this.syncMetadata()
   }
 

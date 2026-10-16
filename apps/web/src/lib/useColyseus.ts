@@ -15,7 +15,9 @@ type RoomPlayer = {
   userId?: string | null
   loadout?: AvatarLoadout
   startPointId: string | null
+  /** Before the race, rivals' starts are hidden; this says whether they've picked one. */
   startAt?: { lat: number; lng: number } | null
+  hasStart?: boolean
   roadPosition: { edgeId: string; distanceAlongEdge: number; direction: 1 | -1 } | null
   coordinate: { lat: number; lng: number } | null
   moving?: boolean

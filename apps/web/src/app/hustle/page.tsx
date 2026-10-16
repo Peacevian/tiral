@@ -514,6 +514,7 @@ function MapHustle() {
               onRequestTurn={movement.requestTurn}
               showStarts={false}
               hasStartPin
+              rivals={[]}
               placementArmed={false}
               onTogglePlacement={() => {}}
               showSolo={false}
