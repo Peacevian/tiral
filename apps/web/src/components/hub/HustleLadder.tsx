@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { NO_LADDER_PROGRESS, gigLockedText, ladderSteps, type LadderGig, type LadderStep } from "@tiral/game-core"
+import { NO_LADDER_PROGRESS, TIERS, gigLockedText, ladderSteps, tierSavings, type LadderGig, type LadderStep } from "@tiral/game-core"
 import { usePlayer } from "@/lib/player"
+import { formatCoins } from "@/lib/useCoins"
 
 // The hustle ladder as a career path: the gigs you've opened, the next one
 // with how far you are, and the rest (greyed) with what they pay, so there's
@@ -27,16 +28,64 @@ const GO_TEXT: Record<LadderGig, string> = {
 }
 
 /** The ladder for the signed-in player (everything closed but the porter while loading). */
-export function useLadder(): { steps: LadderStep[]; next: LadderStep | null; tiktokLinked: boolean } {
+export function useLadder(): { steps: LadderStep[]; next: LadderStep | null; tiktokLinked: boolean; balance: number } {
   const { player } = usePlayer()
   const steps = ladderSteps(player?.ladder ?? NO_LADDER_PROGRESS)
-  return { steps, next: steps.find((step) => !step.unlocked) ?? null, tiktokLinked: player?.user.tiktokLinked === true }
+  return {
+    steps,
+    next: steps.find((step) => !step.unlocked) ?? null,
+    tiktokLinked: player?.user.tiktokLinked === true,
+    balance: player?.balance ?? 0
+  }
 }
 
-/** One line for the collapsed row: "Next: Car wash · 2 / 5 porter loads". */
-export function nextUnlockText(next: LadderStep | null): string {
-  if (!next?.progress) return "Every hustle is open"
-  return `Next: ${GIG_INFO[next.gig].name} · ${next.progress.have} / ${next.progress.need} ${next.progress.label}`
+// Everyone is in the first tier until moving up arrives with the first small
+// business (docs/career-roadmap.md, Phase 3a).
+const CURRENT_TIER = TIERS[0]!
+
+/**
+ * One line for the collapsed row: the next gig to open ("Next: Car wash ·
+ * 2 / 5 porter loads"), or once the street jobs are all open, the savings
+ * towards the next tier.
+ */
+export function nextUnlockText(next: LadderStep | null, balance: number): string {
+  if (next?.progress && !next.comingSoon) {
+    return `Next: ${GIG_INFO[next.gig].name} · ${next.progress.have} / ${next.progress.need} ${next.progress.label}`
+  }
+  const savings = tierSavings(CURRENT_TIER.id, balance)
+  return savings ? `Next: ${savings.tier.name} · ${formatCoins(savings.have)} / ${formatCoins(savings.need)} saved` : "Every hustle is open"
+}
+
+/** Under the street jobs: the next tier, and how far your savings are towards it. */
+function NextTier({ balance }: { balance: number }) {
+  const savings = tierSavings(CURRENT_TIER.id, balance)
+  if (!savings) return null
+  return (
+    <div className="mx-2 mb-2 rounded-xl border border-sheet-line bg-sheet p-3">
+      <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-sheet-mute">Next tier</div>
+      <div className="mt-0.5 text-sm font-black text-sheet-ink">🏪 {savings.tier.name}</div>
+      <div className="text-xs text-sheet-mute">{savings.tier.blurb}</div>
+      <div
+        role="progressbar"
+        aria-label={`Saved ${formatCoins(savings.have)} of ${formatCoins(savings.need)}`}
+        aria-valuemin={0}
+        aria-valuemax={savings.need}
+        aria-valuenow={savings.have}
+        className="mt-2 h-2 overflow-hidden rounded-full bg-sheet-line"
+      >
+        <div className="h-full rounded-full bg-sheet-blue" style={{ width: `${Math.round(savings.share * 100)}%` }} />
+      </div>
+      <div className="mt-1 flex items-baseline justify-between gap-2 text-xs">
+        <span className="font-mono font-bold text-sheet-blue">
+          {formatCoins(savings.have)} / {formatCoins(savings.need)}
+        </span>
+        <span className="text-sheet-mute">{savings.ready ? "Saved! Moving up opens soon" : "saved"}</span>
+      </div>
+      <Link href="/leaderboard?board=rich" className="mt-2 inline-flex min-h-[44px] items-center text-xs font-bold text-flame-deep">
+        💰 See the Kampala Rich List ›
+      </Link>
+    </div>
+  )
 }
 
 function Progress({ step }: { step: LadderStep }) {
@@ -62,8 +111,12 @@ function Progress({ step }: { step: LadderStep }) {
 }
 
 export function HustleLadder() {
-  const { steps, next, tiktokLinked } = useLadder()
+  const { steps, next, tiktokLinked, balance } = useLadder()
   return (
+    <div>
+      <div className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-flame-deep">
+        Tier 1 · {CURRENT_TIER.name}
+    </div>
     <ol className="flex flex-col gap-1 px-2 pb-2" aria-label="Your hustle path">
       {steps.map((step) => {
         const info = GIG_INFO[step.gig]
@@ -107,6 +160,8 @@ export function HustleLadder() {
         )
       })}
     </ol>
+    <NextTier balance={balance} />
+    </div>
   )
 }
 

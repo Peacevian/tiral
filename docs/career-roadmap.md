@@ -21,9 +21,9 @@ day). Progress depends on time played; energy and food are the brake.
 | Phase | What | Migration | Status |
 |---|---|---|---|
 | — | Hustle ladder (porter → car wash → boda → rolex) | no | ✅ `a5975ac` |
-| 0 | Foundations (inside 1–2) | no | ⬜ |
+| 0 | Foundations (inside 1–2) | no | 🟡 tier rules and big-amount check done |
 | 1 | Tier 1 rebalance | no | ✅ `99899a4` |
-| 2 | Career path and moving up | no | ⬜ |
+| 2 | Career path and moving up | no | 🟡 part one live (move up ships with 3a) |
 | 3a | TikTok Live mitumba | **yes** | ⬜ |
 | 3b | Mobile money kiosk | maybe | ⬜ |
 | 3c | Salon / phone repair | maybe | ⬜ |
@@ -34,12 +34,12 @@ day). Progress depends on time played; energy and food are the brake.
 ---
 
 ## Phase 0: Foundations
-- [ ] Tier rules in game-core: tiers, unlock rules (experience + capital +
-      investment), net worth.
+- [x] Tier rules in game-core (tiers.ts): tiers, capital, investment,
+      savings towards the next tier. Net worth = coins until businesses exist.
 - [ ] Your tier read from the coin ledger (a one-time "invested in your first
       business" entry per tier); no migration.
-- [ ] Big amounts: confirm balances and sums in the hundreds of millions are
-      stored and added safely (entries are int4, fine to ~2.1B each).
+- [x] Big amounts: balances are summed as bigint (safe far past 250M);
+      single entries are int4 (fine to ~2.1B each).
 - [x] Anti-farming without daily caps: jobs are paced by the server (walking
       and riding speed, customer arrivals, car arrivals) and a car can't be
       paid faster than a person can wash it.
@@ -58,12 +58,14 @@ day). Progress depends on time played; energy and food are the brake.
 - [x] Deploy (16 Oct).
 
 ## Phase 2: Career path and moving up
-- [ ] Tier labels on the Earn BNG career path.
-- [ ] Savings bar ("Small business: 230,000 / 500,000").
+- [x] Tier labels on the Earn BNG career path.
+- [x] Savings bar ("Small business: 230,000 / 500,000"); the Earn BNG row
+      shows it once every street job is open.
 - [ ] "Move up" screen: put ~150k into your first business → Small business
-      owner; inbox note; share card.
-- [ ] Kampala Rich List page (net worth = coins for now), beside Ranks.
-- [ ] Deploy.
+      owner; inbox note; share card. **Ships with 3a** (no empty tier).
+- [x] Kampala Rich List (net worth = coins for now): a "Rich list" tab on
+      Ranks (`/leaderboard?board=rich`), with your own rank.
+- [x] Deploy part one (16 Oct).
 
 ## Phase 3: Tier 2, Small business
 ### 3a TikTok Live mitumba
@@ -120,3 +122,4 @@ day). Progress depends on time played; energy and food are the brake.
 ## Log
 - **16 Oct 2026** — Roadmap written. Hustle ladder already live (`a5975ac`).
 - **16 Oct 2026** — Phase 1 (tier 1 rebalance) deployed (`99899a4`).
+- **16 Oct 2026** — Phase 2 part one (tier label, savings bar, Rich List) deployed.
