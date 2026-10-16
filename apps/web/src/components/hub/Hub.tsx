@@ -5,7 +5,7 @@ import Link from "next/link"
 import type { RaceListing } from "@/lib/useColyseus"
 import { HUSTLES } from "@tiral/game-core"
 import { usePlayer } from "@/lib/player"
-import { FoodGrid } from "@/components/NeedsPanel"
+import { FoodGrid, FoodResultLine, useFoodPurchase } from "@/components/NeedsPanel"
 import { HomeStatusCard, MessageList } from "@/components/LifePanel"
 import { ActionButton, SectionLabel, Skeleton } from "@/components/ui"
 
@@ -36,7 +36,7 @@ function OpenRaces({ races, loadingRaces, joining, onRefresh, onJoin }: HubActio
             type="button"
             onClick={onRefresh}
             disabled={loadingRaces}
-            className="min-h-[32px] rounded-lg px-2 text-xs font-bold text-cyan-300 disabled:opacity-40"
+            className="min-h-[44px] rounded-lg px-3 text-xs font-bold text-cyan-300 disabled:opacity-40"
           >
             {loadingRaces ? "…" : "Refresh"}
           </button>
@@ -79,10 +79,10 @@ function OpenRaces({ races, loadingRaces, joining, onRefresh, onJoin }: HubActio
 
 // Between races: start racing first, then what needs your attention today.
 export function Hub(actions: HubActions) {
-  const { player, eat } = usePlayer()
+  const { player } = usePlayer()
   const [code, setCode] = useState("")
   const [showCode, setShowCode] = useState(false)
-  const [foodNotice, setFoodNotice] = useState<string | null>(null)
+  const food = useFoodPurchase()
   const { joining, error } = actions
 
   const pending = player?.life?.events.filter((event) => event.status === "pending") ?? []
@@ -214,11 +214,9 @@ export function Hub(actions: HubActions) {
         </SectionLabel>
         <FoodGrid
           limit={3}
-          onBuy={async (foodId) => {
-            setFoodNotice(await eat(foodId))
-          }}
+          onBuy={(foodId) => void food.buy(foodId)}
         />
-        {foodNotice && <p className="mt-2 text-xs font-bold text-rose-300">{foodNotice}</p>}
+        <FoodResultLine result={food.result} />
       </div>
     </div>
   )

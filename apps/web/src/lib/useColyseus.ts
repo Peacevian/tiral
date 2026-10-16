@@ -224,6 +224,26 @@ export function useColyseus({
   const manualLeaveRef = useRef(false)
   // Rooms we left on purpose: their late onLeave must be ignored.
   const leftRoomsRef = useRef(new WeakSet<Room>())
+  // Everything that belongs to the room just left. Clearing all of it means the
+  // next shift or race can't start from the old position, energy or earnings.
+  const resetRoomState = useCallback(() => {
+    setConnected(false)
+    setSessionId(null)
+    setRoomId(null)
+    setRoomCode(null)
+    setRoomState(null)
+    setPositions({})
+    setResults(null)
+    setEarnings(null)
+    setNeeds(null)
+    setSelfPosition(null)
+    setCountdown(null)
+    setHustle(null)
+    setHustleEvent(null)
+    setStall(null)
+    setStallEvent(null)
+  }, [])
+
   // Bumped by every join and leave: a join or reconnect that resolves after a
   // newer one started is stale, and its room is closed instead of attached
   // (otherwise it could overwrite the current room and linger, orphaned).
@@ -358,18 +378,7 @@ export function useColyseus({
       roomRef.current = null
       if (manualLeaveRef.current) {
         clearReconnectToken()
-        setConnected(false)
-        setSessionId(null)
-        setRoomId(null)
-        setRoomCode(null)
-        setRoomState(null)
-        setPositions({})
-        setResults(null)
-        setCountdown(null)
-        setHustle(null)
-        setHustleEvent(null)
-        setStall(null)
-        setStallEvent(null)
+        resetRoomState()
         return
       }
       void attemptReconnect(code, token)
@@ -405,19 +414,8 @@ export function useColyseus({
       }
     }
     clearReconnectToken()
-    setConnected(false)
     setReconnecting(false)
-    setSessionId(null)
-    setRoomId(null)
-    setRoomCode(null)
-    setRoomState(null)
-    setPositions({})
-    setResults(null)
-    setCountdown(null)
-    setHustle(null)
-    setHustleEvent(null)
-    setStall(null)
-    setStallEvent(null)
+    resetRoomState()
   }, [attachRoom])
 
   const leaveRoom = useCallback(() => {
@@ -428,18 +426,7 @@ export function useColyseus({
     if (roomRef.current) leftRoomsRef.current.add(roomRef.current)
     roomRef.current?.leave()
     roomRef.current = null
-    setConnected(false)
-    setSessionId(null)
-    setRoomId(null)
-    setRoomCode(null)
-    setRoomState(null)
-    setPositions({})
-    setResults(null)
-    setCountdown(null)
-    setHustle(null)
-    setHustleEvent(null)
-    setStall(null)
-    setStallEvent(null)
+    resetRoomState()
   }, [])
 
   const authorize = useCallback(async () => {

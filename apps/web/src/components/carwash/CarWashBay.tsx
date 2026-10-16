@@ -116,7 +116,11 @@ function Spray({ emitRef }: { emitRef: React.MutableRefObject<((point: THREE.Vec
   useFrame((_, delta) => {
     let w = 0
     let f = 0
-    particles.current = particles.current.filter((particle) => (particle.life -= delta) > 0)
+    // Drop spent particles in place (no new array every frame).
+    const list = particles.current
+    let alive = 0
+    for (const particle of list) if ((particle.life -= delta) > 0) list[alive++] = particle
+    list.length = alive
     for (const particle of particles.current) {
       particle.velocity.y -= (particle.foam ? 0.4 : 9.8) * delta
       particle.position.addScaledVector(particle.velocity, delta)

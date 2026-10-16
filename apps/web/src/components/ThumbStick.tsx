@@ -111,6 +111,9 @@ export function ThumbStick({
       }}
       onPointerUp={stop}
       onPointerCancel={stop}
+      // The browser can drop the capture (system gesture, alert, finger lost):
+      // treat it as letting go, or the runner keeps walking on its own.
+      onLostPointerCapture={stop}
       style={{ width: size, height: size }}
       className={`relative touch-none select-none rounded-full border-2 bg-slate-950/60 md:backdrop-blur-sm sm:bg-slate-950/80 ${
         disabled ? "border-white/10 opacity-40" : "border-cyan-300/40"

@@ -353,13 +353,7 @@ export default function HomePage() {
         wallet={<WalletPanel />}
         house={
           <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => setShowRoof((value) => !value)}
-              className="min-h-[44px] rounded-xl border border-white/15 px-3 text-xs font-bold text-slate-200"
-            >
-              {showRoof ? "Hide roof" : "Show roof"}
-            </button>
+            {/* Roof on/off and Reset live in the ⋯ menu at the top (one place for each). */}
             <HouseCustomizer
               house={draftHouse}
               onChange={(next) => {
@@ -435,20 +429,6 @@ export default function HomePage() {
                 </ol>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setDraftLoadout(user.loadout)
-                setDraftHouse(user.house ?? DEFAULT_HOUSE)
-                setDraftName(user.displayName)
-                setDirty(false)
-                setNotice(null)
-              }}
-              disabled={saving || !dirty}
-              className="min-h-[44px] rounded-xl border border-white/15 px-4 text-sm font-bold text-slate-200 disabled:opacity-40"
-            >
-              Reset changes
-            </button>
           </div>
         }
       />

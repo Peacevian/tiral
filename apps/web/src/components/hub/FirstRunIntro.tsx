@@ -151,7 +151,7 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
       labelledBy="intro-title"
       onClose={onDone}
       closeOnBackdrop={false}
-      backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center"
+      backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center"
       className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950 p-5 text-white shadow-2xl"
     >
       <div className="flex items-center justify-between">

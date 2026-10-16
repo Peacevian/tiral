@@ -65,7 +65,8 @@ export default function LeaderboardPage() {
             key={option}
             type="button"
             onClick={() => setPeriod(option)}
-            className={`rounded-xl px-3 py-2 text-sm font-black ${
+            aria-pressed={period === option}
+            className={`min-h-[44px] rounded-xl px-3 py-2 text-sm font-black ${
               period === option ? "bg-amber-400 text-slate-950" : "bg-white/10 text-white"
             }`}
           >

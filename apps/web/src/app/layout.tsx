@@ -9,13 +9,13 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tiral.geinz.lol"
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Tiral — Kampala Treasure Race",
+  title: "Tiral — Kampala Hustle",
   description:
-    "Hunt treasure on the real streets of Kampala. Free multiplayer browser game — no install. Pick a start, race rivals to a hidden bounty.",
+    "Hustle on the real streets of Kampala: race rivals to hidden treasure, carry loads, ride boda, run a rolex stand. Free multiplayer browser game, no install.",
   openGraph: {
-    title: "Tiral — Kampala Treasure Race",
+    title: "Tiral — Kampala Hustle",
     description:
-      "Free multiplayer treasure-hunting on real Kampala streets. Play in your browser, no install.",
+      "Race, hustle and get by on real Kampala streets. Free multiplayer, in your browser, no install.",
     url: "/",
     siteName: "Tiral",
     type: "website",
@@ -23,8 +23,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Tiral — Kampala Treasure Race",
-    description: "Free multiplayer treasure-hunting on real Kampala streets. No install.",
+    title: "Tiral — Kampala Hustle",
+    description: "Race, hustle and get by on real Kampala streets. Free, no install.",
     images: ["/tiral-icon-1024.png"]
   }
 }
@@ -48,7 +48,7 @@ export default function RootLayout({
             TLS connection while JS is still downloading. */}
         <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />
       </head>
-      <body className="tiral-game w-screen min-h-screen overflow-x-hidden">
+      <body className="w-screen min-h-screen overflow-x-hidden">
         <PlayerProvider>
           <ColyseusProvider>
             {children}

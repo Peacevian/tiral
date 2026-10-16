@@ -18,8 +18,9 @@ export type BillboardPin = {
 
 // Below this zoom a sold board collapses to a round logo badge; empty slots hide.
 const COMPACT_ZOOM = 13.5
-// Empty "advertise here" slots only appear once the player is close in.
-const EMPTY_MIN_ZOOM = 14.5
+// Empty "advertise here" slots only once zoomed into the streets: at the hub
+// overview their "+ AD SPACE" tags were clutter (advertisers find /advertise).
+const EMPTY_MIN_ZOOM = 15.5
 // Gap kept between boards when decluttering overlaps, in px.
 const DECLUTTER_GAP = 6
 

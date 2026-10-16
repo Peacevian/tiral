@@ -279,7 +279,10 @@ function MapHustle() {
 
   return (
     <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950 text-white">
-      <MapView center={KIKUUBO_CENTER} zoom={16} pitch={48} bearing={-18} onMapReady={onMapReady} />
+      {/* Between the app shell's bars before a shift (they hide during one). */}
+      <div className="absolute inset-x-0 bottom-[var(--shell-bottom)] top-[var(--shell-top)]">
+        <MapView center={KIKUUBO_CENTER} zoom={16} pitch={48} bearing={-18} onMapReady={onMapReady} />
+      </div>
 
       {map && inShift && (
         <ThreeLayer map={map}>
@@ -314,7 +317,8 @@ function MapHustle() {
 
       {!inShift ? (
         // Start screen.
-        <div className="absolute inset-x-0 bottom-0 z-30 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:inset-auto md:right-3 md:top-3 md:w-[24rem] md:p-0">
+        // Clear of the app shell (top bar; tab bar on phones), shown before a shift.
+        <div className="absolute inset-x-0 bottom-[var(--shell-bottom)] z-30 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:inset-auto md:right-3 md:top-[calc(var(--shell-top)+0.75rem)] md:w-[24rem] md:p-0">
           <Card className="!bg-slate-950/95 shadow-2xl md:backdrop-blur-md">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">Hustle</div>
             <h1 className="mt-1 text-xl font-black">
@@ -425,7 +429,7 @@ function MapHustle() {
           {showPickedUp && hustle.job && (
             <div
               role="status"
-              className="absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border border-amber-300/40 bg-amber-950/90 px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)]"
+              className="absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border border-amber-300/40 bg-amber-950/90 px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)]"
             >
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
                 {onBike ? "🛵 Passenger on" : "📦 Picked up"}
@@ -439,7 +443,7 @@ function MapHustle() {
           {toast && (
             <div
               role="status"
-              className={`absolute left-1/2 top-24 z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)] ${
+              className={`absolute left-1/2 top-[calc(max(0.5rem,env(safe-area-inset-top))+8.25rem)] z-40 w-[min(90vw,340px)] -translate-x-1/2 rounded-2xl border px-4 py-3 text-center shadow-2xl md:backdrop-blur-md md:left-[calc(50%-12.5rem)] ${
                 toast.kind === "receipt" && toast.receipt.paid
                   ? "border-emerald-300/40 bg-emerald-950/90"
                   : toast.kind === "rented"

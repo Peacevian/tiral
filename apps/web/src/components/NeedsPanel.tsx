@@ -1,31 +1,61 @@
 "use client"
 
-import { useState } from "react"
-import { FOODS } from "@tiral/game-core"
+import { useEffect, useState } from "react"
+import { FOODS, findFood } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
 import { usePlayer } from "@/lib/player"
 import { useColyseusContext } from "@/components/ColyseusProvider"
 import { ActionButton, Card, SectionLabel, Skeleton, StatMeter } from "@/components/ui"
 
+export type FoodResult = { ok: boolean; text: string }
+
+/**
+ * Buy food and say what happened: "✓ Chapati eaten: +8 ⚡ · −500 BNG" for a few
+ * seconds, or why it failed (shown until the next try).
+ */
+export function useFoodPurchase(onBought?: () => void) {
+  const { eat } = usePlayer()
+  const [result, setResult] = useState<FoodResult | null>(null)
+  useEffect(() => {
+    if (!result?.ok) return
+    const id = setTimeout(() => setResult(null), 3500)
+    return () => clearTimeout(id)
+  }, [result])
+  const buy = async (foodId: string) => {
+    setResult(null)
+    const failure = await eat(foodId)
+    if (failure) return setResult({ ok: false, text: failure })
+    const food = findFood(foodId)
+    const gains = food ? [food.energy && `+${food.energy} ⚡`, food.health && `+${food.health} ❤`].filter(Boolean).join(" ") : ""
+    setResult({ ok: true, text: `✓ ${food?.name ?? "Food"} eaten${gains ? `: ${gains}` : ""}${food ? ` · −${formatCoins(food.price)} BNG` : ""}` })
+    onBought?.()
+  }
+  return { buy, result }
+}
+
+export function FoodResultLine({ result }: { result: FoodResult | null }) {
+  if (!result) return null
+  return (
+    <p role="status" className={`mt-2 text-xs font-bold ${result.ok ? "text-emerald-300" : "text-rose-300"}`}>
+      {result.text}
+    </p>
+  )
+}
+
 // Energy & health, street food and your bed. Energy fuels Sprint in races;
 // health only drops if you sprint on empty.
 export function NeedsPanel() {
-  const { player, busy, eat, setResting } = usePlayer()
+  const { player, busy, setResting } = usePlayer()
   // In a race, the race server holds the live numbers; show those.
   const race = useColyseusContext()
-  const [notice, setNotice] = useState<string | null>(null)
+  const { buy, result } = useFoodPurchase(() => {
+    if (race.connected) race.sendRefreshNeeds()
+  })
 
   if (!player) return <Skeleton className="h-40" />
   const live = race.connected && race.needs ? race.needs : null
   const energy = live ? live.energy : player.needs.energy
   const health = live ? live.health : player.needs.health
-
-  const buy = async (foodId: string) => {
-    setNotice(null)
-    const failure = await eat(foodId)
-    if (failure) setNotice(failure)
-    else if (race.connected) race.sendRefreshNeeds()
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -52,7 +82,7 @@ export function NeedsPanel() {
           Street food
         </SectionLabel>
         <FoodGrid onBuy={buy} />
-        {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
+        <FoodResultLine result={result} />
       </div>
     </div>
   )

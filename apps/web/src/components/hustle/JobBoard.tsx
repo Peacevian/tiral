@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { PORTER_LOADS, bodaGiveUpSeconds, findHustle, findPlace } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
 import type { HustleOffer, HustleState } from "@/lib/useColyseus"
-import { ActionButton, ConfirmButton, SectionLabel, actionButtonClass } from "@/components/ui"
+import { ActionButton, ConfirmButton, EmptyState, SectionLabel, actionButtonClass } from "@/components/ui"
 
 /** Re-render every `ms` (for countdowns). */
 export function useNow(ms = 1000) {
@@ -210,7 +210,7 @@ export function JobBoard({
           type="button"
           onClick={onClosePhone}
           aria-label="Close jobs"
-          className="min-h-[40px] min-w-[40px] rounded-lg text-lg font-black text-slate-300 md:hidden"
+          className="min-h-[44px] min-w-[44px] rounded-lg text-lg font-black text-slate-300 md:hidden"
         >
           ✕
         </button>
@@ -235,6 +235,11 @@ export function JobBoard({
         ) : (
           <>
             <SectionLabel>{boda ? "Passengers waiting" : "Jobs on offer"}</SectionLabel>
+            {state.offers.length === 0 && (
+              <EmptyState>
+                {boda ? "No passengers at the stage right now." : "No jobs on offer right now."} Check back in a moment.
+              </EmptyState>
+            )}
             <ul className="flex flex-col gap-2">
               {state.offers.map((offer) => (
                 <OfferCard key={offer.id} offer={offer} now={now} energy={energy} onAccept={() => onAccept(offer.id)} />

@@ -44,7 +44,7 @@ function CameraSync({ map, origin }: { map: maplibregl.Map | null; origin: Mutab
     origin.current.x = center.x
     origin.current.y = center.y
     origin.current.worldSize = t.worldSize
-    mat.copy(buildMercatorViewProjectionMatrix(t)).multiply(shift.makeTranslation(center.x, center.y, 0))
+    buildMercatorViewProjectionMatrix(t, mat).multiply(shift.makeTranslation(center.x, center.y, 0))
     camera.projectionMatrix.copy(mat)
     camera.matrixWorldAutoUpdate = false
     camera.matrixWorld.identity()

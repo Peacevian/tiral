@@ -378,13 +378,18 @@ body.has-shell {
   }
 }
 
-/* Twin thumb sticks: touch devices only, never on keypad laptops */
+/* Twin thumb sticks: anything with a touch screen (also touch laptops, whose
+   main pointer is a mouse), never on plain keyboard-and-mouse screens. */
 .tiral-sticks {
   display: none;
 }
 
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
   .tiral-sticks {
     display: block;
+  }
+  /* Sticks are showing: Sprint stays above the right one. */
+  .tiral-sprint-slot {
+    bottom: max(12.5rem, calc(env(safe-area-inset-bottom) + 12rem));
   }
 }

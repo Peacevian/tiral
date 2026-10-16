@@ -38,6 +38,26 @@ export function TopBar({
   onLeave
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [shared, setShared] = useState<string | null>(null)
+
+  // Invite friends: the phone's share sheet, or copy the link where there isn't one.
+  const shareCode = async () => {
+    if (!roomCode) return
+    const url = `${window.location.origin}/play?join=${encodeURIComponent(roomCode)}`
+    const text = `Race me on Tiral! Code ${roomCode}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Tiral race", text, url })
+        setShared("Shared")
+      } else {
+        await navigator.clipboard.writeText(`${text}: ${url}`)
+        setShared("Link copied")
+      }
+    } catch {
+      // Share sheet dismissed, or clipboard blocked: show the code to copy by hand.
+      setShared(`Code: ${roomCode}`)
+    }
+  }
 
   const statusLine = reconnecting
     ? "Reconnecting…"
@@ -63,7 +83,7 @@ export function TopBar({
           </span>
           <div className="min-w-0">
             <div className="truncate text-xs font-black leading-tight text-white">
-              {roomCode ?? "Tiral"}
+              <span className="select-text">{roomCode ?? "Tiral"}</span>
               <span className="ml-1 font-bold text-slate-300">
                 · {racerCount} racer{racerCount === 1 ? "" : "s"}
                 {locked && phase !== "racing" ? " · 🔒" : ""}
@@ -107,6 +127,15 @@ export function TopBar({
           <p className="px-2 py-1 text-[11px] leading-snug text-slate-400">
             {phase === "racing" ? "Leaving now means no pay for this race." : "Back to the hub."}
           </p>
+          {roomCode && phase !== "racing" && (
+            <button
+              type="button"
+              onClick={() => void shareCode()}
+              className="min-h-[44px] rounded-xl border border-cyan-300/30 px-3 py-2.5 text-sm font-bold text-cyan-200"
+            >
+              {shared ?? `Invite friends · ${roomCode}`}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
