@@ -32,8 +32,8 @@ export function SprintButton({
         active
           ? empty
             ? "scale-95 border-red-300 bg-red-600 text-white"
-            : "scale-95 border-amber-200 bg-amber-400 text-slate-950"
-          : "border-amber-300/70 bg-slate-950/80 text-amber-200"
+            : "scale-95 border-flame-soft bg-flame text-white"
+          : "border-flame bg-sheet-card/95 text-flame-deep"
       }`}
     >
       <span aria-hidden className="text-xl leading-none">

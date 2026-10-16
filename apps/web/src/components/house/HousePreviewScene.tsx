@@ -62,7 +62,7 @@ function SelectionRing({ spot }: { spot: RoomSpot }) {
   return (
     <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[spot.x, 0.03, spot.z]}>
       <ringGeometry args={[0.32, 0.46, 32]} />
-      <meshBasicMaterial color="#f59e0b" transparent opacity={0.9} side={THREE.DoubleSide} />
+      <meshBasicMaterial color="#E85F0C" transparent opacity={0.9} side={THREE.DoubleSide} />
     </mesh>
   )
 }
@@ -322,7 +322,7 @@ export function HousePreviewScene({
       frameloop={paused ? "never" : "always"}
     >
       <CameraRig view={view} follow={avatarLoadout ? avatarSpot : null} />
-      <hemisphereLight args={["#fff4d6", "#293548", 0.6]} />
+      <hemisphereLight args={["#fff4d6", "#b9c9a6", 0.8]} />
       <directionalLight
         position={[6, 10, 6]}
         intensity={2.2}
@@ -338,10 +338,10 @@ export function HousePreviewScene({
           <Lightformer form="rect" intensity={2} position={[6, -1, -1]} scale={[3, 0.8, 1]} color="#bcd3ff" />
         </group>
       </Environment>
-      {/* ground plane outside the house */}
+      {/* ground plane outside the house: daytime grass */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.24, 0]} receiveShadow>
         <circleGeometry args={[14, 48]} />
-        <meshStandardMaterial color="#0f1a2b" roughness={1} />
+        <meshStandardMaterial color="#B7CF9F" roughness={1} />
       </mesh>
       <Room
         house={house}

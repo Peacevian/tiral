@@ -130,35 +130,35 @@ export default function AdvertisePage() {
   const total = PRICE_PER_SLOT_UGX * selected.length
 
   return (
-    <div className="h-dvh w-full overflow-y-auto bg-slate-950">
-      <main className="mx-auto w-full max-w-xl bg-slate-950 px-4 pb-24 pt-8 text-white md:pb-8">
+    <div className="h-dvh w-full overflow-y-auto bg-sheet">
+      <main className="mx-auto w-full max-w-xl bg-sheet px-4 pb-24 pt-8 text-sheet-ink md:pb-8">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black">Advertise in Tiral</h1>
-          <Link href="/play" className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold text-slate-200">
+          <Link href="/play" className="rounded-lg border border-sheet-line px-3 py-2 text-sm font-bold text-sheet-ink">
             ← Race
           </Link>
         </div>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-sheet-mute">
           20,000 UGX per slot · 3 days · your ad rotates with others, 15 seconds each.
         </p>
 
         {phase.step === "done" && (
-          <div className="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 p-5 text-center">
-            <div className="text-xl font-black text-emerald-200">You are live!</div>
-            <p className="mt-1 text-sm text-slate-300">
+          <div className="mt-4 rounded-2xl border border-leaf/30 bg-leaf-soft p-5 text-center">
+            <div className="text-xl font-black text-leaf">You are live!</div>
+            <p className="mt-1 text-sm text-sheet-mute">
               Your billboard is now rotating in every race for the next 3 days.
             </p>
           </div>
         )}
 
         {phase.step === "failed" && (
-          <div className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-400/10 p-5 text-center">
-            <div className="text-xl font-black text-rose-200">Payment incomplete</div>
-            <p className="mt-1 text-sm text-slate-300">{phase.message}</p>
+          <div className="mt-4 rounded-2xl border border-flame-deep/30 bg-flame-soft p-5 text-center">
+            <div className="text-xl font-black text-flame-deep">Payment incomplete</div>
+            <p className="mt-1 text-sm text-sheet-mute">{phase.message}</p>
             <button
               type="button"
               onClick={() => setPhase({ step: "form" })}
-              className="mt-3 rounded-xl bg-white/10 px-4 py-2 text-sm font-bold"
+              className="mt-3 rounded-xl bg-sheet-soft px-4 py-2 text-sm font-bold"
             >
               Try again
             </button>
@@ -166,15 +166,15 @@ export default function AdvertisePage() {
         )}
 
         {phase.step === "waiting" && (
-          <div className="mt-4 rounded-2xl border border-cyan-300/30 bg-cyan-400/10 p-5 text-center">
-            <div className="text-xl font-black text-cyan-200">Check your phone</div>
-            <p className="mt-1 text-sm text-slate-300">
+          <div className="mt-4 rounded-2xl border border-sheet-blue/30 bg-sheet-soft p-5 text-center">
+            <div className="text-xl font-black text-sheet-blue">Check your phone</div>
+            <p className="mt-1 text-sm text-sheet-mute">
               Approve the mobile-money PIN prompt to complete payment. This page updates automatically.
             </p>
             <button
               type="button"
               onClick={() => void recheck(phase.campaignId)}
-              className="mt-3 rounded-xl bg-white/10 px-4 py-2 text-sm font-bold"
+              className="mt-3 rounded-xl bg-sheet-soft px-4 py-2 text-sm font-bold"
             >
               I approved — check now
             </button>
@@ -184,24 +184,24 @@ export default function AdvertisePage() {
         {phase.step === "form" && (
           <div className="mt-4 flex flex-col gap-4">
             <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">
                 Slots ({selected.length} selected)
               </div>
-              {slotsState === "loading" && <p className="text-sm text-slate-400">Loading billboard slots…</p>}
+              {slotsState === "loading" && <p className="text-sm text-sheet-mute">Loading billboard slots…</p>}
               {slotsState === "failed" && (
-                <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-flame-deep/30 bg-flame-soft px-3 py-2 text-sm text-flame-deep">
                   Couldn&apos;t load the billboard slots.
                   <button
                     type="button"
                     onClick={() => setSlotsAttempt((n) => n + 1)}
-                    className="min-h-[44px] shrink-0 rounded-lg border border-rose-300/40 px-3 text-xs font-bold"
+                    className="min-h-[44px] shrink-0 rounded-lg border border-flame-deep/40 px-3 text-xs font-bold"
                   >
                     Try again
                   </button>
                 </div>
               )}
               {slotsState === "ready" && selected.length === 0 && (
-                <p className="mb-2 text-xs text-slate-400">Tap the slots you want your ad on.</p>
+                <p className="mb-2 text-xs text-sheet-mute">Tap the slots you want your ad on.</p>
               )}
               <div className="grid grid-cols-2 gap-2">
                 {slots.map((slot) => {
@@ -215,14 +215,14 @@ export default function AdvertisePage() {
                       onClick={() => toggleSlot(slot.id)}
                       aria-pressed={on}
                       className={`rounded-xl border px-3 py-2 text-left transition ${
-                        on ? "border-amber-300 bg-amber-300/15" : "border-white/15 bg-white/5 hover:bg-white/10"
+                        on ? "border-flame bg-flame-soft" : "border-sheet-line bg-sheet-card hover:bg-sheet-soft"
                       }`}
                     >
                       <div className="text-sm font-bold">
-                        {on && <span aria-hidden className="mr-1 text-amber-300">✓</span>}
+                        {on && <span aria-hidden className="mr-1 text-flame-deep">✓</span>}
                         {slot.name}
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-[11px] text-sheet-mute">
                         {live === 0 ? "empty — ~100% airtime" : `${live} live — ~${share}% airtime`}
                       </div>
                     </button>
@@ -232,29 +232,29 @@ export default function AdvertisePage() {
             </div>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Brand name</span>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">Brand name</span>
               <input
                 value={brandName}
                 maxLength={40}
                 onChange={(event) => setBrandName(event.target.value)}
                 placeholder="e.g. Kafunda Coffee"
-                className="w-full rounded-xl border border-white/15 bg-slate-900 px-3 py-2 text-base"
+                className="w-full rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-base"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Link</span>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">Link</span>
               <input
                 value={link}
                 inputMode="url"
                 onChange={(event) => setLink(event.target.value)}
                 placeholder="https://…"
-                className="w-full rounded-xl border border-white/15 bg-slate-900 px-3 py-2 text-base"
+                className="w-full rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-base"
               />
             </label>
 
             <div>
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">
                 Billboard image (2:1 ideal, under 2 MB)
               </span>
               <input
@@ -271,14 +271,14 @@ export default function AdvertisePage() {
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="w-full rounded-xl border border-dashed border-white/25 px-3 py-3 text-sm font-bold text-slate-200 disabled:opacity-40"
+                className="w-full rounded-xl border border-dashed border-sheet-line px-3 py-3 text-sm font-bold text-sheet-ink disabled:opacity-40"
               >
                 {uploading ? "Uploading…" : imagePath ? "✓ Image uploaded — replace?" : "Choose image"}
               </button>
             </div>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">
                 Mobile money number (MTN/Airtel)
               </span>
               <input
@@ -286,23 +286,23 @@ export default function AdvertisePage() {
                 inputMode="tel"
                 onChange={(event) => setMsisdn(event.target.value)}
                 placeholder="07… or +256…"
-                className="w-full rounded-xl border border-white/15 bg-slate-900 px-3 py-2 text-base"
+                className="w-full rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-base"
               />
             </label>
 
             {formError && (
-              <div className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{formError}</div>
+              <div className="rounded-xl bg-flame-soft px-3 py-2 text-sm text-flame-deep">{formError}</div>
             )}
 
             <button
               type="button"
               onClick={() => void submit()}
               disabled={submitting || uploading || selected.length === 0 || !imagePath}
-              className="rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-40"
+              className="rounded-xl bg-flame px-4 py-3 text-sm font-black text-white disabled:opacity-40"
             >
               {submitting ? "Starting payment…" : `Pay UGX ${total.toLocaleString()} for 3 days`}
             </button>
-            <p className="text-center text-[11px] text-slate-400">
+            <p className="text-center text-[11px] text-sheet-mute">
               You will approve the charge with your mobile-money PIN.
             </p>
           </div>

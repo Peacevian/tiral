@@ -45,10 +45,10 @@ export function HousePreview({
 }) {
   return (
     <div
-      className={`w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 ${
+      className={`w-full overflow-hidden bg-gradient-to-b from-[#CFE2F7] to-[#EEF4FB] ${
         fill
           ? "absolute inset-0 border-0"
-          : `border border-white/10 ${hero ? "h-[52dvh] rounded-3xl" : "h-72 rounded-2xl"}`
+          : `border border-sheet-line ${hero ? "h-[52dvh] rounded-3xl" : "h-72 rounded-2xl"}`
       }`}
     >
       <PreviewScene

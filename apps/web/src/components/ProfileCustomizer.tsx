@@ -50,9 +50,9 @@ function Options<T extends string>({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+      <div className="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">
         {label}
-        {hint && <span className="normal-case tracking-normal text-slate-400">{hint}</span>}
+        {hint && <span className="normal-case tracking-normal text-sheet-mute">{hint}</span>}
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
@@ -66,8 +66,8 @@ function Options<T extends string>({
               title={`${optionLabel(option)} · ${rarity}`}
               className={`flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-bold transition ${
                 selected === option
-                  ? "border-amber-300 bg-amber-300/20 text-amber-100"
-                  : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
+                  ? "border-flame bg-flame-soft text-flame-deep"
+                  : "border-sheet-line bg-sheet-card text-sheet-ink hover:bg-sheet-soft"
               }`}
             >
               {rarity !== "common" && (
@@ -102,7 +102,7 @@ function Swatches({
 }) {
   return (
     <div>
-      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">
         {label}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -116,8 +116,8 @@ function Swatches({
             title={nameOf(color, index)}
             className={`inline-flex h-11 w-11 items-center justify-center rounded-full border-2 transition ${
               selected === color
-                ? "scale-110 border-amber-300"
-                : "border-white/20 hover:border-white/50"
+                ? "scale-110 border-flame"
+                : "border-sheet-line hover:border-sheet-handle"
             }`}
             style={{ backgroundColor: color }}
           >

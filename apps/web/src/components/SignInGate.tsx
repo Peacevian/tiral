@@ -24,15 +24,15 @@ export function SignInGate({
   const message = error ?? (authError ? AUTH_ERRORS[authError] ?? "Sign-in failed. Try again." : null)
   return (
     <div className="px-4 pb-4 pt-1">
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Tiral</div>
-      <h2 className="mt-1 text-xl font-black text-white">Who's running today?</h2>
-      <p className="mt-1 text-sm leading-snug text-slate-300">
+      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-flame-deep">Tiral</div>
+      <h2 className="mt-1 text-xl font-black text-sheet-ink">Who's running today?</h2>
+      <p className="mt-1 text-sm leading-snug text-sheet-mute">
         Sign in to race, earn Banange Coins and keep your runner, your room and your rent.
       </p>
       <div className="mt-4 flex flex-col gap-2">
         <a
           href="/api/auth/tiktok"
-          className="flex min-h-[48px] items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-slate-200"
+          className="flex min-h-[48px] items-center justify-center rounded-xl bg-flame px-3 py-2 text-sm font-black text-white transition hover:bg-flame-dark"
         >
           Continue with TikTok
         </a>
@@ -40,15 +40,15 @@ export function SignInGate({
           type="button"
           onClick={onGuest}
           disabled={busy}
-          className="min-h-[48px] rounded-xl bg-white/10 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/20 disabled:opacity-40"
+          className="min-h-[48px] rounded-xl border-2 border-flame bg-sheet-card px-3 py-2 text-sm font-black text-flame-deep transition hover:bg-flame-soft disabled:opacity-40"
         >
           {busy ? "Setting you up…" : "Play as guest"}
         </button>
       </div>
-      <p className="mt-2 text-[11px] leading-snug text-slate-400">
+      <p className="mt-2 text-[11px] leading-snug text-sheet-mute">
         Guests keep their progress on this device. Connect TikTok any time to keep it for good.
       </p>
-      {message && <p className="mt-2 text-xs font-bold text-rose-300">{message}</p>}
+      {message && <p className="mt-2 text-xs font-bold text-flame-deep">{message}</p>}
     </div>
   )
 }

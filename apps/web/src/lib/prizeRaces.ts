@@ -19,6 +19,7 @@ export type PrizeRace = {
   status: string
   signups: number
   signedUp: boolean
+  hostAvatarUrl?: string | null
 }
 
 export type NewPrizeRace = { pot: number; shares: number[]; message: string; startsAt: string; countdownSeconds: number }

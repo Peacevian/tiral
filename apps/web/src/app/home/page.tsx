@@ -16,7 +16,7 @@ import { GaragePanel } from "@/components/bike/GaragePanel"
 import { NeedsPanel } from "@/components/NeedsPanel"
 import { usePlayer } from "@/lib/player"
 import { isLiteDevice } from "@/lib/deviceTier"
-import { ServerUnreachable } from "@/components/ui"
+import { LightSurface, ServerUnreachable } from "@/components/ui"
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
 
 const BikeShowroom = dynamic(
@@ -215,36 +215,38 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-white">
-        <div className="text-center text-sm text-slate-400">Loading your home…</div>
+      <main className="min-h-screen w-full bg-sheet px-4 [&>*]:mx-auto [&>*]:max-w-xl pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-sheet-ink">
+        <div className="text-center text-sm text-sheet-mute">Loading your home…</div>
       </main>
     )
   }
 
   if (!user && loadFailed) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-white">
-        <ServerUnreachable
-          retrying={loading}
-          onRetry={() => {
-            setLoading(true)
-            setLoadAttempt((attempt) => attempt + 1)
-          }}
-        />
+      <main className="min-h-screen w-full bg-sheet px-4 [&>*]:mx-auto [&>*]:max-w-xl pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-sheet-ink">
+        <div className="rounded-3xl border border-sheet-line bg-sheet pt-3">
+          <ServerUnreachable
+            retrying={loading}
+            onRetry={() => {
+              setLoading(true)
+              setLoadAttempt((attempt) => attempt + 1)
+            }}
+          />
+        </div>
       </main>
     )
   }
 
   if (!user) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-xl bg-slate-950 px-4 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-white">
+      <main className="min-h-screen w-full bg-sheet px-4 [&>*]:mx-auto [&>*]:max-w-xl pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-sheet-ink">
         <h1 className="text-2xl font-black">Home</h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-sheet-mute">
           You are signed out. Sign in with TikTok or as a guest to get your runner and your room.
         </p>
         <Link
           href="/play"
-          className="mt-4 inline-block rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950"
+          className="mt-4 inline-block rounded-xl bg-flame px-4 py-3 text-sm font-black text-white"
         >
           Sign in
         </Link>
@@ -253,185 +255,187 @@ export default function HomePage() {
   }
 
   return (
-    <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-slate-950 text-white">
-      {/* Scene viewport: shrinks above the open sheet on phones so the house
-          stays in view; docks left of the side panel on tablet/desktop. */}
-      <div
-        className={`absolute inset-x-0 top-[var(--shell-top)] transition-[bottom] duration-200 md:bottom-0 md:right-[23rem] ${
-          section ? "bottom-[calc(var(--shell-bottom)+40dvh+4rem)] sm:bottom-[calc(var(--shell-bottom)+44dvh+4rem)]" : "bottom-[calc(var(--shell-bottom)+16.5rem)]"
-        }`}
-      >
-        {/* Bike: the main scene becomes the showroom for the selected bike.
-            The house scene stays alive underneath (paused, hidden) so coming
-            back doesn't rebuild it; the showroom is kept too once opened,
-            except on low-end phones where two live scenes cost too much memory. */}
-        {(section === "bike" || keepShowroom) && showroomOpened && (
-          <div className={`absolute inset-0 ${section === "bike" ? "z-[1]" : "invisible"}`}>
-            <BikeShowroom look={showroomLook} paused={section !== "bike"} />
-            <div className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] font-bold text-slate-400">
-              Drag to look around
+    <LightSurface>
+      <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-sheet text-sheet-ink">
+        {/* Scene viewport: shrinks above the open sheet on phones so the house
+            stays in view; docks left of the side panel on tablet/desktop. */}
+        <div
+          className={`absolute inset-x-0 top-[var(--shell-top)] transition-[bottom] duration-200 md:bottom-0 md:right-[23rem] ${
+            section ? "bottom-[calc(var(--shell-bottom)+40dvh+4rem)] sm:bottom-[calc(var(--shell-bottom)+44dvh+4rem)]" : "bottom-[calc(var(--shell-bottom)+16.5rem)]"
+          }`}
+        >
+          {/* Bike: the main scene becomes the showroom for the selected bike.
+              The house scene stays alive underneath (paused, hidden) so coming
+              back doesn't rebuild it; the showroom is kept too once opened,
+              except on low-end phones where two live scenes cost too much memory. */}
+          {(section === "bike" || keepShowroom) && showroomOpened && (
+            <div className={`absolute inset-0 bg-gradient-to-b from-[#CFE2F7] to-[#EEF4FB] ${section === "bike" ? "z-[1]" : "invisible"}`}>
+              <BikeShowroom look={showroomLook} paused={section !== "bike"} />
+              <div className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] font-bold text-sheet-mute">
+                Drag to look around
+              </div>
             </div>
-          </div>
-        )}
-        <div className={section === "bike" ? "invisible" : undefined}>
-          <HousePreview
-            fill
-            paused={section === "bike"}
-            house={draftHouse}
-            showRoof={showRoof}
-            view={homeView}
-            avatarLoadout={draftLoadout}
-            avatarSpot={avatarSpot}
-            selection={selection}
-            onSelectTile={(x, z) => {
-              setAvatarSpot({ x, z })
-              setSelection({ x, z })
-            }}
-            onSelectAvatar={() => {
-              setSelection(null)
-              setSection("avatar")
-            }}
-            onSelectSurface={() => {
-              setSelection(null)
-              setSection("house")
-            }}
-          />
-        </div>
-        <HomeHud
-          displayName={user.displayName}
-          dirty={dirty}
-          saving={saving}
-          notice={notice}
-          onSave={() => void save()}
-          showRoof={showRoof}
-          onToggleRoof={() => setShowRoof((value) => !value)}
-          onReset={() => {
-            setDraftLoadout(user.loadout)
-            setDraftHouse(user.house ?? DEFAULT_HOUSE)
-            setDraftName(user.displayName)
-            setDirty(false)
-            setNotice(null)
-          }}
-        />
-        <div className={`absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[3.75rem] z-20 overflow-hidden ${section === "bike" ? "hidden" : "flex"} rounded-xl border border-white/15 bg-slate-950/80 shadow-xl md:backdrop-blur-md`}>
-          {(["outside", "inside"] as const).map((view) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => setHomeView(view)}
-              aria-pressed={homeView === view}
-              className={`min-h-[44px] px-3 text-[11px] font-black capitalize transition sm:px-4 sm:text-xs ${
-                homeView === view ? "bg-amber-400 text-slate-950" : "text-slate-200"
-              }`}
-            >
-              {view}
-            </button>
-          ))}
-        </div>
-      </div>
-      <HomeSheet
-        section={section}
-        onSection={setSection}
-        status={{
-          avatar: dirty ? "Unsaved changes" : "Your look",
-          body: player ? `⚡${Math.round(player.needs.energy)} ❤${Math.round(player.needs.health)}` : undefined,
-          bike: bikeStatus ?? undefined,
-          wallet: player ? `${player.balance.toLocaleString("en-US")} BNG` : undefined,
-          room: stats ? `${stats.wins} wins · ${stats.races} races` : undefined
-        }}
-        avatar={
-          <ProfileCustomizer
-            loadout={draftLoadout}
-            onChange={(next) => {
-              setDraftLoadout(next)
-              setDirty(true)
-            }}
-          />
-        }
-        body={<NeedsPanel />}
-        bike={<GaragePanel onShow={setShowroomLook} />}
-        wallet={<WalletPanel />}
-        house={
-          <div className="flex flex-col gap-3">
-            {/* Roof on/off and Reset live in the ⋯ menu at the top (one place for each). */}
-            <HouseCustomizer
+          )}
+          <div className={section === "bike" ? "invisible" : undefined}>
+            <HousePreview
+              fill
+              paused={section === "bike"}
               house={draftHouse}
-              onChange={(next) => {
-                setDraftHouse(next)
-                setDirty(true)
+              showRoof={showRoof}
+              view={homeView}
+              avatarLoadout={draftLoadout}
+              avatarSpot={avatarSpot}
+              selection={selection}
+              onSelectTile={(x, z) => {
+                setAvatarSpot({ x, z })
+                setSelection({ x, z })
+              }}
+              onSelectAvatar={() => {
+                setSelection(null)
+                setSection("avatar")
+              }}
+              onSelectSurface={() => {
+                setSelection(null)
+                setSection("house")
               }}
             />
           </div>
-        }
-        room={
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-lg font-black text-slate-950">
-                {user.displayName.charAt(0).toUpperCase()}
+          <HomeHud
+            displayName={user.displayName}
+            dirty={dirty}
+            saving={saving}
+            notice={notice}
+            onSave={() => void save()}
+            showRoof={showRoof}
+            onToggleRoof={() => setShowRoof((value) => !value)}
+            onReset={() => {
+              setDraftLoadout(user.loadout)
+              setDraftHouse(user.house ?? DEFAULT_HOUSE)
+              setDraftName(user.displayName)
+              setDirty(false)
+              setNotice(null)
+            }}
+          />
+          <div className={`absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[3.75rem] z-20 overflow-hidden ${section === "bike" ? "hidden" : "flex"} rounded-xl border border-sheet-line bg-sheet-card/95 shadow-xl md:backdrop-blur-md`}>
+            {(["outside", "inside"] as const).map((view) => (
+              <button
+                key={view}
+                type="button"
+                onClick={() => setHomeView(view)}
+                aria-pressed={homeView === view}
+                className={`min-h-[44px] px-3 text-[11px] font-black capitalize transition sm:px-4 sm:text-xs ${
+                  homeView === view ? "bg-flame text-white" : "text-sheet-blue"
+                }`}
+              >
+                {view}
+              </button>
+            ))}
+          </div>
+        </div>
+        <HomeSheet
+          section={section}
+          onSection={setSection}
+          status={{
+            avatar: dirty ? "Unsaved changes" : "Your look",
+            body: player ? `⚡${Math.round(player.needs.energy)} ❤${Math.round(player.needs.health)}` : undefined,
+            bike: bikeStatus ?? undefined,
+            wallet: player ? `${player.balance.toLocaleString("en-US")} BNG` : undefined,
+            room: stats ? `${stats.wins} wins · ${stats.races} races` : undefined
+          }}
+          avatar={
+            <ProfileCustomizer
+              loadout={draftLoadout}
+              onChange={(next) => {
+                setDraftLoadout(next)
+                setDirty(true)
+              }}
+            />
+          }
+          body={<NeedsPanel />}
+          bike={<GaragePanel onShow={setShowroomLook} />}
+          wallet={<WalletPanel />}
+          house={
+            <div className="flex flex-col gap-3">
+              {/* Roof on/off and Reset live in the ⋯ menu at the top (one place for each). */}
+              <HouseCustomizer
+                house={draftHouse}
+                onChange={(next) => {
+                  setDraftHouse(next)
+                  setDirty(true)
+                }}
+              />
+            </div>
+          }
+          room={
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-sheet-line bg-sheet-card p-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-flame text-lg font-black text-white">
+                  {user.displayName.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  {user.tiktokLinked ? (
+                    <>
+                      <div className="truncate font-bold">{user.displayName}</div>
+                      <div className="text-[11px] text-sheet-mute">Synced from TikTok</div>
+                    </>
+                  ) : (
+                    <input
+                      value={draftName}
+                      maxLength={24}
+                      onChange={(event) => {
+                        setDraftName(event.target.value)
+                        setDirty(true)
+                      }}
+                      className="w-full rounded-lg border border-sheet-line bg-sheet-card px-2 py-1.5 font-bold"
+                    />
+                  )}
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                {user.tiktokLinked ? (
-                  <>
-                    <div className="truncate font-bold">{user.displayName}</div>
-                    <div className="text-[11px] text-slate-400">Synced from TikTok</div>
-                  </>
+              {stats && (
+                <div className="grid grid-cols-4 gap-1.5 text-center">
+                  {[
+                    { label: "Points", value: stats.points },
+                    { label: "Wins", value: stats.wins },
+                    { label: "Races", value: stats.races },
+                    { label: "Best", value: stats.bestPosition ?? "–" }
+                  ].map((stat) => (
+                    <div key={stat.label} className="rounded-xl border border-sheet-line bg-sheet-card px-1 py-2">
+                      <div className="font-mono text-base font-black text-sheet-blue">{stat.value}</div>
+                      <div className="text-[11px] uppercase tracking-wide text-sheet-mute">{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div>
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sheet-mute">
+                  Recent races
+                </div>
+                {recentRaces.length === 0 ? (
+                  <div className="rounded-xl border border-sheet-line px-4 py-3 text-center text-xs text-sheet-mute">
+                    No finished races yet.
+                  </div>
                 ) : (
-                  <input
-                    value={draftName}
-                    maxLength={24}
-                    onChange={(event) => {
-                      setDraftName(event.target.value)
-                      setDirty(true)
-                    }}
-                    className="w-full rounded-lg border border-white/15 bg-slate-900 px-2 py-1.5 font-bold"
-                  />
+                  <ol className="flex flex-col gap-1.5">
+                    {recentRaces.map((race) => (
+                      <li
+                        key={race.raceId}
+                        className="flex items-center justify-between rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-xs"
+                      >
+                        <span className="font-bold">{bountyName(race.destinationId)}</span>
+                        <span className="text-[11px] text-sheet-mute">
+                          {race.position}
+                          {race.position === 1 ? "st" : race.position === 2 ? "nd" : race.position === 3 ? "rd" : "th"} of{" "}
+                          {race.playerCount} · {new Date(race.finishedAt).toLocaleDateString()}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
                 )}
               </div>
             </div>
-            {stats && (
-              <div className="grid grid-cols-4 gap-1.5 text-center">
-                {[
-                  { label: "Points", value: stats.points },
-                  { label: "Wins", value: stats.wins },
-                  { label: "Races", value: stats.races },
-                  { label: "Best", value: stats.bestPosition ?? "–" }
-                ].map((stat) => (
-                  <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 px-1 py-2">
-                    <div className="font-mono text-base font-black text-cyan-300">{stat.value}</div>
-                    <div className="text-[11px] uppercase tracking-wide text-slate-400">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div>
-              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                Recent races
-              </div>
-              {recentRaces.length === 0 ? (
-                <div className="rounded-xl border border-white/10 px-4 py-3 text-center text-xs text-slate-400">
-                  No finished races yet.
-                </div>
-              ) : (
-                <ol className="flex flex-col gap-1.5">
-                  {recentRaces.map((race) => (
-                    <li
-                      key={race.raceId}
-                      className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs"
-                    >
-                      <span className="font-bold">{bountyName(race.destinationId)}</span>
-                      <span className="text-[11px] text-slate-400">
-                        {race.position}
-                        {race.position === 1 ? "st" : race.position === 2 ? "nd" : race.position === 3 ? "rd" : "th"} of{" "}
-                        {race.playerCount} · {new Date(race.finishedAt).toLocaleDateString()}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          </div>
-        }
-      />
-    </main>
+          }
+        />
+      </main>
+    </LightSurface>
   )
 }

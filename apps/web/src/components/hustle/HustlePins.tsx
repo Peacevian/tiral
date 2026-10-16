@@ -12,9 +12,9 @@ export type HustlePin = {
 }
 
 const TONES = {
-  pickup: { bg: "#f59e0b", ring: "rgba(245,158,11,0.55)", size: 34, pulse: true },
+  pickup: { bg: "#E85F0C", ring: "rgba(232,95,12,0.45)", size: 34, pulse: true },
   dropoff: { bg: "#10b981", ring: "rgba(16,185,129,0.55)", size: 34, pulse: true },
-  offer: { bg: "#334155", ring: "rgba(15,23,42,0.6)", size: 26, pulse: false }
+  offer: { bg: "#1E56A8", ring: "rgba(30,86,168,0.35)", size: 26, pulse: false }
 } as const
 
 function makeElement(pin: HustlePin): HTMLDivElement {

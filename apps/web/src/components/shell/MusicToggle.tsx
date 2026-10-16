@@ -17,7 +17,7 @@ export function MusicToggle() {
       aria-label={label}
       title={label}
       className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-base ${
-        enabled ? "border-amber-300/40 bg-amber-300/10" : "border-white/10 bg-white/5 opacity-70"
+        enabled ? "border-flame/40 bg-flame-soft" : "border-sheet-line bg-sheet-card opacity-70"
       }`}
     >
       <span aria-hidden className={playing ? "animate-pulse" : undefined}>

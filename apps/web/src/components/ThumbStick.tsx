@@ -115,32 +115,32 @@ export function ThumbStick({
       // treat it as letting go, or the runner keeps walking on its own.
       onLostPointerCapture={stop}
       style={{ width: size, height: size }}
-      className={`relative touch-none select-none rounded-full border-2 bg-slate-950/60 md:backdrop-blur-sm sm:bg-slate-950/80 ${
-        disabled ? "border-white/10 opacity-40" : "border-cyan-300/40"
+      className={`relative touch-none select-none rounded-full border-2 bg-sheet-card/80 md:backdrop-blur-sm sm:bg-sheet-card/95 ${
+        disabled ? "border-sheet-line opacity-40" : "border-sheet-blue/30"
       }`}
     >
       {axis === "vertical" ? (
         <>
-          <span className={`absolute left-1/2 top-1 -translate-x-1/2 text-sm font-black ${activeZone === "up" ? "text-cyan-300" : "text-slate-400"}`}>
+          <span className={`absolute left-1/2 top-1 -translate-x-1/2 text-sm font-black ${activeZone === "up" ? "text-sheet-blue" : "text-sheet-mute"}`}>
             ▲
           </span>
-          <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 text-sm font-black ${activeZone === "down" ? "text-cyan-300" : "text-slate-400"}`}>
+          <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 text-sm font-black ${activeZone === "down" ? "text-sheet-blue" : "text-sheet-mute"}`}>
             ▼
           </span>
         </>
       ) : (
         <>
-          <span className={`absolute left-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "left" ? "text-cyan-300" : "text-slate-400"}`}>
+          <span className={`absolute left-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "left" ? "text-sheet-blue" : "text-sheet-mute"}`}>
             ◀
           </span>
-          <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "right" ? "text-cyan-300" : "text-slate-400"}`}>
+          <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-sm font-black ${activeZone === "right" ? "text-sheet-blue" : "text-sheet-mute"}`}>
             ▶
           </span>
         </>
       )}
       <div
         className={`absolute left-1/2 top-1/2 rounded-full shadow-lg ${
-          active ? "bg-cyan-300" : "bg-slate-200/90"
+          active ? "bg-sheet-blue" : "bg-sheet-card"
         }`}
         style={{
           width: knobSize,

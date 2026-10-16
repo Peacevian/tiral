@@ -13,17 +13,17 @@ export function BikeShowroom({ look, paused = false }: { look: BikeLook; paused?
   const quality = sceneQuality()
   return (
     <Canvas camera={{ position: [3.3, 1.7, 3.0], fov: 36 }} gl={{ antialias: quality.antialias, alpha: true }} dpr={quality.dpr} shadows={quality.shadows} frameloop={paused ? "never" : "always"}>
-      <hemisphereLight args={["#fff4d6", "#293548", 0.9]} />
+      <hemisphereLight args={["#fff4d6", "#b9c9a6", 1.0]} />
       <directionalLight position={[3, 6, 4]} intensity={2.4} castShadow shadow-mapSize={[1024, 1024]} />
       <directionalLight position={[-4, 2, -3]} intensity={0.7} color="#bcd3ff" />
       {/* Garage floor with a turntable ring. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[1.6, 48]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.9} />
+        <meshStandardMaterial color="#DCE6F2" roughness={0.9} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
         <ringGeometry args={[1.45, 1.55, 64]} />
-        <meshBasicMaterial color="#f59e0b" transparent opacity={0.6} side={THREE.DoubleSide} depthWrite={false} />
+        <meshBasicMaterial color="#E85F0C" transparent opacity={0.6} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       {/* The bike stands still (only the camera orbits), so the shadow is drawn
           once per look instead of every frame. */}

@@ -47,6 +47,8 @@ export type HostedRaceView = {
   signups: number
   /** The viewer has said "I'm in". */
   signedUp: boolean
+  /** The host's photo (our stored copy, or an older TikTok link that may have expired). */
+  hostAvatarUrl?: string | null
 }
 
 async function hostName(executor: Database | Tx, userId: string) {
@@ -176,6 +178,7 @@ export async function listHostedRaces(viewerUserId: string | null, db: Database 
     .select({
       race: hostedRaces,
       host: users.displayName,
+      avatarUrl: users.avatarUrl,
       signups: sql<number>`(select count(*)::int from ${hostedRaceSignups} s where s.hosted_race_id = ${hostedRaces.id})`,
       signedUp: viewerUserId
         ? sql<boolean>`exists(select 1 from ${hostedRaceSignups} s where s.hosted_race_id = ${hostedRaces.id} and s.user_id = ${viewerUserId})`
@@ -186,7 +189,7 @@ export async function listHostedRaces(viewerUserId: string | null, db: Database 
     .where(inArray(hostedRaces.status, ["scheduled", "live"]))
     .orderBy(asc(hostedRaces.startsAt))
     .limit(50)
-  return rows.map((row) => view(row.race, row.host, row.signups, row.signedUp))
+  return rows.map((row) => ({ ...view(row.race, row.host, row.signups, row.signedUp), hostAvatarUrl: row.avatarUrl }))
 }
 
 /** One prize race (for the game server and invite links). */

@@ -81,8 +81,8 @@ function Chip({
       onClick={onClick}
       className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm font-bold capitalize transition ${
         active
-          ? "border-amber-300 bg-amber-300/20 text-amber-100"
-          : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
+          ? "border-flame bg-flame-soft text-flame-deep"
+          : "border-sheet-line bg-sheet-card text-sheet-ink hover:bg-sheet-soft"
       }`}
     >
       {label}
@@ -93,7 +93,7 @@ function Chip({
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">{label}</div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )
@@ -119,7 +119,7 @@ function Swatches({
           aria-pressed={selected === color}
           title={colorName(color)}
           className={`inline-flex h-11 w-11 items-center justify-center rounded-full border-2 transition ${
-            selected === color ? "scale-110 border-amber-300" : "border-white/20 hover:border-white/50"
+            selected === color ? "scale-110 border-flame" : "border-sheet-line hover:border-sheet-handle"
           }`}
           style={{ backgroundColor: color }}
         >
@@ -260,21 +260,21 @@ export function HouseCustomizer({
 
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sheet-mute">
             Layout · {house.items.length}/{MAX_ITEMS}
           </div>
           {selected && (
             <button
               type="button"
               onClick={removeSelected}
-              className="min-h-[44px] rounded-lg border border-rose-400/40 px-3 text-xs font-bold text-rose-200"
+              className="min-h-[44px] rounded-lg border border-flame-deep/40 px-3 text-xs font-bold text-flame-deep"
             >
               Remove {FURNITURE_BY_ID[selected.item].label}
             </button>
           )}
         </div>
 
-        <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-slate-900/60 p-1">
+        <div className="relative w-full overflow-hidden rounded-xl border border-sheet-line bg-sheet-soft p-1">
           <div
             className="grid aspect-square w-full"
             style={{ gridTemplateColumns: `repeat(${ROOM_GRID}, 1fr)`, gridTemplateRows: `repeat(${ROOM_GRID}, 1fr)` }}
@@ -286,7 +286,7 @@ export function HouseCustomizer({
               return (
                 <div
                   key={index}
-                  className={`border border-white/5 ${owner ? "" : "bg-white/[0.02]"}`}
+                  className={`border border-sheet-line ${owner ? "" : "bg-sheet-card"}`}
                 />
               )
             })}
@@ -299,8 +299,8 @@ export function HouseCustomizer({
                 key={item.id}
                 type="button"
                 onClick={() => setSelectedId(item.id)}
-                className={`absolute flex items-center justify-center rounded-md text-[11px] font-bold text-white/90 transition ${
-                  isSelected ? "ring-2 ring-amber-300" : "ring-1 ring-white/20"
+                className={`absolute flex items-center justify-center rounded-md text-[11px] font-bold text-sheet-ink transition ${
+                  isSelected ? "ring-2 ring-flame" : "ring-1 ring-sheet-line"
                 }`}
                 style={{
                   left: `calc(${(item.x / ROOM_GRID) * 100}% + 4px)`,
@@ -317,9 +317,9 @@ export function HouseCustomizer({
         </div>
 
         {selected ? (
-          <div className="mt-3 flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="mt-3 flex flex-col gap-3 rounded-xl border border-sheet-line bg-sheet-card p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-slate-300">Move</span>
+              <span className="text-xs font-bold text-sheet-mute">Move</span>
               {[
                 { label: "↑", name: "Move back", dx: 0, dz: -1 },
                 { label: "↓", name: "Move forward", dx: 0, dz: 1 },
@@ -332,7 +332,7 @@ export function HouseCustomizer({
                   aria-label={step.name}
                   title={step.name}
                   onClick={() => moveSelected(step.dx, step.dz)}
-                  className="h-11 w-11 rounded-lg border border-white/15 bg-white/5 text-sm font-bold text-slate-200 hover:bg-white/10"
+                  className="h-11 w-11 rounded-lg border border-sheet-line bg-sheet-card text-sm font-bold text-sheet-ink hover:bg-sheet-soft"
                 >
                   {step.label}
                 </button>
@@ -340,7 +340,7 @@ export function HouseCustomizer({
               <button
                 type="button"
                 onClick={rotateSelected}
-                className="min-h-[44px] rounded-lg border border-white/15 bg-white/5 px-3 text-xs font-bold text-slate-200 hover:bg-white/10"
+                className="min-h-[44px] rounded-lg border border-sheet-line bg-sheet-card px-3 text-xs font-bold text-sheet-ink hover:bg-sheet-soft"
               >
                 ⟳ Rotate
               </button>
@@ -354,7 +354,7 @@ export function HouseCustomizer({
             </Group>
           </div>
         ) : (
-          <div className="mt-3 text-center text-xs text-slate-400">
+          <div className="mt-3 text-center text-xs text-sheet-mute">
             Tap a piece in the grid to move, rotate, recolour or remove it.
           </div>
         )}

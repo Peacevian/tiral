@@ -100,15 +100,15 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
           maxLength={24}
           aria-label="Your runner name"
           autoFocus
-          className="mt-3 min-h-[48px] w-full rounded-xl border border-white/15 bg-slate-900 px-3 font-bold text-white"
+          className="mt-3 min-h-[48px] w-full rounded-xl border border-sheet-line bg-sheet-card px-3 font-bold text-sheet-ink"
         />
       ) : (
-        <p className="mt-2 text-sm text-slate-300">
-          You&apos;re <span className="font-bold text-white">{player?.user.displayName}</span>, straight from TikTok.
+        <p className="mt-2 text-sm text-sheet-mute">
+          You&apos;re <span className="font-bold text-sheet-ink">{player?.user.displayName}</span>, straight from TikTok.
         </p>
       ),
       action: (
-        <ActionButton variant="primary" className="w-full" disabled={saving || (canRename && !name.trim())} onClick={() => void saveName()}>
+        <ActionButton variant="flame" className="w-full" disabled={saving || (canRename && !name.trim())} onClick={() => void saveName()}>
           {saving ? "Saving…" : "That's me"}
         </ActionButton>
       )
@@ -116,15 +116,15 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
     {
       title: "Life here costs money",
       body: (
-        <p className="mt-2 text-sm leading-relaxed text-slate-300">
-          You arrived with <span className="font-mono font-bold text-amber-200">{formatCoins(WELCOME_GRANT)} BNG</span>.
+        <p className="mt-2 text-sm leading-relaxed text-sheet-mute">
+          You arrived with <span className="font-mono font-bold text-flame-deep">{formatCoins(WELCOME_GRANT)} BNG</span>.
           Your room in Kisenyi costs{" "}
-          <span className="font-mono font-bold text-amber-200">{formatCoins(startRent)}</span> every two days, and
+          <span className="font-mono font-bold text-flame-deep">{formatCoins(startRent)}</span> every two days, and
           family will message asking for help. Miss rent and you move somewhere worse.
         </p>
       ),
       action: (
-        <ActionButton variant="primary" className="w-full" onClick={() => setStep(2)}>
+        <ActionButton variant="flame" className="w-full" onClick={() => setStep(2)}>
           Banange…
         </ActionButton>
       )
@@ -132,13 +132,13 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
     {
       title: "Race to earn",
       body: (
-        <p className="mt-2 text-sm leading-relaxed text-slate-300">
+        <p className="mt-2 text-sm leading-relaxed text-sheet-mute">
           Race other people to a treasure on real Kampala streets. Finishing pays, podiums pay more, and your first win
           of the day pays extra. Hold Sprint to go faster, but don&apos;t run on empty.
         </p>
       ),
       action: (
-        <ActionButton variant="primary" className="w-full" onClick={onDone}>
+        <ActionButton variant="flame" className="w-full" onClick={onDone}>
           ▶ Let&apos;s race
         </ActionButton>
       )
@@ -152,15 +152,15 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
       onClose={onDone}
       closeOnBackdrop={false}
       backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center"
-      className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950 p-5 text-white shadow-2xl"
+      className="w-full max-w-sm rounded-3xl border border-sheet-line bg-sheet p-5 text-sheet-ink shadow-2xl"
     >
       <div className="flex items-center justify-between">
         <div className="flex gap-1.5" aria-label={`Step ${step + 1} of ${steps.length}`}>
           {steps.map((_, index) => (
-            <span key={index} className={`h-1.5 w-6 rounded-full ${index <= step ? "bg-amber-400" : "bg-white/15"}`} />
+            <span key={index} className={`h-1.5 w-6 rounded-full ${index <= step ? "bg-flame" : "bg-sheet-line"}`} />
           ))}
         </div>
-        <button type="button" onClick={onDone} className="min-h-[44px] px-3 text-xs font-bold text-slate-400">
+        <button type="button" onClick={onDone} className="min-h-[44px] px-3 text-xs font-bold text-sheet-mute">
           Skip
         </button>
       </div>
@@ -168,7 +168,7 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
         {current.title}
       </h2>
       {current.body}
-      {notice && <p className="mt-2 text-xs font-bold text-rose-300">{notice}</p>}
+      {notice && <p className="mt-2 text-xs font-bold text-flame-deep">{notice}</p>}
       <div className="mt-5">{current.action}</div>
     </Modal>
   )
