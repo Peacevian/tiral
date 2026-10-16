@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { boolean, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 
@@ -22,7 +22,10 @@ export const users = pgTable("users", {
   lastEventAt: timestamp("last_event_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull()
-})
+},
+  // Sign-ups and recently seen players by day (admin stats).
+  (table) => [index("users_created_idx").on(table.createdAt), index("users_last_seen_idx").on(table.lastSeenAt)]
+)
 
 export const tiktokAccounts = pgTable("tiktok_accounts", {
   userId: uuid("user_id")
@@ -49,7 +52,10 @@ export const races = pgTable("races", {
   finishedAt: timestamp("finished_at", { withTimezone: true }).notNull(),
   playerCount: integer("player_count").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
-})
+},
+  // Races per day (admin stats).
+  (table) => [index("races_finished_idx").on(table.finishedAt)]
+)
 
 export const raceResults = pgTable("race_results", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -126,7 +132,10 @@ export const coinLedger = pgTable(
   },
   (table) => [
     uniqueIndex("coin_ledger_event_unique").on(table.userId, table.reason, table.refId),
-    index("coin_ledger_user_created_idx").on(table.userId, table.createdAt)
+    index("coin_ledger_user_created_idx").on(table.userId, table.createdAt),
+    // Minted/burned per day and per reason (admin stats).
+    index("coin_ledger_created_idx").on(table.createdAt),
+    index("coin_ledger_reason_created_idx").on(table.reason, table.createdAt)
   ]
 )
 
@@ -195,3 +204,72 @@ export const bikeItems = pgTable(
   },
   (table) => [uniqueIndex("bike_items_user_item_idx").on(table.userId, table.itemId)]
 )
+
+// Prize races: scheduled races a TikTok-linked host funds with a BNG pot.
+// status: scheduled (pot held, room not raced yet) | live (racing) |
+//         paid (settled) | refunded | cancelled (by the host before the start)
+export const hostedRaces = pgTable(
+  "hosted_races",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 5 characters (open races use 4), so the two can never collide. */
+    roomCode: text("room_code").notNull(),
+    hostUserId: uuid("host_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    pot: integer("pot").notNull(),
+    /** Percent per winning place, best first; adds up to 100. */
+    shares: integer("shares").array().notNull(),
+    message: text("message"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    countdownSeconds: integer("countdown_seconds").notNull(),
+    status: text("status").default("scheduled").notNull(),
+    raceId: uuid("race_id"),
+    /** How it was settled: payouts, cut, refund and why. */
+    settlement: jsonb("settlement").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    settledAt: timestamp("settled_at", { withTimezone: true })
+  },
+  (table) => [
+    uniqueIndex("hosted_races_room_code_idx").on(table.roomCode),
+    index("hosted_races_status_starts_idx").on(table.status, table.startsAt)
+  ]
+)
+
+export type HostedRaceRow = typeof hostedRaces.$inferSelect
+
+// "I'm in": players who signed up for a prize race ahead of time (for the
+// reminder and the joined count).
+export const hostedRaceSignups = pgTable(
+  "hosted_race_signups",
+  {
+    hostedRaceId: uuid("hosted_race_id")
+      .notNull()
+      .references(() => hostedRaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    remindedAt: timestamp("reminded_at", { withTimezone: true })
+  },
+  (table) => [primaryKey({ columns: [table.hostedRaceId, table.userId] })]
+)
+
+// One row per player per Kampala day they were seen (written by touchLastSeen).
+// This is what daily/weekly/monthly active players and retention are counted
+// from. source: live (recorded as it happened) | backfill (reconstructed from
+// the ledger, race results and sign-ups when the table was introduced).
+export const userActivityDays = pgTable(
+  "user_activity_days",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Kampala calendar day, YYYY-MM-DD (see kampalaDay in @tiral/game-core). */
+    day: date("day", { mode: "string" }).notNull(),
+    source: text("source").default("live").notNull()
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.day] }), index("user_activity_days_day_idx").on(table.day)]
+)
+
+export type UserActivityDay = typeof userActivityDays.$inferSelect

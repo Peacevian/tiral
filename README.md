@@ -112,6 +112,7 @@ Or run both servers with `pnpm dev`. The game server reads the same
 | `DATABASE_URL` | web, game | Postgres connection |
 | `SESSION_SECRET` | web, game | Signs session cookies; the game server checks them on join |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI` | web | TikTok login |
+| `ADMIN_USER_IDS`, `ADMIN_SECRET` | web | Who may read `/api/admin/stats` (player ids, comma-separated) and the header secret for scripts |
 | `NEXT_PUBLIC_GAME_URL`, `NEXT_PUBLIC_RACES_API_URL` | web | Where the client finds the game server |
 | `PORT` (2567), `API_PORT` (2568) | game | WebSocket and HTTP ports |
 | `RACE_COUNTDOWN_SECONDS` (20) | game | Lobby countdown |

@@ -41,6 +41,8 @@ import { NeedsHud } from "@/components/game/NeedsHud"
 import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
 import { Modal } from "@/components/ui/Modal"
+import { PrizeBanner, PrizeResultLines } from "@/components/game/PrizeBanner"
+import { signUpByCode } from "@/lib/prizeRaces"
 import type { RaceListing } from "@/lib/useColyseus"
 
 type BillboardSlot = {
@@ -102,6 +104,7 @@ export default function Home() {
     positions,
     results,
     earnings,
+    prizeResult,
     needs,
     hustle,
     stall,
@@ -141,6 +144,7 @@ export default function Home() {
   const [races, setRaces] = useState<RaceListing[]>([])
   const [lobbyLoading, setLobbyLoading] = useState(false)
   const [lobbyError, setLobbyError] = useState<string | null>(null)
+  const [lobbyNotice, setLobbyNotice] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
 
   const phase = roomState?.phase ?? "lobby"
@@ -315,8 +319,16 @@ export default function Home() {
 
   const handleJoinCode = useCallback(
     (code: string) => {
+      setLobbyNotice(null)
       void runJoin(async () => {
-        await joinByCode(code, myLoadout)
+        try {
+          await joinByCode(code, myLoadout)
+        } catch (error) {
+          // Not open yet? It may be a prize race further out: sign up for it.
+          const signedUp = await signUpByCode(code)
+          if (!signedUp) throw error
+          setLobbyNotice(signedUp)
+        }
       })
     },
     [joinByCode, runJoin, myLoadout]
@@ -510,6 +522,7 @@ export default function Home() {
                 onCreate={() => void runJoin(() => createRace(myLoadout))}
                 onJoin={(roomId) => void runJoin(() => joinRace(roomId, myLoadout))}
                 onJoinCode={handleJoinCode}
+                notice={lobbyNotice}
                 highlightQuickRace={firstRun.highlight}
               />
             </AdaptivePanel>
@@ -621,7 +634,8 @@ export default function Home() {
       {connected && (
         <TopBar
           roomCode={roomCode}
-          racerCount={remoteAvatars.length + 1}
+          // Everyone in the room (rivals have no runner on the map before the gun).
+          racerCount={roomState ? Object.keys(roomState.players).length : remoteAvatars.length + 1}
           phase={phase}
           reconnecting={reconnecting}
           countdown={countdown}
@@ -702,6 +716,7 @@ export default function Home() {
             </ol>
           )}
           <RaceEarningsSummary earnings={earnings} soloRace={playerCount < 2} />
+          {prizeResult && <PrizeResultLines result={prizeResult} sessionId={sessionId} />}
           {earnings && player && !player.user.tiktokLinked && (
             <a
               href="/api/auth/tiktok"
@@ -747,7 +762,8 @@ export default function Home() {
         rivals={rivals}
         placementArmed={placement.armed}
         onTogglePlacement={() => placement.setArmed((armed) => !armed)}
-        showSolo={phase === "lobby" && playerCount < 2}
+        showSolo={phase === "lobby" && playerCount < 2 && !roomState?.prize}
+        banner={roomState?.prize ? <PrizeBanner prize={roomState.prize} counting={phase === "countdown"} /> : null}
         onStartNow={sendStartNow}
         notice={placement.notice}
       />

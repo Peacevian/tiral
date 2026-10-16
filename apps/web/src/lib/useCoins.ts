@@ -41,7 +41,10 @@ export const REASON_LABELS: Record<string, string> = {
   rolex_stock: "Rolex stock",
   hustle_rolex: "Rolex sales",
   kcca_fine: "KCCA fine",
-  hustle_carwash: "Car wash"
+  hustle_carwash: "Car wash",
+  prize_hold: "Prize race pot (held)",
+  prize_win: "Prize race win",
+  prize_refund: "Prize race refund"
 }
 
 export function formatCoins(amount: number): string {

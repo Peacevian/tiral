@@ -10,7 +10,8 @@
 # PORT=3100                      (nginx proxies the web app on 3100)
 # PUBLIC_BASE_URL=https://tiral.geinz.lol   (webhook signatures are checked against this URL)
 # BILLBOARD_UPLOAD_DIR=/data/uploads        (the compose volume; anywhere else is lost on rebuild)
-# ADMIN_SECRET=<openssl rand -hex 32>       (x-admin-secret header for disabling billboards)
+# ADMIN_SECRET=<openssl rand -hex 32>       (x-admin-secret header for disabling billboards and for scripts reading /api/admin/stats)
+# ADMIN_USER_IDS=<uuid>,<uuid>             (signed-in players allowed to read /api/admin/stats; find your id in /api/auth/me)
 # RELWORX_API_KEY=
 # RELWORX_ACCOUNT_NO=
 # RELWORX_WEBHOOK_KEY=            (required in production: unsigned webhooks are refused)

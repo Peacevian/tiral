@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { useState } from "react"
 import type { RoadDirection, RoadGraph, RoadPosition } from "@tiral/road-graph"
 import { ThumbStick } from "../ThumbStick"
@@ -21,6 +22,8 @@ type ControlDeckProps = {
   // start picking (lobby / countdown only): explicit arm-then-tap placement
   showStarts: boolean
   hasStartPin: boolean
+  /** Shown at the top of the deck before the race (e.g. a prize race's pot). */
+  banner?: ReactNode
   /** Rivals in the lobby: whether each has picked a start (where stays secret). */
   rivals: Array<{ id: string; name: string; ready: boolean }>
   placementArmed: boolean
@@ -49,6 +52,7 @@ export function ControlDeck({
   onRequestTurn,
   showStarts,
   hasStartPin,
+  banner,
   rivals,
   placementArmed,
   onTogglePlacement,
@@ -81,6 +85,7 @@ export function ControlDeck({
           >
             ▾
           </button>
+          {showStarts && banner}
           {showStarts && !hasStartPin && (
             <div className="px-2.5">
               <button

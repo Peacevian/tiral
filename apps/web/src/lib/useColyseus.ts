@@ -36,12 +36,30 @@ export type RaceResult = {
   position: number
 }
 
+/** A prize race's pot, as the room, the race list and invites show it. */
+export type PrizeSummary = {
+  pot: number
+  shares: number[]
+  winners: number
+  host: string
+  message: string | null
+  startsAt: string
+  countdownSeconds: number
+}
+
+/** How a prize race ended, sent to everyone in the room after the results. */
+export type PrizeResult =
+  | { kind: "paid"; host: string; cut: number; payouts: Array<{ place: number; amount: number; name: string; sessionId: string | null }> }
+  | { kind: "refunded"; host: string; why: string }
+
 type RoomState = {
   phase: string
   countdownSeconds: number
   destinationId: string | null
   startedAt: number | null
   roomCode: string | null
+  /** Set while the room runs a prize race (until it's paid or refunded). */
+  prize?: PrizeSummary | null
   players: Record<string, RoomPlayer>
 }
 
@@ -146,6 +164,7 @@ export type RaceListing = {
   playerCount: number
   maxClients: number
   countdownSeconds: number | null
+  prize?: PrizeSummary | null
   locked?: boolean
 }
 
@@ -210,6 +229,7 @@ export function useColyseus({
   const [positions, setPositions] = useState<RemotePositions>({})
   const [results, setResults] = useState<RaceResult[] | null>(null)
   const [earnings, setEarnings] = useState<RaceEarnings | null>(null)
+  const [prizeResult, setPrizeResult] = useState<PrizeResult | null>(null)
   const [needs, setNeeds] = useState<RaceNeeds | null>(null)
   const [hustle, setHustle] = useState<HustleState | null>(null)
   /** Server-side position of your own runner in a hustle (races use `positions`). */
@@ -237,6 +257,7 @@ export function useColyseus({
     setPositions({})
     setResults(null)
     setEarnings(null)
+    setPrizeResult(null)
     setNeeds(null)
     setSelfPosition(null)
     setCountdown(null)
@@ -280,6 +301,7 @@ export function useColyseus({
       if (state.phase !== "finished") {
         setResults(null)
         setEarnings(null)
+        setPrizeResult(null)
       }
     })
 
@@ -293,6 +315,10 @@ export function useColyseus({
 
     room.onMessage("raceFinished", (order: RaceResult[]) => {
       setResults(order)
+    })
+    room.onMessage("prizeResult", (result: PrizeResult) => {
+      setPrizeResult(result)
+      notifyCoinsChanged()
     })
 
     room.onMessage("needs", (next: { energy: number; health: number; collapsedForMs: number }) => {
@@ -544,6 +570,7 @@ export function useColyseus({
       playerCount: number
       maxClients: number
       countdownSeconds: number | null
+      prize?: PrizeSummary | null
       locked?: boolean
     }>
     return data.map((listed) => ({
@@ -553,6 +580,7 @@ export function useColyseus({
       playerCount: listed.playerCount,
       maxClients: listed.maxClients,
       countdownSeconds: listed.countdownSeconds,
+      prize: listed.prize ?? null,
       locked: listed.locked ?? false
     }))
   }, [])
@@ -652,6 +680,7 @@ export function useColyseus({
     positions,
     results,
     earnings,
+    prizeResult,
     needs,
     hustle,
     hustleEvent,
