@@ -21,6 +21,8 @@ type ControlDeckProps = {
   // start picking (lobby / countdown only): explicit arm-then-tap placement
   showStarts: boolean
   hasStartPin: boolean
+  /** Rivals in the lobby: whether each has picked a start (where stays secret). */
+  rivals: Array<{ id: string; name: string; ready: boolean }>
   placementArmed: boolean
   onTogglePlacement(): void
   // solo start
@@ -47,6 +49,7 @@ export function ControlDeck({
   onRequestTurn,
   showStarts,
   hasStartPin,
+  rivals,
   placementArmed,
   onTogglePlacement,
   showSolo,
@@ -97,6 +100,18 @@ export function ControlDeck({
                   : "No start yet — tap Set my start"}
               </div>
             </div>
+          )}
+          {showStarts && rivals.length > 0 && (
+            <p className="truncate px-3 pt-1.5 text-center text-[11px] text-slate-300" title="Rivals' starts stay secret until the race begins">
+              <span className="text-slate-400">Rivals · starts revealed at the gun: </span>
+              {rivals.map((rival, index) => (
+                <span key={rival.id}>
+                  {index > 0 && " · "}
+                  <span className="font-bold text-white">{rival.name}</span>{" "}
+                  {rival.ready ? <span className="text-emerald-300">✓</span> : <span className="text-slate-400">choosing…</span>}
+                </span>
+              ))}
+            </p>
           )}
           {showStarts && showSolo && (
             <div className="px-2.5">

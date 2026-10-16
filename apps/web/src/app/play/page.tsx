@@ -343,6 +343,17 @@ export default function Home() {
     )
   }, [])
 
+  // Before the race the server sends only whether each rival has picked a start.
+  const rivals = useMemo(
+    () =>
+      roomState
+        ? Object.entries(roomState.players)
+            .filter(([id]) => id !== sessionId)
+            .map(([id, player]) => ({ id, name: player.name.slice(0, 12), ready: player.hasStart === true }))
+        : [],
+    [roomState, sessionId]
+  )
+
   const startPinPlayers = useMemo(() => {
     const list = roomState
       ? Object.entries(roomState.players).map(([id, player]) => ({
@@ -733,6 +744,7 @@ export default function Home() {
         onRequestTurn={movement.requestTurn}
         showStarts={showPicker && roomState !== null}
         hasStartPin={placement.hasPin}
+        rivals={rivals}
         placementArmed={placement.armed}
         onTogglePlacement={() => placement.setArmed((armed) => !armed)}
         showSolo={phase === "lobby" && playerCount < 2}
