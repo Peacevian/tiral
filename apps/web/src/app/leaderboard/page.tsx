@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePlayer } from "@/lib/player"
 import { TIERS } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
+import { Loader } from "@/components/loader/Loader"
 
 type LeaderboardEntry = {
   userId: string
@@ -107,7 +108,7 @@ export default function LeaderboardPage() {
               ))}
             </div>
 
-            {loading && <div className="mt-6 text-center text-sm text-sheet-mute">Loading standings…</div>}
+            {loading && <Loader label="Loading standings…" className="mt-6" />}
             {error && <div className="mt-6 rounded-xl bg-flame-soft px-4 py-3 text-sm font-bold text-flame-deep">{error}</div>}
 
             {!loading && !error && entries.length === 0 && (
@@ -173,7 +174,7 @@ function RichList({ myId }: { myId: string | null }) {
       .catch(() => setError(true))
   }, [])
   if (error) return <div className="mt-6 rounded-xl bg-flame-soft px-4 py-3 text-sm font-bold text-flame-deep">Could not load the rich list</div>
-  if (!entries) return <div className="mt-6 text-center text-sm text-sheet-mute">Counting everyone&apos;s money…</div>
+  if (!entries) return <Loader label="Counting everyone's money…" className="mt-6" />
   const meListed = myId !== null && entries.some((entry) => entry.userId === myId)
   return (
     <>

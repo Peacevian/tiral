@@ -38,6 +38,7 @@ import type { AvatarLoadout } from "@tiral/avatars"
 import { WASH_RINSE_DIRT, type WashTool } from "@tiral/game-core"
 import { carLayout } from "@/components/carwash/carLayout"
 import type { RolexFlip, RolexPrep, RolexStep, RolexTarget } from "@/components/rolex/RolexStall3D"
+import { Loader } from "@/components/loader/Loader"
 
 const CarWashBay = dynamic(() => import("@/components/carwash/CarWashBay").then((module) => ({ default: module.CarWashBay })), {
   ssr: false
@@ -766,6 +767,12 @@ export function StallScreen({ gig }: { gig: "rolex" | "carwash" }) {
       <main className="tiral-game relative min-h-dvh w-screen overflow-y-auto bg-gradient-to-b from-sheet-soft to-[#EEF4FB] text-sheet-ink">
         {/* Kept across the start card and the shift (not the summary). */}
         {(starting || stall?.phase !== "closed") && <StallStage store={stageStore} onHost={setStageHost} />}
+        {/* Opening the bay / the stand, while the shift starts. */}
+        {busy && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-sheet/95 px-6">
+            <Loader label={gig === "carwash" ? "Opening the washing bay…" : "Setting up your stand…"} />
+          </div>
+        )}
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))]">
           {starting ? (
             <div className="pt-6">
