@@ -50,7 +50,8 @@ day). Progress depends on time played; energy and food are the brake.
 - [x] Porter pay ×1.5 (measured: ×2.5 would overshoot to ~200k/hour).
 - [x] Boda: fare ×1.6, fuel 0.2/m, more time before "late" (real trips all
       netted 0 before).
-- [x] Car wash: next car in 45–75 s; no pay faster than 2.5 s a panel.
+- [x] Car wash: no pay faster than 2.5 s a panel; next car in 5–13 s (was
+      45–75 s at first; changed 17 Oct, players were left waiting).
 - [x] Rolex: fewer customers a minute (no shift limit).
 - [x] Update game-core tests (64 pass).
 - [x] Time real play from the live ledger; numbers in economy-progress §18.1.
@@ -129,3 +130,4 @@ day). Progress depends on time played; energy and food are the brake.
 - **16 Oct 2026** — Phase 1 (tier 1 rebalance) deployed (`99899a4`).
 - **16 Oct 2026** — Phase 2 part one (tier label, savings bar, Rich List) deployed.
 - **17 Oct 2026** — Phase 3a LivTok mitumba and moving up to Small business live; migration 0015 applied.
+- **17 Oct 2026** — Car wash: next car back to 5–13 s, pay unchanged.

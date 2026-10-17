@@ -1102,7 +1102,7 @@ real-world rate on a fast map ate the fare).
 | Gig | Change | Est. per hour after food |
 |---|---|---|
 | Porter | pay ×1.5 (`1,050 + 5.4/m`: ~1,900–5,500 a load); no daily limit | ~110k |
-| Car wash | same pay; no daily limit; next car in 45–75 s; no pay if washed faster than 2.5 s a panel | ~150k |
+| Car wash | same pay; no daily limit; next car in 5–13 s (17 Oct: the 45–75 s gap left players idle); no pay if washed faster than 2.5 s a panel | ~220k |
 | Boda | fare ×1.6 (`2,600 + 3.2/m`: ~4,000–9,500); fuel 0.2/m (was 0.6); full fare up to 2.6× the expected time (was 1.8×); no daily limit | ~110–120k |
 | Rolex stand | same prices; no shift limit; customers 2.5 / 3 / 1.5 a minute (was 4 / 5 / 2.5) | ~130–150k |
 

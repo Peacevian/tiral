@@ -298,7 +298,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                 ))}
               </div>
               <p className="mt-2 text-[11px] leading-snug text-sheet-mute">
-                500 soap comes off each car. Under 70% clean, the driver won&apos;t pay. A new car pulls in about a minute after each one.
+                500 soap comes off each car. Under 70% clean, the driver won&apos;t pay. A new car pulls in a few seconds after each one.
               </p>
             </>
           )}
