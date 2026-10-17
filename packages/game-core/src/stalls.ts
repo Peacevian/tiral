@@ -111,10 +111,11 @@ export function applyWash(zone: WashZone, tool: WashTool): WashZone {
 
 export const CAR_SOAP = 500
 /**
- * Seconds before the next car pulls in. No daily limit: the gap keeps a steady
- * hour at ~150k (a car takes ~2 min to wash; §18.1).
+ * Seconds before the next car pulls in (no daily limit). Kept short so the bay
+ * is never idle for long; at ~2 min a car this is the best-paying street job
+ * (~220k an hour; §18.1, chosen 17 Oct).
  */
-export const CAR_NEXT_SECONDS = { min: 45, max: 75 } as const
+export const CAR_NEXT_SECONDS = { min: 5, max: 13 } as const
 /** A car can't be paid for faster than this per panel (stops scripted washing). */
 export const CAR_MIN_SECONDS_PER_ZONE = 2.5
 export const CAR_WASH_ENERGY = 12
