@@ -113,10 +113,10 @@ export function ThreeLayer({ map, children }: ThreeLayerProps) {
         // (We attach no handlers to 3D meshes, so nothing is lost.)
         style={{ width: "100%", height: "100%", pointerEvents: "none" }}
         // A full-screen layer redrawn every frame over the map: cap its
-        // resolution, and skip antialiasing on dense screens where jagged
-        // edges are too small to see anyway.
-        dpr={isLiteDevice() ? 1 : [1, 1.5]}
-        gl={{ alpha: true, antialias: !isLiteDevice() && (typeof window === "undefined" || window.devicePixelRatio < 2) }}
+        // resolution (1.5×, 1.25× on weak phones) and smooth the edges, since
+        // at a capped resolution jagged edges show on 3× phone screens.
+        dpr={isLiteDevice() ? [1, 1.25] : [1, 1.5]}
+        gl={{ alpha: true, antialias: !isLiteDevice() }}
         // Drawn by MapDriver, in step with the map.
         frameloop="never"
         onCreated={({ gl }) => {

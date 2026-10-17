@@ -13,6 +13,7 @@ import { makeMaterialTexture, materialSurface } from "./houseTextures"
 
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "./roomSpots"
 import { sceneQuality } from "@/lib/deviceTier"
+import { AdaptiveQuality } from "@/components/AdaptiveQuality"
 
 export { AVATAR_HOME, type HouseView, type RoomSpot }
 
@@ -321,6 +322,7 @@ export function HousePreviewScene({
       shadows={quality.shadows}
       frameloop={paused ? "never" : "always"}
     >
+      <AdaptiveQuality />
       <CameraRig view={view} follow={avatarLoadout ? avatarSpot : null} />
       <hemisphereLight args={["#fff4d6", "#b9c9a6", 0.8]} />
       <directionalLight
