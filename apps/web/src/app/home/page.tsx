@@ -18,7 +18,7 @@ import { usePlayer } from "@/lib/player"
 import { isLiteDevice } from "@/lib/deviceTier"
 import { LightSurface, ServerUnreachable } from "@/components/ui"
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "@/components/house/roomSpots"
-import { Loader } from "@/components/loader/Loader"
+import { PageLoader } from "@/components/loader/Loader"
 
 const BikeShowroom = dynamic(
   () => import("@/components/bike/BikeShowroom").then((module) => ({ default: module.BikeShowroom })),
@@ -215,11 +215,7 @@ export default function HomePage() {
   }, [user, draftName, draftLoadout, draftHouse])
 
   if (loading) {
-    return (
-      <main className="min-h-screen w-full bg-sheet px-4 [&>*]:mx-auto [&>*]:max-w-xl pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+2rem)] text-sheet-ink">
-        <Loader label="Loading your home…" className="mt-6" />
-      </main>
-    )
+    return <PageLoader label="Loading your home…" />
   }
 
   if (!user && loadFailed) {

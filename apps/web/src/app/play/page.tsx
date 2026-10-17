@@ -44,7 +44,7 @@ import { Modal } from "@/components/ui/Modal"
 import { PrizeBanner, PrizeResultLines } from "@/components/game/PrizeBanner"
 import { signUpByCode } from "@/lib/prizeRaces"
 import type { RaceListing } from "@/lib/useColyseus"
-import { Loader } from "@/components/loader/Loader"
+import { PageLoader } from "@/components/loader/Loader"
 
 type BillboardSlot = {
   id: string
@@ -556,6 +556,7 @@ export default function Home() {
             >
               Tiral
             </Link>
+            {!authReady && <PageLoader label="Checking who you are…" />}
             <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               <div className="mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-flame/30 bg-flame-soft pt-3 text-sheet-ink shadow-[0_-6px_24px_rgba(14,42,77,0.14)]">
                 {authReady && offline ? (
@@ -568,9 +569,7 @@ export default function Home() {
                   />
                 ) : authReady ? (
                   <SignInGate busy={authBusy === "guest"} error={authFailure} authError={authError} onGuest={playAsGuest} />
-                ) : (
-                  <Loader label="Checking who you are…" className="px-4 pb-4" />
-                )}
+                ) : null}
               </div>
             </div>
           </>
