@@ -131,3 +131,4 @@ day). Progress depends on time played; energy and food are the brake.
 - **16 Oct 2026** — Phase 2 part one (tier label, savings bar, Rich List) deployed.
 - **17 Oct 2026** — Phase 3a LivTok mitumba and moving up to Small business live; migration 0015 applied.
 - **17 Oct 2026** — Car wash: next car back to 5–13 s, pay unchanged.
+- **17 Oct 2026** — Each ladder step pays more: boda fares ×2.4, rolex 3,500 (+700 tip); career path shows pay per hour.

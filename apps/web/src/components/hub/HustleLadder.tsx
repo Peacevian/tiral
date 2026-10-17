@@ -25,11 +25,12 @@ import { Modal } from "@/components/ui/Modal"
 // always something to work towards.
 
 const GIG_INFO: Record<LadderGig, { icon: string; name: string; pay: string }> = {
-  porter: { icon: "🧺", name: "Kikuubo porter", pay: "2,000–5,500 a load" },
-  carwash: { icon: "🚗", name: "Car wash", pay: "8,000–15,000 a car" },
-  boda: { icon: "🛵", name: "Boda passengers", pay: "4,000–9,500 a trip" },
-  rolex: { icon: "🍳", name: "Rolex stand", pay: "about 1,000 profit a rolex" },
-  live: { icon: "📱", name: "LivTok mitumba", pay: "sell clothes on live: ~60,000 a live" }
+  // Per hour of steady work, so every step up reads as a raise (§18.1).
+  porter: { icon: "🧺", name: "Kikuubo porter", pay: "about 110,000 an hour" },
+  carwash: { icon: "🚗", name: "Car wash", pay: "about 220,000 an hour" },
+  boda: { icon: "🛵", name: "Boda passengers", pay: "about 280,000 an hour" },
+  rolex: { icon: "🍳", name: "Rolex stand", pay: "about 350,000 an hour" },
+  live: { icon: "📱", name: "LivTok mitumba", pay: "about 900,000 an hour" }
 }
 
 /** Where the work towards each gig is done (the step below it), and the button that goes there. */

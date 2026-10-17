@@ -1106,6 +1106,19 @@ real-world rate on a fast map ate the fare).
 | Boda | fare ×1.6 (`2,600 + 3.2/m`: ~4,000–9,500); fuel 0.2/m (was 0.6); full fare up to 2.6× the expected time (was 1.8×); no daily limit | ~110–120k |
 | Rolex stand | same prices; no shift limit; customers 2.5 / 3 / 1.5 a minute (was 4 / 5 / 2.5) | ~130–150k |
 
+**17 Oct: each ladder step pays more.** With the car wash back to a 5–13 s gap
+(~220k an hour), the boda and the rolex stand were raised above it:
+
+| Step | Gig | Per hour |
+|---|---|---|
+| 1 | Porter | ~110k |
+| 2 | Car wash | ~220k |
+| 3 | Boda: fare `6,200 + 7.7/m` (~10,000–23,000 a trip, ×2.4) | ~280k |
+| 4 | Rolex: 3,500 a rolex, +700 perfect tip (was 2,000 / 500) | ~350k |
+
+The career path shows pay per hour so each step reads as a raise. Tier 1 to
+500k now takes ~2–3 hours of play.
+
 An hour of hard work burns ~100–150 energy against ~25 refilled, so ~6–8k
 of food an hour, included above. Estimates combine the measured job times
 with the new rules; re-check them once players have a few days of data.

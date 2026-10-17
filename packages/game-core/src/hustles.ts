@@ -242,9 +242,12 @@ export function isRushHour(at: Date): boolean {
   return (hour >= 7 && hour < 9) || (hour >= 17 && hour < 20)
 }
 
-/** Tuned to ~120k an hour of steady riding after fuel (§18.1). No daily limit. */
+/**
+ * Tuned to ~280k an hour of steady riding after fuel, a step up from the car
+ * wash (each ladder step pays more; §18.1, 17 Oct). No daily limit.
+ */
 export function bodaFare(meters: number, rush: boolean): number {
-  const base = 2_600 + meters * 3.2
+  const base = 6_200 + meters * 7.7
   return Math.round((base * (rush ? 1.5 : 1)) / 100) * 100
 }
 

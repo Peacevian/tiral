@@ -11,9 +11,9 @@ describe("rolex timing", () => {
   })
 
   it("sells by quality", () => {
-    expect(rolexSale("perfect")).toBe(2500)
-    expect(rolexSale("good")).toBe(2000)
-    expect(rolexSale("raw")).toBe(1000)
+    expect(rolexSale("perfect")).toBe(4200)
+    expect(rolexSale("good")).toBe(3500)
+    expect(rolexSale("raw")).toBe(1750)
     expect(rolexSale("burnt")).toBe(0)
   })
 })

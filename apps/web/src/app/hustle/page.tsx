@@ -67,7 +67,7 @@ const GIGS = {
   },
   boda: {
     blurb:
-      "Rent the stage bike for the day (10,000 BNG, charged with your first ride), pick passengers up at a stage and drop them across town. Fares run about 4,000–9,500, more in rush hour, minus fuel. Quick rides get tipped.",
+      "Rent the stage bike for the day (10,000 BNG, charged with your first ride), pick passengers up at a stage and drop them across town. Fares run about 10,000–23,000, more in rush hour, minus fuel. Quick rides get tipped.",
     spots: BODA_STAGES
   }
 } as const
