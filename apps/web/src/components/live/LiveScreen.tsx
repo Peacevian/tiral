@@ -19,6 +19,7 @@ import { formatCoins } from "@/lib/useCoins"
 import type { LiveState } from "@/lib/useColyseus"
 import { ActionButton, Card, SectionLabel } from "@/components/ui"
 import { useNow } from "@/components/hustle/JobBoard"
+import { Loader } from "@/components/loader/Loader"
 
 // LivTok: sell mitumba on live (tier 2). The Owino market and your stock, then
 // a phone-style live: hold up a piece, set the price, answer the comments,
@@ -78,7 +79,11 @@ export function LiveScreen() {
         {!player ? null : !allowed ? (
           <Closed tiktok={player.user.tiktokLinked} />
         ) : !live ? (
-          <Card className="mt-2 text-center text-sm text-sheet-mute">{error ?? "Opening LivTok…"}</Card>
+          error ? (
+            <Card className="mt-2 text-center text-sm text-sheet-mute">{error}</Card>
+          ) : (
+            <Loader label="Opening LivTok…" className="mt-8" />
+          )
         ) : live.phase === "live" ? (
           <OnAir live={live} />
         ) : live.phase === "closed" && live.summary ? (

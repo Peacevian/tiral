@@ -44,6 +44,7 @@ import { Modal } from "@/components/ui/Modal"
 import { PrizeBanner, PrizeResultLines } from "@/components/game/PrizeBanner"
 import { signUpByCode } from "@/lib/prizeRaces"
 import type { RaceListing } from "@/lib/useColyseus"
+import { Loader } from "@/components/loader/Loader"
 
 type BillboardSlot = {
   id: string
@@ -568,7 +569,7 @@ export default function Home() {
                 ) : authReady ? (
                   <SignInGate busy={authBusy === "guest"} error={authFailure} authError={authError} onGuest={playAsGuest} />
                 ) : (
-                  <p className="px-4 pb-5 pt-2 text-center text-sm text-sheet-mute">Checking who you are…</p>
+                  <Loader label="Checking who you are…" className="px-4 pb-4" />
                 )}
               </div>
             </div>
