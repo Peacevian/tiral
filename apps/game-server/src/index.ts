@@ -5,6 +5,7 @@ import cors from "cors"
 import { RaceRoom } from "./rooms/RaceRoom.js"
 import { HustleRoom } from "./rooms/HustleRoom.js"
 import { StallRoom } from "./rooms/StallRoom.js"
+import { LiveRoom } from "./rooms/LiveRoom.js"
 import { startPrizeScheduler } from "./prizeScheduler.js"
 
 // A forgotten promise rejection somewhere must not take every race and shift
@@ -26,6 +27,8 @@ gameServer.define("race", RaceRoom)
 gameServer.define("hustle", HustleRoom)
 // Mini-game hustles at a stall (rolex stand, car wash); private, solo.
 gameServer.define("stall", StallRoom)
+// LivTok: selling clothes on live (small business, tier 2); private, solo.
+gameServer.define("live", LiveRoom)
 
 void gameServer.listen(port).then(() => {
   console.log(`game-server listening on ws://localhost:${port}`)

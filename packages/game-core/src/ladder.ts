@@ -41,7 +41,7 @@ export const LADDER: ReadonlyArray<{
   requirement: Requirement | null
   /** Needs a connected TikTok account too. */
   tiktok?: boolean
-  /** Not built yet: shown on the ladder as coming soon. */
+  /** Not built yet: shown on the ladder as coming soon (none right now). */
   comingSoon?: boolean
 }> = [
   { gig: "porter", unlockedBy: "", unlockText: "", action: "carry loads", requirement: null },
@@ -69,11 +69,10 @@ export const LADDER: ReadonlyArray<{
   {
     gig: "live",
     unlockedBy: "Owino traders",
-    unlockText: "You can run a business. Buy a bale at Owino and sell clothes on live.",
-    action: "sell clothes on live",
+    unlockText: "You can run a business now. Save 500,000, connect TikTok, and move up to sell clothes on LivTok.",
+    action: "sell clothes on LivTok",
     requirement: { count: (c) => c.rolexShifts, need: 5, label: "rolex shifts", one: "rolex shift" },
-    tiktok: true,
-    comingSoon: true
+    tiktok: true
   }
 ]
 

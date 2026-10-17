@@ -33,6 +33,7 @@ import { JobBoard, clock, offerTitle, spotName, useNow } from "@/components/hust
 import type { HustlePin } from "@/components/hustle/HustlePins"
 import { ActionButton, Card, ConfirmButton } from "@/components/ui"
 import { LockedGig, useGigLocked } from "@/components/hub/HustleLadder"
+import { LiveScreen } from "@/components/live/LiveScreen"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const HustlePins = dynamic(
@@ -73,16 +74,19 @@ const GIGS = {
 
 // A hustle shift: simulated jobs on the real Kikuubo streets, no other
 // players needed. Same movement, sprint and body as races.
-// /hustle?gig=… — map gigs (porter, boda) or stall mini-games (rolex, car wash).
+// /hustle?gig=… — map gigs (porter, boda), stall mini-games (rolex, car wash)
+// or LivTok (selling clothes on live).
 export default function HustlePage() {
-  const { stall } = useColyseusContext()
+  const { stall, live } = useColyseusContext()
   const [gigParam, setGigParam] = useState<string | null>(null)
   useEffect(() => {
     setGigParam(new URLSearchParams(window.location.search).get("gig") ?? "porter")
   }, [])
   // A shift in progress wins; a finished one only shows on its own page.
   if (stall && stall.phase !== "closed") return <StallScreen gig={stall.stall} />
+  if (live) return <LiveScreen />
   if (gigParam === null) return <main className="h-dvh w-screen bg-sheet" />
+  if (gigParam === "live") return <LiveScreen />
   if (isStallGig(gigParam)) return <StallScreen gig={gigParam} />
   return <MapHustle />
 }

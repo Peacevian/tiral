@@ -21,7 +21,9 @@ export const users = pgTable("users", {
   stressAt: timestamp("stress_at", { withTimezone: true }).defaultNow().notNull(),
   lastEventAt: timestamp("last_event_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull()
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+  // LivTok followers (TikTok-connected sellers only; docs/career-roadmap.md 3a).
+  followers: integer("followers").default(0).notNull()
 },
   // Sign-ups and recently seen players by day (admin stats).
   (table) => [index("users_created_idx").on(table.createdAt), index("users_last_seen_idx").on(table.lastSeenAt)]
@@ -273,3 +275,18 @@ export const userActivityDays = pgTable(
 )
 
 export type UserActivityDay = typeof userActivityDays.$inferSelect
+
+// LivTok stock: unsold pieces by bale and grade (they carry over between lives).
+export const livtokStock = pgTable(
+  "livtok_stock",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    bale: text("bale").notNull(),
+    grade: text("grade").notNull(),
+    count: integer("count").default(0).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.bale, table.grade] })]
+)

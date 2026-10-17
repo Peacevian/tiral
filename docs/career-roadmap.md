@@ -23,8 +23,8 @@ day). Progress depends on time played; energy and food are the brake.
 | — | Hustle ladder (porter → car wash → boda → rolex) | no | ✅ `a5975ac` |
 | 0 | Foundations (inside 1–2) | no | 🟡 tier rules and big-amount check done |
 | 1 | Tier 1 rebalance | no | ✅ `99899a4` |
-| 2 | Career path and moving up | no | 🟡 part one live (move up ships with 3a) |
-| 3a | TikTok Live mitumba | **yes** | ⬜ |
+| 2 | Career path and moving up | no | ✅ live (moving up shipped with 3a) |
+| 3a | LivTok mitumba (+ moving up) | **yes** (0015) | ✅ live |
 | 3b | Mobile money kiosk | maybe | ⬜ |
 | 3c | Salon / phone repair | maybe | ⬜ |
 | 4 | Town business (boda fleet, wholesale shop) | **yes** | ⬜ |
@@ -61,22 +61,27 @@ day). Progress depends on time played; energy and food are the brake.
 - [x] Tier labels on the Earn BNG career path.
 - [x] Savings bar ("Small business: 230,000 / 500,000"); the Earn BNG row
       shows it once every street job is open.
-- [ ] "Move up" screen: put ~150k into your first business → Small business
-      owner; inbox note; share card. **Ships with 3a** (no empty tier).
+- [x] "Move up" screen: put ~150k into your first business → Small business
+      owner; inbox note (shipped with 3a). Share card: later.
 - [x] Kampala Rich List (net worth = coins for now): a "Rich list" tab on
       Ranks (`/leaderboard?board=rich`), with your own rank.
 - [x] Deploy part one (16 Oct).
 
 ## Phase 3: Tier 2, Small business
-### 3a TikTok Live mitumba
-- [ ] **Migration** (show before applying to the VPS): followers on profiles
-      (TikTok-connected only); stock table for unsold pieces (grade, cost).
-- [ ] Rules in game-core: bales, grade mix, simulated buyers, pricing (low /
-      fair / high), buyers who don't pay, delivery fee, follower growth.
-- [ ] Live-selling mode on the game server: viewers, comments, claims.
-- [ ] Screens: Owino bale buying, phone-style live screen (2D), receipt.
-- [ ] Gate: tier 2 + TikTok connected.
-- [ ] Tune to ~900k/hour; deploy.
+### 3a LivTok mitumba (named LivTok, 16 Oct)
+- [x] **Migration 0015** (`users.followers`, `livtok_stock`); applied to the
+      test DB and the VPS (17 Oct).
+- [x] Rules in game-core (livtok.ts): bales (tops 150k/100, jeans 300k/80,
+      dresses 600k/60), grade mix with bad bales, prices low/fair/high, sale
+      chance, viewers and followers, ghosting 12%, delivery 1,000 (tests).
+- [x] LiveRoom on the game server: Owino market, 4-minute live, simulated
+      viewers/comments/claims, pay-up and one ledger payment per live.
+- [x] Moving up (POST /api/career/move-up): 5 rolex shifts + TikTok + 500k →
+      150k becomes your first tops bale, 50 followers, inbox note.
+- [x] Screens: Move up on the career path, LivTok setup + market, the live
+      "phone", receipt; career path shows the tier and next tier.
+- [x] Pace tuned: ~8–10 s a piece (~20 sold a live, ~900k/hour).
+- [x] Apply migration 0015 to the VPS; deploy (17 Oct).
 
 ### 3b Mobile money kiosk
 - [ ] Float vs cash balancing mini-game; commission per transaction.
@@ -123,3 +128,4 @@ day). Progress depends on time played; energy and food are the brake.
 - **16 Oct 2026** — Roadmap written. Hustle ladder already live (`a5975ac`).
 - **16 Oct 2026** — Phase 1 (tier 1 rebalance) deployed (`99899a4`).
 - **16 Oct 2026** — Phase 2 part one (tier label, savings bar, Rich List) deployed.
+- **17 Oct 2026** — Phase 3a LivTok mitumba and moving up to Small business live; migration 0015 applied.
