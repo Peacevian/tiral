@@ -6,6 +6,7 @@ import * as THREE from "three"
 import type { BikeLook } from "@tiral/game-core"
 import { Bike3D } from "./Bike3D"
 import { sceneQuality } from "@/lib/deviceTier"
+import { AdaptiveQuality } from "@/components/AdaptiveQuality"
 
 /** Home → Bike: the selected bike, big, on a turntable you can spin. */
 export function BikeShowroom({ look, paused = false }: { look: BikeLook; paused?: boolean }) {
@@ -13,6 +14,7 @@ export function BikeShowroom({ look, paused = false }: { look: BikeLook; paused?
   const quality = sceneQuality()
   return (
     <Canvas camera={{ position: [3.3, 1.7, 3.0], fov: 36 }} gl={{ antialias: quality.antialias, alpha: true }} dpr={quality.dpr} shadows={quality.shadows} frameloop={paused ? "never" : "always"}>
+      <AdaptiveQuality />
       <hemisphereLight args={["#fff4d6", "#b9c9a6", 1.0]} />
       <directionalLight position={[3, 6, 4]} intensity={2.4} castShadow shadow-mapSize={[1024, 1024]} />
       <directionalLight position={[-4, 2, -3]} intensity={0.7} color="#bcd3ff" />

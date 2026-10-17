@@ -8,6 +8,7 @@ import type { WashTool } from "@tiral/game-core"
 import { RealisticAvatar } from "@/components/RealisticAvatar"
 import { carLayout, type CarLayout, type ZonePanel } from "./carLayout"
 import { sceneQuality } from "@/lib/deviceTier"
+import { AdaptiveQuality } from "@/components/AdaptiveQuality"
 
 export type BayZone = { id: number; soap: number; dirt: number; clean: boolean }
 
@@ -518,6 +519,7 @@ export const CarWashBay = memo(function CarWashBay(props: {
         dpr={quality.dpr}
         style={{ touchAction: "none" }}
       >
+        <AdaptiveQuality />
         <color attach="background" args={["#CFE2F7"]} />
         <fog attach="fog" args={["#DCE8F6", 14, 26]} />
         <Scene {...props} step={step} />
