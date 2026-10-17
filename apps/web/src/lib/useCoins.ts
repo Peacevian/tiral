@@ -44,7 +44,10 @@ export const REASON_LABELS: Record<string, string> = {
   hustle_carwash: "Car wash",
   prize_hold: "Prize race pot (held)",
   prize_win: "Prize race win",
-  prize_refund: "Prize race refund"
+  prize_refund: "Prize race refund",
+  tier_up: "Moved up to Small business",
+  livtok_bale: "Bale from Owino",
+  livtok_sales: "LivTok sales"
 }
 
 export function formatCoins(amount: number): string {
