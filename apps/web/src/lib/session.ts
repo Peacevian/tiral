@@ -104,3 +104,31 @@ export async function verifyOAuthState(state: string): Promise<OAuthState | null
     return null
   }
 }
+
+// Guest → TikTok when that TikTok already has a played account: before the
+// guest is left behind, the player sees both and decides. This proves the
+// TikTok sign-in succeeded (10 minutes, for this guest only).
+export type AccountSide = { name: string; balance: number; tier: string }
+export type SwitchClaims = { guestUserId: string; ownerUserId: string; guest: AccountSide; owner: AccountSide }
+
+export async function mintSwitchToken(claims: SwitchClaims): Promise<string> {
+  return new SignJWT({ ...claims, purpose: "tiktok-switch" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(getSecret())
+}
+
+export async function verifySwitchToken(token: string): Promise<SwitchClaims | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSecret())
+    if (payload.purpose !== "tiktok-switch" || typeof payload.guestUserId !== "string" || typeof payload.ownerUserId !== "string") return null
+    const side = (value: unknown): AccountSide => {
+      const v = (value ?? {}) as Record<string, unknown>
+      return { name: String(v.name ?? "Player"), balance: Number(v.balance ?? 0), tier: String(v.tier ?? "") }
+    }
+    return { guestUserId: payload.guestUserId, ownerUserId: payload.ownerUserId, guest: side(payload.guest), owner: side(payload.owner) }
+  } catch {
+    return null
+  }
+}
