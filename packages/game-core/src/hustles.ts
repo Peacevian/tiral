@@ -32,6 +32,13 @@ export const HUSTLES = [
     icon: "🚗",
     blurb: "Scrub cars clean at the Nakivubo washing bay.",
     available: true
+  },
+  {
+    id: "live",
+    name: "LivTok mitumba",
+    icon: "📱",
+    blurb: "Buy bales at Owino and sell clothes on LivTok live. Small business (tier 2).",
+    available: true
   }
 ] as const
 

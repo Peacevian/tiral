@@ -108,6 +108,7 @@ export default function Home() {
     needs,
     hustle,
     stall,
+    live,
     countdown,
     sendWalk,
     sendSprint,
@@ -152,9 +153,10 @@ export default function Home() {
   const router = useRouter()
   useEffect(() => {
     if (connected && (hustle || (stall && stall.phase !== "closed"))) router.replace("/hustle")
-    // A finished stall shift has nothing to show here: disconnect it.
-    else if (connected && stall?.phase === "closed") leaveRoom()
-  }, [connected, hustle, stall, router, leaveRoom])
+    else if (connected && live?.phase === "live") router.replace("/hustle?gig=live")
+    // A finished stall shift (or LivTok between lives) has nothing to show here: disconnect it.
+    else if (connected && (stall?.phase === "closed" || live)) leaveRoom()
+  }, [connected, hustle, stall, live, router, leaveRoom])
   const ownFinishPosition =
     sessionId ? roomState?.players[sessionId]?.finishPosition ?? null : null
   const locked = (connected && phase !== "racing") || ownFinishPosition !== null

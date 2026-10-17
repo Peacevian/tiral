@@ -94,6 +94,11 @@ const RENT_NOTICE_TEXT: Record<string, (meta: Record<string, unknown>) => { from
     from: "Your prize race",
     text: `Your ${bng(meta.amount)} BNG pot came back to you: ${PRIZE_REFUND_WHY[String(meta.why)] ?? "the race didn't happen"}.`
   }),
+  // Career tiers (packages/db/src/livtok.ts).
+  tier_up: (meta) => ({
+    from: "Owino traders",
+    text: `🏪 You're a ${String(meta.tier ?? "Small business")} owner now! Your first bale is in stock: go live on LivTok and sell.`
+  }),
   // The hustle ladder (packages/db/src/ladder.ts).
   ladder_unlock: (meta) => ({ from: String(meta.from ?? "Kampala"), text: `🔓 ${String(meta.text ?? "")}` }),
   race_reminder: (meta) => ({

@@ -134,6 +134,39 @@ export type StallEvent =
   | { kind: "car_done"; car: string; pay: number; tip: number; soap: number; net: number; cleanShare: number; paid: boolean; unpaid?: "guest" | "error" | null; at: number }
   | { kind: "notice"; text: string; at: number }
 
+/** A LivTok session (selling clothes on live) as the server last described it. */
+export type LiveGradeCounts = { first: number; second: number; third: number }
+export type LiveState = {
+  phase: "setup" | "live" | "closed"
+  /** Pieces available to sell, by bale and grade. */
+  stock: Record<string, LiveGradeCounts>
+  followers: number
+  viewers: number
+  hearts: number
+  leftMs: number | null
+  showing: {
+    bale: string
+    grade: "first" | "second" | "third"
+    level: "low" | "fair" | "high"
+    price: number
+    question: { text: string; replies: string[] } | null
+    answerLeftMs: number | null
+    answer: "good" | "wrong" | "ignored" | null
+    outcome: "sold" | "no_takers" | null
+    buyer: string | null
+  } | null
+  orders: number
+  ordersValue: number
+  comments: Array<{ id: number; from: string; text: string; kind: "chat" | "question" | "claim" | "you" }>
+  summary: { sold: number; paid: number; ghosts: number; gross: number; delivery: number; net: number; cost: number; followers: number; followerDelta: number } | null
+  receivedAt: number
+}
+
+export type LiveEvent =
+  | { kind: "baleOpened"; bale: string; counts: LiveGradeCounts; balance: number; at: number }
+  | { kind: "settled"; net: number; balance: number; at: number }
+  | { kind: "notice"; text: string; at: number }
+
 /** Latest thing to tell the player during a shift (receipt, failure, notice). */
 export type HustleEvent =
   | { kind: "receipt"; receipt: HustleReceipt; at: number }
@@ -240,6 +273,8 @@ export function useColyseus({
   const [hustleEvent, setHustleEvent] = useState<HustleEvent | null>(null)
   const [stall, setStall] = useState<StallState | null>(null)
   const [stallEvent, setStallEvent] = useState<StallEvent | null>(null)
+  const [live, setLive] = useState<LiveState | null>(null)
+  const [liveEvent, setLiveEvent] = useState<LiveEvent | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -265,6 +300,8 @@ export function useColyseus({
     setHustleEvent(null)
     setStall(null)
     setStallEvent(null)
+    setLive(null)
+    setLiveEvent(null)
   }, [])
 
   // Bumped by every join and leave: a join or reconnect that resolves after a
@@ -373,6 +410,17 @@ export function useColyseus({
     room.onMessage("notice", (text: string) => {
       setHustleEvent({ kind: "notice", text, at: Date.now() })
       setStallEvent({ kind: "notice", text, at: Date.now() })
+      setLiveEvent({ kind: "notice", text, at: Date.now() })
+    })
+    // LivTok (selling clothes on live).
+    room.onMessage("live", (next: Omit<LiveState, "receivedAt">) => setLive({ ...next, receivedAt: Date.now() }))
+    room.onMessage("baleOpened", (opened: Omit<Extract<LiveEvent, { kind: "baleOpened" }>, "kind" | "at">) => {
+      setLiveEvent({ kind: "baleOpened", ...opened, at: Date.now() })
+      notifyCoinsChanged()
+    })
+    room.onMessage("liveEvent", (event: Omit<LiveEvent, "at">) => {
+      setLiveEvent({ ...event, at: Date.now() } as LiveEvent)
+      if (event.kind === "settled") notifyCoinsChanged()
     })
     // Stall shifts (rolex stand, car wash).
     room.onMessage("stall", (next: Omit<StallState, "receivedAt">) => setStall({ ...next, receivedAt: Date.now() }))
@@ -535,7 +583,17 @@ export function useColyseus({
     }
   }, [joinWith])
 
-  /** Any stall action: buyStock, cook, flip, run, scrub, rinse, close. */
+  /** Open your LivTok (the Owino market and your stock; go live from there). */
+  const startLive = useCallback(async () => {
+    try {
+      await joinWith((client) => client.create("live"))
+    } catch (err) {
+      console.error("Start LivTok failed:", err)
+      throw toFriendlyJoinError(err)
+    }
+  }, [joinWith])
+
+  /** Any stall or LivTok action: buyStock, cook, flip, run, scrub, rinse, close; buyBale, goLive, show, reply, end, again. */
   const sendStall = useCallback((type: string, payload?: unknown) => {
     roomRef.current?.send(type, payload)
   }, [])
@@ -686,6 +744,8 @@ export function useColyseus({
     hustleEvent,
     stall,
     stallEvent,
+    live,
+    liveEvent,
     selfPosition,
     countdown,
     connect,
@@ -695,6 +755,7 @@ export function useColyseus({
     createRace,
     startHustle,
     startStall,
+    startLive,
     sendStall,
     sendAcceptJob,
     sendAbandonJob,

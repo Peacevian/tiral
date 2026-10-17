@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import type { AvatarLoadout } from "@tiral/avatars"
-import type { LadderCounts } from "@tiral/game-core"
+import type { LadderCounts, TierId } from "@tiral/game-core"
 import { COINS_CHANGED_EVENT, type WalletEntry } from "@/lib/useCoins"
 
 export type LifeEvent = {
@@ -45,6 +45,8 @@ type PlayerSnapshot = {
   life: Life | null
   /** Jobs done towards the hustle ladder (which gigs are open). */
   ladder: LadderCounts
+  /** Career tier and LivTok followers (docs/career-roadmap.md). */
+  career: { tier: TierId; followers: number }
 }
 
 type PlayerContextValue = {
