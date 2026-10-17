@@ -260,7 +260,7 @@ function StartCard({ gig, onStart, busy, error }: { gig: "rolex" | "carwash"; on
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-sheet-mute">Each rolex sells for 2,000 (+500 tip if perfect).</p>
+              <p className="mt-2 text-[11px] text-sheet-mute">Each rolex sells for 3,500 (+700 tip if perfect).</p>
             </>
           ) : (
             <>

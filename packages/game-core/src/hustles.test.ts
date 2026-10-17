@@ -66,8 +66,8 @@ describe("porter offers", () => {
 
 describe("boda", () => {
   it("prices fares by distance, with a rush-hour bump", () => {
-    expect(bodaFare(2000, false)).toBe(9000)
-    expect(bodaFare(2000, true)).toBe(13500)
+    expect(bodaFare(2000, false)).toBe(21600)
+    expect(bodaFare(2000, true)).toBe(32400)
   })
 
   it("knows Kampala rush hour (UTC+3)", () => {
@@ -84,7 +84,7 @@ describe("boda", () => {
     expect(quick.net).toBe(quick.fare + quick.tip - quick.fuel)
     const late = bodaPayout({ fare, meters: 2000, seconds: bodaFullFareSeconds(2000) + 1, fuelMeters: 2300 })
     expect(late.late).toBe(true)
-    expect(late.fare).toBe(4500)
+    expect(late.fare).toBe(10800)
     expect(late.tip).toBe(0)
     // Fuel never makes a ride cost money.
     expect(bodaPayout({ fare: 500, meters: 500, seconds: 999, fuelMeters: 9000 }).net).toBe(0)

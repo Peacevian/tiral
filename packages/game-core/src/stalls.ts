@@ -26,8 +26,10 @@ export function findRolexPack(id: string) {
   return ROLEX_PACKS.find((pack) => pack.id === id) ?? null
 }
 
-export const ROLEX_PRICE = 2_000
-export const ROLEX_PERFECT_TIP = 500
+// ~2,300 profit a rolex (3,000 with the tip) on 1,200 of stock: ~350k an
+// hour, a step up from the boda (each ladder step pays more; §18.1, 17 Oct).
+export const ROLEX_PRICE = 3_500
+export const ROLEX_PERFECT_TIP = 700
 export const ROLEX_ENERGY_PER_ROLEX = 1.5
 /** Customers wait this long before walking off. */
 export const ROLEX_PATIENCE_SECONDS = 60
