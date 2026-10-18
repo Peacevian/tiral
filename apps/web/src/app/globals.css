@@ -366,34 +366,6 @@ body.has-shell {
   }
 }
 
-/* Sprint sits above the right thumb stick wherever there are sticks (phones
-   and tablets); only mouse-and-keyboard screens get the lower spot. */
-.tiral-sprint-slot {
-  bottom: max(12.5rem, calc(env(safe-area-inset-bottom) + 12rem));
-}
-
-@media (min-width: 768px) and (pointer: fine) {
-  .tiral-sprint-slot {
-    bottom: 7.5rem;
-  }
-}
-
-/* Twin thumb sticks: anything with a touch screen (also touch laptops, whose
-   main pointer is a mouse), never on plain keyboard-and-mouse screens. */
-.tiral-sticks {
-  display: none;
-}
-
-@media (any-pointer: coarse) {
-  .tiral-sticks {
-    display: block;
-  }
-  /* Sticks are showing: Sprint stays above the right one. */
-  .tiral-sprint-slot {
-    bottom: max(12.5rem, calc(env(safe-area-inset-bottom) + 12rem));
-  }
-}
-
 /* The page loader's sliding bar (components/loader/Loader.tsx). */
 .tiral-loader-bar > span {
   animation: tiral-loader-slide 1.1s ease-in-out infinite;

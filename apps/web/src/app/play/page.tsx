@@ -38,7 +38,6 @@ function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
 import { ROTATION_SECONDS, selectCurrentAd } from "@/lib/billboards"
 import { RaceEarningsSummary } from "@/components/game/RaceEarningsSummary"
 import { NeedsHud } from "@/components/game/NeedsHud"
-import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
 import { Modal } from "@/components/ui/Modal"
 import { PrizeBanner, PrizeResultLines } from "@/components/game/PrizeBanner"
@@ -673,16 +672,6 @@ export default function Home() {
           <NeedsHud energy={needs.energy} health={needs.health} sprinting={sprinting && movement.moving} />
         </div>
       )}
-      {canSprint && (
-        <div className="tiral-sprint-slot absolute right-[max(0.75rem,env(safe-area-inset-right))] z-30">
-          <SprintButton
-            active={sprinting}
-            disabled={collapsed}
-            empty={(needs?.energy ?? 100) <= 0}
-            onChange={setSprint}
-          />
-        </div>
-      )}
       {canSprint && <PreloadCollapseFont />}
       {connected && collapsed && needs?.collapsedUntil && <CollapseOverlay until={needs.collapsedUntil} />}
 
@@ -776,6 +765,11 @@ export default function Home() {
         onMovingChange={movement.setMoving}
         onTurnAround={movement.turnAround}
         onRequestTurn={movement.requestTurn}
+        onCancelTurn={movement.cancelTurn}
+        queuedTurn={movement.queuedTurn}
+        junction={movement.junction}
+        turnLandedAt={movement.turnLandedAt}
+        sprint={canSprint ? { active: sprinting, disabled: collapsed, empty: (needs?.energy ?? 100) <= 0, onChange: setSprint } : null}
         showStarts={showPicker && roomState !== null}
         hasStartPin={placement.hasPin}
         rivals={rivals}

@@ -3,7 +3,8 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
 import type { RoadDirection, RoadGraph, RoadPosition } from "@tiral/road-graph"
-import { ThumbStick } from "../ThumbStick"
+import type { JunctionOption } from "@/lib/useRoadMovement"
+import { ControlBar, type SprintControl } from "./ControlBar"
 
 type ControlDeckProps = {
   // movement status
@@ -19,6 +20,14 @@ type ControlDeckProps = {
   onMovingChange(moving: boolean): void
   onTurnAround(): void
   onRequestTurn(direction: RoadDirection): void
+  onCancelTurn(): void
+  /** A turn tapped before its junction was close (shown lit like a picked one). */
+  queuedTurn: RoadDirection | null
+  /** The next junction's choices once it's close (from useRoadMovement). */
+  junction: JunctionOption[] | null
+  turnLandedAt: number
+  /** Hold-to-sprint in the bar (null where sprinting isn't possible yet). */
+  sprint: SprintControl | null
   // start picking (lobby / countdown only): explicit arm-then-tap placement
   showStarts: boolean
   hasStartPin: boolean
@@ -35,8 +44,9 @@ type ControlDeckProps = {
   notice: string | null
 }
 
-// Single bottom control deck: start chips pre-race, slim status while racing,
-// thumb sticks overlaid for touch devices. Mobile-first, safe-area aware.
+// Single bottom control deck: start chips before the race, then a slim status
+// line, with sprint and the arrow pad in the bottom corners underneath.
+// Mobile-first, safe-area aware.
 export function ControlDeck({
   graph,
   position,
@@ -50,6 +60,11 @@ export function ControlDeck({
   onMovingChange,
   onTurnAround,
   onRequestTurn,
+  onCancelTurn,
+  queuedTurn,
+  junction,
+  turnLandedAt,
+  sprint,
   showStarts,
   hasStartPin,
   banner,
@@ -65,22 +80,25 @@ export function ControlDeck({
   const statusText = loadingRoads
     ? "Loading walkable roads…"
     : (roadError ?? edge?.name ?? edge?.highway ?? "Snapped to road")
-  // Collapsible deck: folded away leaves only the joysticks (plus a reopen tab).
+  // The status card folds away (a reopen tab stays); the control bar never does.
   const [deckOpen, setDeckOpen] = useState(true)
-  const sticksHigh = showStarts && deckOpen && !hasStartPin
+  // Before the race there's only Set my start; the bar comes with the gun.
+  const showBar = !showStarts
+
+  const pickedTurn = turnIntent ?? queuedTurn
+  const turnStreet = turnIntent ? (junction?.find((option) => option.direction === turnIntent)?.name ?? null) : null
 
   return (
-    <>
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
       {deckOpen ? (
-      <div className="absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto w-full max-w-xl rounded-2xl border border-sheet-line bg-sheet-card/95 shadow-2xl md:backdrop-blur-md">
+        <div className="pointer-events-auto w-full rounded-2xl border border-sheet-line bg-sheet-card/95 shadow-2xl md:backdrop-blur-md">
           <button
             type="button"
             onClick={() => setDeckOpen(false)}
             aria-label="Collapse controls"
-            // 28 px tall so the deck doesn't grow into the thumb sticks; the
-            // invisible ::before adds 8 px of touch area above (more would
-            // overlap the sticks on a 375×667 phone).
+            // 28 px tall to keep the deck short; the invisible ::before adds
+            // 8 px of touch area above.
             className="relative flex min-h-[28px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-sheet-mute before:absolute before:inset-x-0 before:-top-2 before:bottom-0 before:content-['']"
           >
             ▾
@@ -136,9 +154,10 @@ export function ControlDeck({
           )}
           <div className="flex items-center justify-between gap-2 px-2.5 pb-2 pt-1.5">
             <div className="min-w-0 flex-1 truncate text-[11px] text-sheet-mute">
-              {turnIntent ? (
-                <span className="font-bold text-sheet-blue">
-                  {turnIntent === "straight" ? "→ Straight" : turnIntent === "left" ? "← Left" : "Right →"}
+              {pickedTurn ? (
+                <span className="font-bold text-flame-deep">
+                  {pickedTurn === "straight" ? "↑ Straight on" : pickedTurn === "left" ? "← Left" : "→ Right"}
+                  {turnStreet ? ` onto ${turnStreet}` : turnIntent ? "" : " at the next junction"}
                 </span>
               ) : (
                 statusText
@@ -154,59 +173,39 @@ export function ControlDeck({
               <div className="shrink-0 text-[11px] font-bold text-sheet-mute">🔒</div>
             )}
           </div>
-          {/* Mouse-and-keyboard players have no thumb sticks: show the keys. */}
+          {/* Keyboard players can use the keys as well as the pad. */}
           <div className="tiral-keyboard-hint border-t border-sheet-line px-2.5 py-1.5 text-[11px] text-sheet-mute">
             <kbd className="font-bold text-sheet-ink">Hold W</kbd>/↑ walk · <kbd className="font-bold text-sheet-ink">A</kbd>/← left ·{" "}
             <kbd className="font-bold text-sheet-ink">D</kbd>/→ right · <kbd className="font-bold text-sheet-ink">S</kbd>/↓ turn around ·{" "}
             <kbd className="font-bold text-sheet-ink">Shift</kbd> sprint · <kbd className="font-bold text-sheet-ink">Space</kbd> stop
           </div>
         </div>
-      </div>
       ) : (
-      <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <button
-          type="button"
-          onClick={() => setDeckOpen(true)}
-          aria-label="Show controls"
-          className="rounded-full border border-sheet-line bg-sheet-card/95 px-5 py-2 text-[11px] font-bold tracking-[0.2em] text-sheet-mute shadow-xl md:backdrop-blur-md"
-        >
-          ▴ CONTROLS
-        </button>
-      </div>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setDeckOpen(true)}
+            aria-label="Show status"
+            className="pointer-events-auto rounded-full border border-sheet-line bg-sheet-card/95 px-5 py-1.5 text-[11px] font-bold tracking-[0.2em] text-sheet-mute shadow-xl md:backdrop-blur-md"
+          >
+            ▴ STATUS
+          </button>
+        </div>
       )}
-      <div className="tiral-sticks">
-        <div
-          className={`absolute left-[max(0.5rem,env(safe-area-inset-left))] z-30 touch-none ${
-            sticksHigh
-              ? "bottom-[max(13rem,calc(env(safe-area-inset-bottom)+12rem))]"
-              : "bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+3rem))]"
-          }`}
-        >
-          <ThumbStick
-            axis="vertical"
-            size={100}
-            disabled={!position || locked}
-            active={moving}
-            onWalkChange={onMovingChange}
-            onTurnAround={onTurnAround}
-          />
-        </div>
-        <div
-          className={`absolute right-[max(0.5rem,env(safe-area-inset-right))] z-30 touch-none ${
-            sticksHigh
-              ? "bottom-[max(13rem,calc(env(safe-area-inset-bottom)+12rem))]"
-              : "bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+3rem))]"
-          }`}
-        >
-          <ThumbStick
-            axis="horizontal"
-            size={100}
-            disabled={!position || locked}
-            active={false}
-            onTurn={onRequestTurn}
-          />
-        </div>
+      {showBar && (
+        <ControlBar
+          disabled={!position || locked}
+          moving={moving}
+          pickedTurn={pickedTurn}
+          turnLandedAt={turnLandedAt}
+          onToggleRun={() => onMovingChange(!moving)}
+          onTurn={onRequestTurn}
+          onCancelTurn={onCancelTurn}
+          onTurnAround={onTurnAround}
+          sprint={sprint}
+        />
+      )}
       </div>
-    </>
+    </div>
   )
 }

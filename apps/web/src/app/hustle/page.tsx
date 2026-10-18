@@ -26,7 +26,6 @@ import { loadRoadGraph } from "@/lib/roadGraph"
 import { formatCoins } from "@/lib/useCoins"
 import { ControlDeck } from "@/components/game/ControlDeck"
 import { NeedsHud } from "@/components/game/NeedsHud"
-import { SprintButton } from "@/components/game/SprintButton"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
 import { StallScreen } from "@/components/hustle/StallScreen"
 import { JobBoard, clock, offerTitle, spotName, useNow } from "@/components/hustle/JobBoard"
@@ -497,9 +496,6 @@ function MapHustle() {
             </div>
           )}
 
-          <div className="tiral-sprint-slot absolute right-[max(0.75rem,env(safe-area-inset-right))] z-30 md:right-[25.5rem]">
-            <SprintButton active={sprinting} disabled={collapsed} empty={(needs?.energy ?? 100) <= 0} onChange={setSprint} />
-          </div>
           <PreloadCollapseFont />
           {collapsed && needs?.collapsedUntil && <CollapseOverlay until={needs.collapsedUntil} />}
 
@@ -517,6 +513,11 @@ function MapHustle() {
               onMovingChange={movement.setMoving}
               onTurnAround={movement.turnAround}
               onRequestTurn={movement.requestTurn}
+              onCancelTurn={movement.cancelTurn}
+              queuedTurn={movement.queuedTurn}
+              junction={movement.junction}
+              turnLandedAt={movement.turnLandedAt}
+              sprint={{ active: sprinting, disabled: collapsed, empty: (needs?.energy ?? 100) <= 0, onChange: setSprint }}
               showStarts={false}
               hasStartPin
               rivals={[]}
