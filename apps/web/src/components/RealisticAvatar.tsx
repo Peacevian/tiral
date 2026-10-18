@@ -6,6 +6,7 @@ import { useAnimations, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js"
 import { MergeStatic } from "@/components/MergeStatic"
+import { beatsAt, danceFrame, type DanceFrame, type DanceState, type Limb, type Vec } from "@/lib/dance/moves"
 import {
   resolveLoadout,
   type AvatarLoadout,
@@ -515,7 +516,19 @@ function instantiate(scene: THREE.Object3D) {
     }
   }
 
-  return { root, parts, bones, bindInverse, footOffset }
+  // Where the shins end with the legs straight (feet planted), for dancing.
+  let legEndY = Infinity
+  for (const side of ["L", "R"]) {
+    const end = bones.get(`LowerLeg${side}_end`)
+    if (end) legEndY = Math.min(legEndY, end.getWorldPosition(new THREE.Vector3()).y)
+  }
+
+  // The pelvis turn and the body's height are set relative to the bind pose
+  // (the clips may not animate them, so they'd otherwise add up frame to frame).
+  const bodyBind = bones.get("Body")?.position.clone() ?? null
+  const hipsBind = bones.get("Hips")?.quaternion.clone() ?? null
+
+  return { root, parts, bones, bindInverse, footOffset, legEndY, bodyBind, hipsBind }
 }
 
 function setPattern(materials: THREE.MeshStandardMaterial[], mode: number, base: string, accent: string) {
@@ -656,21 +669,76 @@ function relative(object: THREE.Object3D, root: THREE.Object3D, position: THREE.
   rootSpace(object, root, scratch.matrix).decompose(position, quaternion, scratch.scale)
 }
 
-function applyRidePose(rig: ReturnType<typeof instantiate>, pose: RidePose) {
+/** Turn `bone` so the line to `toward` points along `direction` (model space). */
+function aimBone(rig: ReturnType<typeof instantiate>, boneName: string, toward: string, direction: Vec) {
   const { root, bones } = rig
-  for (const aim of RIDE_AIMS[pose]) {
-    const bone = bones.get(aim.bone)
-    const child = bones.get(aim.toward)
-    if (!bone || !child || !bone.parent) continue
-    relative(bone, root, scratch.position, scratch.quaternion)
-    relative(child, root, scratch.childPosition, scratch.delta)
-    scratch.current.subVectors(scratch.childPosition, scratch.position).normalize()
-    scratch.target.set(...aim.direction).normalize()
-    scratch.delta.setFromUnitVectors(scratch.current, scratch.target)
-    // New root-space rotation, expressed in the parent's frame.
-    scratch.quaternion.premultiply(scratch.delta)
-    relative(bone.parent, root, scratch.position, scratch.parentQuaternion)
-    bone.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
+  const bone = bones.get(boneName)
+  const child = bones.get(toward)
+  if (!bone || !child || !bone.parent) return
+  relative(bone, root, scratch.position, scratch.quaternion)
+  relative(child, root, scratch.childPosition, scratch.delta)
+  scratch.current.subVectors(scratch.childPosition, scratch.position).normalize()
+  scratch.target.set(...direction).normalize()
+  scratch.delta.setFromUnitVectors(scratch.current, scratch.target)
+  // New root-space rotation, expressed in the parent's frame.
+  scratch.quaternion.premultiply(scratch.delta)
+  relative(bone.parent, root, scratch.position, scratch.parentQuaternion)
+  bone.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
+}
+
+function applyRidePose(rig: ReturnType<typeof instantiate>, pose: RidePose) {
+  for (const aim of RIDE_AIMS[pose]) aimBone(rig, aim.bone, aim.toward, aim.direction)
+  attachFeet(rig)
+}
+
+/** Put back what a dance frame moves relative to the bind pose. */
+function resetDanceBones(rig: ReturnType<typeof instantiate>) {
+  if (rig.bodyBind) rig.bones.get("Body")?.position.copy(rig.bodyBind)
+  if (rig.hipsBind) rig.bones.get("Hips")?.quaternion.copy(rig.hipsBind)
+}
+
+const danceScratch = { euler: new THREE.Euler(), turn: new THREE.Quaternion(), point: new THREE.Vector3() }
+
+/**
+ * Pose the rig for one dance frame, on top of the idle clip: turn the pelvis,
+ * aim the spine, head and limbs, then raise or lower the body so the lower
+ * foot stays on the floor (bent knees crouch; a hop lifts it off).
+ */
+function applyDanceFrame(rig: ReturnType<typeof instantiate>, frame: DanceFrame) {
+  const { root, bones } = rig
+  resetDanceBones(rig)
+  const hips = bones.get("Hips")
+  if (hips?.parent) {
+    relative(hips, root, scratch.position, scratch.quaternion)
+    danceScratch.turn.setFromEuler(danceScratch.euler.set(0, frame.hipsYaw, frame.hipsRoll))
+    scratch.quaternion.premultiply(danceScratch.turn)
+    relative(hips.parent, root, scratch.position, scratch.parentQuaternion)
+    hips.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
+  }
+  aimBone(rig, "Torso", "Neck", frame.torso)
+  aimBone(rig, "Head", "Head_end", frame.head)
+  // Limb directions are written outward-positive; the right side is mirrored.
+  for (const side of ["L", "R"] as const) {
+    const s = side === "L" ? 1 : -1
+    const limb = (upper: string, lower: string, tip: string, pose: Limb) => {
+      aimBone(rig, upper, lower, [pose.upper[0] * s, pose.upper[1], pose.upper[2]])
+      aimBone(rig, lower, tip, [pose.lower[0] * s, pose.lower[1], pose.lower[2]])
+    }
+    limb(`UpperArm${side}`, `LowerArm${side}`, `Wrist${side}`, side === "L" ? frame.armL : frame.armR)
+    limb(`UpperLeg${side}`, `LowerLeg${side}`, `LowerLeg${side}_end`, side === "L" ? frame.legL : frame.legR)
+  }
+
+  const body = bones.get("Body")
+  if (body?.parent && Number.isFinite(rig.legEndY)) {
+    let lowest = Infinity
+    for (const side of ["L", "R"]) {
+      const end = bones.get(`LowerLeg${side}_end`)
+      if (end) lowest = Math.min(lowest, danceScratch.point.setFromMatrixPosition(rootSpace(end, root, scratch.matrix)).y)
+    }
+    const dy = rig.legEndY - lowest + frame.lift
+    danceScratch.point.setFromMatrixPosition(rootSpace(body, root, scratch.matrix))
+    danceScratch.point.y += dy
+    body.position.copy(danceScratch.point.applyMatrix4(rootSpace(body.parent, root, scratch.parentMatrix).invert()))
   }
   attachFeet(rig)
 }
@@ -703,7 +771,8 @@ function HumanAvatar({
   pose,
   gait,
   act,
-  ride
+  ride,
+  dance
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -711,6 +780,7 @@ function HumanAvatar({
   gait: "walk" | "run"
   act?: AvatarAct
   ride?: RidePose
+  dance?: DanceState | null
 }) {
   const { scene, animations } = useGLTF(MODEL_URL)
   const rig = useMemo(() => instantiate(scene), [scene])
@@ -748,7 +818,7 @@ function HumanAvatar({
   // Animation state machine with short cross-fades.
   const clip = act
     ? ACT_CLIPS[act]
-    : ride
+    : ride || dance
       ? CLIPS.idle
       : pose === "dance"
       ? CLIPS.dance
@@ -787,12 +857,13 @@ function HumanAvatar({
   useFrame(({ clock }) => {
     const group = spinRef.current
     if (!group) return
+    if (dance && !act && !ride) return
     if (pose === "dance" && !act) {
       const t = clock.elapsedTime
       group.position.y = Math.abs(Math.sin(t * 5)) * 0.08
       group.rotation.y = Math.sin(t * 1.4) * 0.6
-    } else if (group.position.y !== 0 || group.rotation.y !== 0) {
-      group.position.y = 0
+    } else if (group.position.x !== 0 || group.position.y !== 0 || group.rotation.y !== 0) {
+      group.position.set(0, 0, 0)
       group.rotation.y = 0
     }
   })
@@ -804,7 +875,22 @@ function HumanAvatar({
     () => animations.find((candidate) => candidate.name === clip)?.tracks.some((track) => track.name.startsWith("Foot")) ?? false,
     [animations, clip]
   )
+  // Dancing: the routine's pose for this moment, also after the mixer.
+  const dancedRef = useRef(false)
   useFrame(() => {
+    const frame = dance && !act && !ride ? danceFrame(dance.routine, beatsAt(dance, performance.now())) : null
+    if (frame) {
+      applyDanceFrame(rig, frame)
+      spinRef.current?.position.set(frame.shiftX, 0, 0)
+      spinRef.current?.rotation.set(0, frame.yaw, 0)
+      dancedRef.current = true
+      return
+    }
+    if (dancedRef.current) {
+      // Stopped dancing: hand the bones the dance moved back to the clips.
+      resetDanceBones(rig)
+      dancedRef.current = false
+    }
     if (ride && !act) applyRidePose(rig, ride)
     else if (!clipMovesFeet) attachFeet(rig)
   })
@@ -912,7 +998,8 @@ export function RealisticAvatar({
   pose = "auto",
   gait = "walk",
   act,
-  ride
+  ride,
+  dance
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -924,12 +1011,14 @@ export function RealisticAvatar({
   act?: AvatarAct
   /** Seated on a boda (rider or passenger); hips stay where the caller puts the model's origin. */
   ride?: RidePose
+  /** A dance routine playing to a beat (overrides pose and moving). */
+  dance?: DanceState | null
   /** Kept for callers; the rigged model is light enough to use everywhere. */
   detail?: "full" | "lite"
 }) {
   return (
     <Suspense fallback={null}>
-      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} />
+      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} />
     </Suspense>
   )
 }
