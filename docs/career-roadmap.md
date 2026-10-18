@@ -27,7 +27,7 @@ day). Progress depends on time played; energy and food are the brake.
 | 3a | LivTok mitumba (+ moving up) | **yes** (0015) | ✅ live |
 | 3b | Mobile money kiosk | maybe | ⬜ |
 | 3c | Salon / phone repair | maybe | ⬜ |
-| 4 | Town business (boda fleet, wholesale shop) | **yes** | ⬜ |
+| 4 | Town business (boda fleet, wholesale shop) | **yes** (0016) | 🟡 4a live |
 | 5 | Big business (property, imports) | **yes** | ⬜ |
 | 6 | Tycoon and showing off | no | ⬜ |
 
@@ -92,9 +92,24 @@ day). Progress depends on time played; energy and food are the brake.
 - [ ] Design, build, tune; deploy.
 
 ## Phase 4: Tier 3, Town business
-- [ ] **Migration:** businesses you own (type, size, assets); feeds net worth.
-- [ ] 4a Boda fleet: buy bikes (garage/lease), simulated riders, send them
-      out, collect dues; crashes, theft, breakdowns; managed while playing.
+- [x] **Migration 0016** (`fleet_bikes`: model, rider, skill, wear, tracker,
+      status); applied to the test DB and the VPS (18 Oct).
+- [x] 4a Boda fleet (18 Oct, defaults agreed):
+  - [x] Rules in game-core (fleet.ts, tests): Boxa 100 / Star 125 / Zembo E
+        at 25k / 30k / 36k a minute on the road; wear, breakdowns, riders
+        (skill 0.85–1.15), events (crash 50k, police 30k, advance 30k,
+        theft, fuel spike, special hire +120k), fleet value.
+  - [x] Moving up (POST /api/career/move-up-town): Small business + 10 LivTok
+        lives + 5,000,000 → 2,000,000 becomes 4 Boxa bikes with riders.
+  - [x] FleetRoom on the game server: office (buy bikes, service, trackers),
+        5-minute shift, runs of 40–70 s, events every 35–60 s; costs paid as
+        they happen (fleet_cost), dues once per shift (fleet_dues).
+  - [x] Fleet screen (/hustle?gig=fleet), career path rows, wallet labels;
+        Rich List net worth counts fleet bikes.
+  - [x] Bench-tested on the test DB (move up, buy, tracker, a full shift).
+  - [x] Apply 0016 to the VPS; deploy (18 Oct).
+  - [ ] Time real play (target ~3–4M an hour
+        with 4 bikes, growing with more bikes).
 - [ ] 4b Kikuubo wholesale shop: bulk stock, restock, sell to simulated
       shops (later: live sellers buy from it).
 - [ ] Costs: wages, upkeep, weekly URA tax (scheduled on the game server).
@@ -132,3 +147,4 @@ day). Progress depends on time played; energy and food are the brake.
 - **17 Oct 2026** — Phase 3a LivTok mitumba and moving up to Small business live; migration 0015 applied.
 - **17 Oct 2026** — Car wash: next car back to 5–13 s, pay unchanged.
 - **17 Oct 2026** — Each ladder step pays more: boda fares ×2.4, rolex 3,500 (+700 tip); career path shows pay per hour.
+- **18 Oct 2026** — Phase 4a boda fleet live; migration 0016 applied.

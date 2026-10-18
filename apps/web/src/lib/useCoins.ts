@@ -47,7 +47,12 @@ export const REASON_LABELS: Record<string, string> = {
   prize_refund: "Prize race refund",
   tier_up: "Moved up to Small business",
   livtok_bale: "Bale from Owino",
-  livtok_sales: "LivTok sales"
+  livtok_sales: "LivTok sales",
+  fleet_bike_buy: "Bike for the fleet",
+  fleet_service: "Fleet bike service",
+  fleet_tracker: "Fleet bike tracker",
+  fleet_cost: "Fleet costs (repairs, fines, advances)",
+  fleet_dues: "Boda fleet dues"
 }
 
 export function formatCoins(amount: number): string {

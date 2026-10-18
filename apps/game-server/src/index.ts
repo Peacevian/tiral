@@ -6,6 +6,7 @@ import { RaceRoom } from "./rooms/RaceRoom.js"
 import { HustleRoom } from "./rooms/HustleRoom.js"
 import { StallRoom } from "./rooms/StallRoom.js"
 import { LiveRoom } from "./rooms/LiveRoom.js"
+import { FleetRoom } from "./rooms/FleetRoom.js"
 import { startPrizeScheduler } from "./prizeScheduler.js"
 
 // A forgotten promise rejection somewhere must not take every race and shift
@@ -29,6 +30,8 @@ gameServer.define("hustle", HustleRoom)
 gameServer.define("stall", StallRoom)
 // LivTok: selling clothes on live (small business, tier 2); private, solo.
 gameServer.define("live", LiveRoom)
+// Boda fleet: managing riders (town business, tier 3); private, solo.
+gameServer.define("fleet", FleetRoom)
 
 void gameServer.listen(port).then(() => {
   console.log(`game-server listening on ws://localhost:${port}`)

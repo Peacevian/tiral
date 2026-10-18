@@ -45,8 +45,8 @@ type PlayerSnapshot = {
   life: Life | null
   /** Jobs done towards the hustle ladder (which gigs are open). */
   ladder: LadderCounts
-  /** Career tier and LivTok followers (docs/career-roadmap.md). */
-  career: { tier: TierId; followers: number }
+  /** Career tier, LivTok followers and lives done (docs/career-roadmap.md). */
+  career: { tier: TierId; followers: number; lives: number }
 }
 
 type PlayerContextValue = {
