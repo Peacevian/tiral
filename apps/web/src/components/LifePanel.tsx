@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { HOUSING_TIERS, STRESSED_THRESHOLD } from "@tiral/game-core"
+import { HOUSING_TIERS, STRESSED_THRESHOLD, homeOpenTo } from "@tiral/game-core"
 import { formatCoins } from "@/lib/useCoins"
 import { usePlayer, type Life, type LifeEvent } from "@/lib/player"
 import { ActionButton, Card, ConfirmButton, EmptyState, SectionLabel, Skeleton, StatMeter, untilText } from "@/components/ui"
@@ -108,13 +108,15 @@ export function MessageList({ events, empty = "Quiet for now." }: { events: Life
 }
 
 export function MoveHouse({ life }: { life: Life }) {
-  const { busy, moveHouse } = usePlayer()
+  const { player, busy, moveHouse } = usePlayer()
+  const career = player?.career?.tier ?? "street"
   const [notice, setNotice] = useState<string | null>(null)
   return (
     <div>
       <SectionLabel>Move house</SectionLabel>
       <ul className="flex flex-col gap-1.5">
-        {HOUSING_TIERS.map((tier) => {
+        {/* The big homes show once your business can rent them (Home → House shows them all). */}
+        {HOUSING_TIERS.filter((tier) => homeOpenTo(tier.id, career)).map((tier) => {
           const current = tier.id === life.tier.id
           return (
             <li key={tier.id}>

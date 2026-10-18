@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { HOUSING_TIERS, type HousingTierId } from "@tiral/game-core"
+import { HOME_CAREER, HOUSING_TIERS, findTierById, type HousingTierId } from "@tiral/game-core"
 import { moveHouse } from "@tiral/db"
 import { readSessionCookie, verifySession } from "@/lib/session"
 
@@ -12,7 +12,11 @@ export async function POST(request: NextRequest) {
   const tier = HOUSING_TIERS.find((t) => t.id === body?.tier)
   if (!tier) return NextResponse.json({ error: "Bad request" }, { status: 400 })
   try {
-    await moveHouse(claims.userId, tier.id as HousingTierId)
+    const moved = await moveHouse(claims.userId, tier.id as HousingTierId)
+    if (!moved) {
+      const needed = HOME_CAREER[tier.id as HousingTierId]
+      return NextResponse.json({ error: `Only for ${needed ? findTierById(needed).name : "bigger"} owners` }, { status: 403 })
+    }
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error("Move failed:", error)
