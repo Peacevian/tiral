@@ -21,7 +21,7 @@ export function ColyseusProvider({ children }: { children: ReactNode }) {
   // race). Components that only care about connected/reconnecting read this
   // memoised slice instead, so they (e.g. the app nav on every page) don't
   // re-render with each update.
-  const screenRoom = value.fleet !== null || value.live !== null
+  const screenRoom = value.fleet !== null || value.live !== null || value.venue !== null
   const status = useMemo<ColyseusStatus>(
     () => ({ connected: value.connected, reconnecting: value.reconnecting, leaveRoom: value.leaveRoom, screenRoom }),
     [value.connected, value.reconnecting, value.leaveRoom, screenRoom]

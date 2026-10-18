@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { useColyseusStatus } from "@/components/ColyseusProvider"
 import { usePlayer } from "@/lib/player"
 
-const SHELL_PAGES = ["/play", "/hustle", "/home", "/inbox", "/leaderboard"]
+const SHELL_PAGES = ["/play", "/hustle", "/home", "/inbox", "/leaderboard", "/out"]
 
 /**
  * The app shell (player bar + navigation) shows for signed-in players on the
