@@ -211,6 +211,16 @@ export type FleetEvent =
   | { kind: "settled"; net: number; balance: number; at: number }
   | { kind: "notice"; text: string; at: number }
 
+/** A hangout (Kyadondo): everyone there, as the server last described them. */
+/** Someone at the venue: where they are, which way they face (h), whether they're walking (m). */
+export type VenuePerson = { id: string; name: string; loadout: AvatarLoadout; x: number; z: number; h: number; m: boolean }
+export type VenueState = { venue: string; people: VenuePerson[]; receivedAt: number }
+export type VenueEvent =
+  | { kind: "arrived"; fare: number; balance: number; at: number }
+  | { kind: "served"; item: string; price: number; shared: number; balance: number; at: number }
+  | { kind: "treated"; by: string; item: string; at: number }
+  | { kind: "notice"; text: string; at: number }
+
 /** Latest thing to tell the player during a shift (receipt, failure, notice). */
 export type HustleEvent =
   | { kind: "receipt"; receipt: HustleReceipt; at: number }
@@ -321,6 +331,10 @@ export function useColyseus({
   const [liveEvent, setLiveEvent] = useState<LiveEvent | null>(null)
   const [fleet, setFleet] = useState<FleetState | null>(null)
   const [fleetEvent, setFleetEvent] = useState<FleetEvent | null>(null)
+  const [venue, setVenue] = useState<VenueState | null>(null)
+  const [venueEvent, setVenueEvent] = useState<VenueEvent | null>(null)
+  // The room put you back (walked too fast or into a wall).
+  const [venueYou, setVenueYou] = useState<{ x: number; z: number; at: number } | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -350,6 +364,9 @@ export function useColyseus({
     setLiveEvent(null)
     setFleet(null)
     setFleetEvent(null)
+    setVenue(null)
+    setVenueEvent(null)
+    setVenueYou(null)
   }, [])
 
   // Bumped by every join and leave: a join or reconnect that resolves after a
@@ -460,6 +477,14 @@ export function useColyseus({
       setStallEvent({ kind: "notice", text, at: Date.now() })
       setLiveEvent({ kind: "notice", text, at: Date.now() })
       setFleetEvent({ kind: "notice", text, at: Date.now() })
+      setVenueEvent({ kind: "notice", text, at: Date.now() })
+    })
+    // Hangouts (Kyadondo).
+    room.onMessage("venue", (next: Omit<VenueState, "receivedAt">) => setVenue({ ...next, receivedAt: Date.now() }))
+    room.onMessage("venueYou", (at: { x: number; z: number }) => setVenueYou({ ...at, at: Date.now() }))
+    room.onMessage("venueEvent", (event: Omit<VenueEvent, "at">) => {
+      setVenueEvent({ ...event, at: Date.now() } as VenueEvent)
+      if (event.kind !== "treated") notifyCoinsChanged()
     })
     // Boda fleet (town business).
     room.onMessage("fleet", (next: Omit<FleetState, "receivedAt">) => setFleet({ ...next, receivedAt: Date.now() }))
@@ -658,6 +683,19 @@ export function useColyseus({
     }
   }, [joinWith])
 
+  /** Ride to a hangout (pays the boda) and join everyone there. */
+  const startVenue = useCallback(
+    async (place: string) => {
+      try {
+        await joinWith((client) => client.joinOrCreate("venue", { venue: place }))
+      } catch (err) {
+        console.error("Going out failed:", err)
+        throw err instanceof Error ? err : new Error("Couldn't get there. Try again.")
+      }
+    },
+    [joinWith]
+  )
+
   /** Any stall, LivTok or fleet action: buyStock, cook, flip, run, scrub, rinse, close; buyBale, goLive, show, reply, end, again. */
   const sendStall = useCallback((type: string, payload?: unknown) => {
     roomRef.current?.send(type, payload)
@@ -813,6 +851,9 @@ export function useColyseus({
     liveEvent,
     fleet,
     fleetEvent,
+    venue,
+    venueEvent,
+    venueYou,
     selfPosition,
     countdown,
     connect,
@@ -824,6 +865,7 @@ export function useColyseus({
     startStall,
     startLive,
     startFleet,
+    startVenue,
     sendStall,
     sendAcceptJob,
     sendAbandonJob,

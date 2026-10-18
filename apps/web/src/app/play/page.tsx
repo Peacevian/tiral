@@ -23,6 +23,8 @@ import { loadRoadGraph } from "@/lib/roadGraph"
 import { TopBar } from "@/components/game/TopBar"
 import { ControlDeck } from "@/components/game/ControlDeck"
 import { BillboardLayer, type BillboardPin } from "@/components/BillboardLayer"
+import { VenuePins } from "@/components/VenuePins"
+import { VENUES, type VenueId } from "@tiral/game-core"
 import { BrandCard } from "@/components/BrandCard"
 
 function ActiveSponsors({ campaigns }: { campaigns: { brandName: string }[] }) {
@@ -40,6 +42,7 @@ import { RaceEarningsSummary } from "@/components/game/RaceEarningsSummary"
 import { NeedsHud } from "@/components/game/NeedsHud"
 import { CollapseOverlay, PreloadCollapseFont } from "@/components/game/CollapseOverlay"
 import { Modal } from "@/components/ui/Modal"
+import { formatCoins } from "@/lib/useCoins"
 import { PrizeBanner, PrizeResultLines } from "@/components/game/PrizeBanner"
 import { signUpByCode } from "@/lib/prizeRaces"
 import type { RaceListing } from "@/lib/useColyseus"
@@ -429,6 +432,8 @@ export default function Home() {
   const [billboardSlots, setBillboardSlots] = useState<BillboardSlot[]>([])
   const [billboardCampaigns, setBillboardCampaigns] = useState<BillboardCampaign[]>([])
   const [brandCardPin, setBrandCardPin] = useState<BillboardPin | null>(null)
+  // A hangout pin tapped on the map (its card: boda fare, go).
+  const [venueCard, setVenueCard] = useState<VenueId | null>(null)
   // A race needs the whole map: no ad card over it.
   useEffect(() => {
     if (phase === "racing") setBrandCardPin(null)
@@ -518,6 +523,37 @@ export default function Home() {
           />
         </div>
         {map && <BillboardLayer map={map} pins={billboardPins} onPinClick={setBrandCardPin} />}
+        {map && player && <VenuePins map={map} onOpen={setVenueCard} />}
+        {venueCard && (
+          <Modal
+            label={VENUES[venueCard].name}
+            onClose={() => setVenueCard(null)}
+            portal
+            backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center"
+            className="w-full max-w-sm rounded-3xl border border-sheet-line bg-sheet p-5 text-sheet-ink shadow-2xl"
+          >
+            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-flame-deep">Go out</div>
+            <h2 className="mt-1 text-xl font-black">
+              {VENUES[venueCard].icon} {VENUES[venueCard].name}
+            </h2>
+            <p className="mt-1 text-sm text-sheet-mute">
+              {VENUES[venueCard].area}. Music, pork and cold drinks with everyone who&apos;s out. Busiest in the evening and on Saturdays.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setVenueCard(null)} className="min-h-[48px] flex-1 rounded-xl border border-sheet-line bg-sheet-card text-sm font-bold">
+                Not now
+              </button>
+              <button
+                type="button"
+                disabled={(player?.balance ?? 0) < VENUES[venueCard].rideFare}
+                onClick={() => router.push(`/out?place=${venueCard}&go=1`)}
+                className="min-h-[48px] flex-[2] rounded-xl bg-flame text-sm font-black text-white disabled:opacity-40"
+              >
+                🛵 Take a boda · {formatCoins(VENUES[venueCard].rideFare)}
+              </button>
+            </div>
+          </Modal>
+        )}
         {brandCardPin && (
           <BrandCard
             pin={brandCardPin}

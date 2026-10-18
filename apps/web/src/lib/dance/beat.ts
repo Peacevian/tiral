@@ -94,7 +94,15 @@ function step(ctx: AudioContext, out: AudioNode, style: BeatStyle, index: number
   if (s === 0 || s === 3 || s === 7 || s === 10) bass(ctx, out, at, BASS.afro[bar]! * (s === 7 ? 1.5 : 1), sixteenth * 2.5)
 }
 
-export type BeatPlayer = { stop(): void }
+export type BeatPlayer = { stop(): void; setVolume(level: number): void }
+
+/**
+ * Call from a tap (before any await): browsers only let sound start from a
+ * user gesture, and the beat itself may start a moment later.
+ */
+export function unlockAudio() {
+  void context()?.resume()
+}
 
 /**
  * Start a beat; returns the player and `startedAt`, performance.now() of beat 0
@@ -122,6 +130,9 @@ export function startBeat(bpm: number, style: BeatStyle = "afro"): { player: Bea
   const latency = (ctx.outputLatency || ctx.baseLatency || 0) * 1000
   return {
     player: {
+      setVolume(level: number) {
+        out.gain.setTargetAtTime(Math.max(0, Math.min(1, level)) * 0.8, ctx.currentTime, 0.15)
+      },
       stop() {
         clearInterval(timer)
         out.gain.setTargetAtTime(0, ctx.currentTime, 0.05)

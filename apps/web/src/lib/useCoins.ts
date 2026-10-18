@@ -57,7 +57,9 @@ export const REASON_LABELS: Record<string, string> = {
   furniture_sell: "Sold furniture",
   house_paint: "Painter",
   house_floor: "New floor (fundi)",
-  house_move: "Moving your things"
+  house_move: "Moving your things",
+  venue_ride: "Boda to Kyadondo",
+  venue_order: "Kyadondo: pork and drinks"
 }
 
 export function formatCoins(amount: number): string {
