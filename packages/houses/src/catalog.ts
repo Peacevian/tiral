@@ -82,13 +82,20 @@ export const FURNITURE_BY_ID: Record<FurnitureId, FurnitureSpec> = Object.fromEn
 export type Rotation = 0 | 90 | 180 | 270
 export const ROTATIONS: readonly Rotation[] = [0, 90, 180, 270]
 
+/** Where a piece was bought: Owino (basic), Kikuubo (good), Acacia Mall (luxury). */
+export type FurnitureGrade = "owino" | "kikuubo" | "acacia"
+export const FURNITURE_GRADES: readonly FurnitureGrade[] = ["owino", "kikuubo", "acacia"]
+
 export type PlacedItem = {
+  /** The owned piece (a house_items row) this is. */
   id: string
   item: FurnitureId
   x: number
   z: number
   rot: Rotation
   color: string
+  /** How fancy it is (looks, and for beds and sofas, comfort). Basic when missing. */
+  grade?: FurnitureGrade
 }
 
 export type HouseColors = {
@@ -118,14 +125,8 @@ export const DEFAULT_HOUSE: HouseLoadout = {
     roof: "#7f1d1d",
     trim: "#f59e0b"
   },
-  items: [
-    { id: "item-1", item: "bed", x: 0, z: 0, rot: 0, color: "#7f1d1d" },
-    { id: "item-2", item: "rug", x: 2, z: 1, rot: 0, color: "#78350f" },
-    { id: "item-3", item: "table", x: 4, z: 1, rot: 0, color: "#78350f" },
-    { id: "item-4", item: "chair", x: 4, z: 3, rot: 0, color: "#292524" },
-    { id: "item-5", item: "plant", x: 5, z: 5, rot: 0, color: "#15803d" },
-    { id: "item-6", item: "lamp", x: 0, z: 5, rot: 0, color: "#f59e0b" }
-  ]
+  // Everyone starts with an empty room: furniture is bought (shop.ts).
+  items: []
 }
 
 function isHexColor(value: unknown): value is string {
@@ -154,6 +155,7 @@ function isValidPlacedItem(value: unknown, seenIds: Set<string>): value is Place
   if (!isIntegerInRange(item.x, ROOM_GRID) || !isIntegerInRange(item.z, ROOM_GRID)) return false
   if (!ROTATIONS.includes(item.rot as Rotation)) return false
   if (!isHexColor(item.color) || !spec.colors.includes(item.color)) return false
+  if (item.grade !== undefined && !FURNITURE_GRADES.includes(item.grade as FurnitureGrade)) return false
   if (!footprintFits(item.item as FurnitureId, item.x as number, item.z as number, item.rot as Rotation)) {
     return false
   }

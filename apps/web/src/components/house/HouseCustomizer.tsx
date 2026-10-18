@@ -5,7 +5,6 @@ import { useMemo, useState } from "react"
 import {
   FLOOR_COLORS,
   FLOOR_MATERIALS,
-  FURNITURE,
   FURNITURE_BY_ID,
   MAX_ITEMS,
   ROOF_COLORS,
@@ -16,13 +15,15 @@ import {
   WALL_MATERIALS,
   isValidHouseLoadout,
   type FloorMaterial,
-  type FurnitureId,
   type HouseLoadout,
   type PlacedItem,
   type RoofMaterial,
   type Rotation,
   type WallMaterial
 } from "@tiral/houses"
+import { FLOOR_FEE, GRADE_INFO, PAINT_FEE, houseChangeFee, sellBackPrice } from "@tiral/houses"
+import { formatCoins } from "@/lib/useCoins"
+import type { OwnedItem } from "@/lib/useHouseItems"
 import { fitHouse, fitsRoom, freeSpot, packHouse } from "./homes"
 
 function itemDims(item: PlacedItem): { w: number; d: number } {
@@ -122,16 +123,32 @@ function Swatches({
 
 export function HouseCustomizer({
   house,
+  saved,
   room = ROOM_GRID,
+  owned,
+  busy,
+  onSell,
   onChange
 }: {
   house: HouseLoadout
+  /** The house as last saved (what painting and floors are charged against). */
+  saved: HouseLoadout | null
   /** Your home's room: room × room squares (the rest of your furniture is in storage). */
   room?: number
+  /** Furniture you own (null while loading). */
+  owned: OwnedItem[] | null
+  busy: string | null
+  /** Sell a stored piece back; resolves to an error message or null. */
+  onSell(id: string): Promise<string | null>
   onChange(next: HouseLoadout): void
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [sellNotice, setSellNotice] = useState<string | null>(null)
   const { placed, stored } = useMemo(() => fitHouse(house, room), [house, room])
+  // Pieces you own that aren't in the room: bought and not placed yet, or no room for them here.
+  const unplaced = useMemo(() => (owned ?? []).filter((item) => !placed.some((piece) => piece.id === item.id)), [owned, placed])
+  const fee = houseChangeFee(saved, house)
+  const pending = fee.paint + fee.floor
 
   const selected = useMemo(
     () => placed.find((item) => item.id === selectedId) ?? null,
@@ -161,13 +178,14 @@ export function HouseCustomizer({
     commit({ ...house, colors: { ...house.colors, ...patch } })
   }
 
-  function addFurniture(furniture: FurnitureId) {
-    if (house.items.length >= MAX_ITEMS) return
-    const spec = FURNITURE_BY_ID[furniture]
-    const id = `item-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-    const spot = freeSpot(placed, { id, item: furniture, x: 0, z: 0, rot: 0, color: spec.colors[0] as string }, room)
-    if (!spot) return
-    commitRoom([...placed, spot], id)
+  /** Put a piece you own into the room, wherever there's space. */
+  function placeOwned(piece: OwnedItem): boolean {
+    if (placed.length >= MAX_ITEMS) return false
+    const spot = freeSpot(placed, { id: piece.id, item: piece.item, grade: piece.grade, x: 0, z: 0, rot: 0, color: piece.color }, room)
+    if (!spot) return false
+    // It may still be in the loadout from a bigger home: drop that copy.
+    commit({ ...house, items: packHouse([...placed, spot], stored.filter((item) => item.id !== piece.id)) }, piece.id)
+    return true
   }
 
   function updateSelected(next: PlacedItem) {
@@ -176,13 +194,10 @@ export function HouseCustomizer({
     commitRoom(placed.map((item) => (item.id === next.id ? next : item)), next.id)
   }
 
-  function removeSelected() {
+  /** Take the selected piece out of the room (it stays yours, in storage). */
+  function storeSelected() {
     if (!selected) return
     commitRoom(placed.filter((item) => item.id !== selected.id), null)
-  }
-
-  function removeStored(id: string) {
-    commit({ ...house, items: house.items.filter((item) => item.id !== id) })
   }
 
   function moveSelected(dx: number, dz: number) {
@@ -246,16 +261,10 @@ export function HouseCustomizer({
         </Group>
       </div>
 
-      <Group label="Add furniture">
-        {FURNITURE.map((furniture) => (
-          <Chip
-            key={furniture.id}
-            label={furniture.label}
-            active={false}
-            onClick={() => addFurniture(furniture.id)}
-          />
-        ))}
-      </Group>
+      <p className="-mt-1 text-[11px] text-sheet-mute">
+        Changing walls, trim or roof brings a painter ({formatCoins(PAINT_FEE)}); a new floor brings a fundi ({formatCoins(FLOOR_FEE)}). Paid when you save.
+        {pending > 0 && <span className="font-bold text-flame-deep"> This change: {formatCoins(pending)}.</span>}
+      </p>
 
       <div>
         <div className="mb-2 flex items-center justify-between">
@@ -265,10 +274,10 @@ export function HouseCustomizer({
           {selected && (
             <button
               type="button"
-              onClick={removeSelected}
+              onClick={storeSelected}
               className="min-h-[44px] rounded-lg border border-flame-deep/40 px-3 text-xs font-bold text-flame-deep"
             >
-              Remove {FURNITURE_BY_ID[selected.item].label}
+              Put {FURNITURE_BY_ID[selected.item].label.toLowerCase()} away
             </button>
           )}
         </div>
@@ -315,28 +324,57 @@ export function HouseCustomizer({
           })}
         </div>
 
-        {stored.length > 0 && (
-          <div className="mt-3 rounded-xl border border-sheet-line bg-sheet-card p-3">
-            <div className="text-xs font-bold text-sheet-ink">In storage · no room for them here</div>
-            <p className="mt-0.5 text-[11px] text-sheet-mute">They come back when you move to a bigger home.</p>
-            <ul className="mt-2 flex flex-wrap gap-1.5">
-              {stored.map((item) => (
-                <li key={item.id} className="flex items-center gap-1 rounded-lg border border-sheet-line px-2 py-1 text-xs font-bold text-sheet-ink">
-                  <span aria-hidden className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
-                  {FURNITURE_BY_ID[item.item].label}
-                  <button
-                    type="button"
-                    onClick={() => removeStored(item.id)}
-                    aria-label={`Throw away the ${FURNITURE_BY_ID[item.item].label.toLowerCase()}`}
-                    className="ml-1 min-h-[32px] px-1 text-flame-deep"
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <div className="mt-3 rounded-xl border border-sheet-line bg-sheet-card p-3">
+          <div className="text-xs font-bold text-sheet-ink">Your things not in the room</div>
+          {owned === null ? (
+            <p className="mt-1 text-[11px] text-sheet-mute">Loading…</p>
+          ) : unplaced.length === 0 ? (
+            <p className="mt-1 text-[11px] text-sheet-mute">
+              {owned.length === 0 ? "You don't own any furniture yet. Buy some below." : "Everything you own is in the room."}
+            </p>
+          ) : (
+            <>
+              <p className="mt-0.5 text-[11px] text-sheet-mute">Tap a piece to place it. Selling gets you half what you paid.</p>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {unplaced.map((piece) => {
+                  const fits = freeSpot(placed, { id: piece.id, item: piece.item, x: 0, z: 0, rot: 0, color: piece.color }, room) !== null
+                  return (
+                    <li key={piece.id} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={!fits || placed.length >= MAX_ITEMS}
+                        onClick={() => placeOwned(piece)}
+                        className="flex min-h-[44px] flex-1 items-center gap-2 rounded-lg border border-sheet-line px-2 text-left text-xs font-bold text-sheet-ink disabled:opacity-50"
+                      >
+                        <span aria-hidden className="inline-block h-4 w-4 shrink-0 rounded-sm" style={{ backgroundColor: piece.color }} />
+                        <span className="min-w-0 flex-1 truncate">
+                          {GRADE_INFO[piece.grade].label} {FURNITURE_BY_ID[piece.item].label.toLowerCase()}
+                        </span>
+                        <span className="shrink-0 text-flame-deep">{fits ? "Place" : "No room"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy !== null}
+                        onClick={() => {
+                          setSellNotice(null)
+                          void onSell(piece.id).then((error) => setSellNotice(error))
+                        }}
+                        className="min-h-[44px] shrink-0 rounded-lg border border-flame/40 px-2 text-xs font-bold text-flame-deep disabled:opacity-50"
+                      >
+                        {busy === `sell:${piece.id}` ? "Selling…" : `Sell ${formatCoins(sellBackPrice(piece.price))}`}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
+          {sellNotice && (
+            <p role="alert" className="mt-1 text-xs font-bold text-flame-deep">
+              {sellNotice}
+            </p>
+          )}
+        </div>
 
         {selected ? (
           <div className="mt-3 flex flex-col gap-3 rounded-xl border border-sheet-line bg-sheet-card p-3">
@@ -377,7 +415,7 @@ export function HouseCustomizer({
           </div>
         ) : (
           <div className="mt-3 text-center text-xs text-sheet-mute">
-            Tap a piece in the grid to move, rotate, recolour or remove it.
+            Tap a piece in the grid to move, rotate, recolour or put it away.
           </div>
         )}
       </div>

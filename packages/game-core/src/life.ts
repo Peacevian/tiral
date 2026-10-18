@@ -63,9 +63,10 @@ export const STRESS = {
 
 const clampStress = (value: number) => Math.min(STRESS_MAX, Math.max(0, value))
 
-export function currentStress(stored: number, at: Date, now: Date): number {
+/** Stress now: it fades over time, faster with a sofa or TV at home (`calm`, homeComfort in @tiral/houses). */
+export function currentStress(stored: number, at: Date, now: Date, calm = 1): number {
   const hours = Math.max(0, now.getTime() - at.getTime()) / HOUR_MS
-  return clampStress(stored - hours * STRESS_DECAY_PER_HOUR)
+  return clampStress(stored - hours * STRESS_DECAY_PER_HOUR * calm)
 }
 
 export function addStress(value: number, delta: number): number {

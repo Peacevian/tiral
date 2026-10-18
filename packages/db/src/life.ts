@@ -22,6 +22,8 @@ import { balanceOf, insertEntry, lockUser, lockUserRow, type Tx } from "./ledger
 import { coinLedger, lifeEvents, users } from "./schema.js"
 import { settleLeases } from "./garage.js"
 import { getTier } from "./livtok.js"
+import { countHouseItems } from "./house.js"
+import { movingFee } from "@tiral/houses"
 
 export type LifeEventView = {
   id: string
@@ -149,6 +151,7 @@ async function readLifeRow(tx: Tx | Database, userId: string) {
       rentDueAt: users.rentDueAt,
       stress: users.stress,
       stressAt: users.stressAt,
+      calmFactor: users.calmFactor,
       lastEventAt: users.lastEventAt
     })
     .from(users)
@@ -174,7 +177,7 @@ export async function readLife(userId: string, db: Database = getDatabase()): Pr
   return {
     tier: { id: tier.id, name: tier.name, rent: tier.rent },
     rentDueAt: rentDueAt.toISOString(),
-    stress: currentStress(row.stress ?? STRESS_START, row.stressAt, now),
+    stress: currentStress(row.stress ?? STRESS_START, row.stressAt, now, row.calmFactor),
     balance,
     pending: events.filter((event) => event.status === "pending").length,
     events: events.map(viewEvent)
@@ -194,7 +197,7 @@ export async function syncLife(userId: string, db: Database = getDatabase()): Pr
     const row = await readLifeRow(tx, userId)
     if (!row) return null
     const now = new Date()
-    let stress = currentStress(row.stress ?? STRESS_START, row.stressAt, now)
+    let stress = currentStress(row.stress ?? STRESS_START, row.stressAt, now, row.calmFactor)
     let balance = await balanceOf(tx, userId)
     // First visit starts the rent clock.
     const rentDueAt = row.rentDueAt ?? new Date(now.getTime() + RENT_PERIOD_HOURS * HOUR_MS)
@@ -322,7 +325,7 @@ export async function resolveLifeEvent(
     await lockUserRow(tx, input.userId)
     const row = await readLifeRow(tx, input.userId)
     const now = new Date()
-    let stress = row ? currentStress(row.stress, row.stressAt, now) : STRESS_START
+    let stress = row ? currentStress(row.stress, row.stressAt, now, row.calmFactor) : STRESS_START
     if (input.action === "pay") {
       const balance = await balanceOf(tx, input.userId)
       if (balance < event.amount) return { ok: false, reason: "insufficient" }
@@ -350,13 +353,25 @@ export async function resolveLifeEvent(
  * Move house: the new rent applies from the next due date. The big homes need
  * a career tier (HOME_CAREER); false when yours is too low.
  */
-export async function moveHouse(userId: string, tierId: HousingTierId, db: Database = getDatabase()): Promise<boolean> {
+export async function moveHouse(
+  userId: string,
+  tierId: HousingTierId,
+  db: Database = getDatabase()
+): Promise<{ ok: true; fee: number } | { ok: false; reason: "career" | "insufficient" | "same"; fee: number }> {
   // Rent is settled against the house tier under the coin lock (syncLife): move under it too.
   return db.transaction(async (tx) => {
     await lockUser(tx, userId)
-    if (!homeOpenTo(tierId, await getTier(userId, tx))) return false
+    if (!homeOpenTo(tierId, await getTier(userId, tx))) return { ok: false, reason: "career", fee: 0 }
+    const [user] = await tx.select({ houseTier: users.houseTier }).from(users).where(eq(users.id, userId)).limit(1)
+    if (user?.houseTier === tierId) return { ok: false, reason: "same", fee: 0 }
+    // Your furniture comes with you: a boda, a pickup or a lorry.
+    const { fee, by } = movingFee(await countHouseItems(userId, tx))
+    if (fee > 0) {
+      if ((await balanceOf(tx, userId)) < fee) return { ok: false, reason: "insufficient", fee }
+      await insertEntry(tx, { userId, delta: -fee, reason: "house_move", refId: `${tierId}:${Date.now()}`, meta: { to: tierId, by } })
+    }
     await tx.update(users).set({ houseTier: findTier(tierId).id }).where(eq(users.id, userId))
-    return true
+    return { ok: true, fee }
   })
 }
 

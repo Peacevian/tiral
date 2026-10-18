@@ -5,11 +5,10 @@ import {
   getRecentRaces,
   hasTikTokLink,
   updateAvatarLoadout,
-  updateGuestDisplayName,
-  updateHouseLoadout
+  saveHouse,
+  updateGuestDisplayName
 } from "@tiral/db"
 import { isValidLoadout } from "@tiral/avatars"
-import { isValidHouseLoadout } from "@tiral/houses"
 import { readSessionCookie, verifySession } from "@/lib/session"
 
 async function requireUserId(request: NextRequest): Promise<string | null> {
@@ -85,10 +84,17 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (body.house !== undefined) {
-    if (!isValidHouseLoadout(body.house)) {
-      return NextResponse.json({ error: "Invalid house customization" }, { status: 400 })
+    // Placed furniture must be yours; painting and new floors are paid for.
+    const saved = await saveHouse(userId, body.house)
+    if (!saved.ok) {
+      const error =
+        saved.reason === "insufficient"
+          ? `The painter and fundi cost ${saved.fee.toLocaleString("en-US")} BNG: not enough BNG.`
+          : saved.reason === "not_owned"
+            ? "Some of that furniture isn't yours. Buy it first."
+            : "Invalid house customization"
+      return NextResponse.json({ error }, { status: saved.reason === "insufficient" ? 409 : 400 })
     }
-    await updateHouseLoadout(userId, body.house)
   }
 
   const user = await findUserById(userId)

@@ -9,6 +9,8 @@ import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 import { ProfileCustomizer } from "@/components/ProfileCustomizer"
 import { HousePreview } from "@/components/house/HousePreview"
 import { HomeChooser } from "@/components/house/HomeChooser"
+import { FurnitureShop } from "@/components/house/FurnitureShop"
+import { useHouseItems } from "@/lib/useHouseItems"
 import { homeLook } from "@/components/house/homes"
 import { HouseCustomizer } from "@/components/house/HouseCustomizer"
 import { HomeHud } from "@/components/house/HomeHud"
@@ -74,6 +76,8 @@ export default function HomePage() {
   const currentHome = player?.life?.tier.id ?? "kisenyi"
   // Open section of the home panel, or null for the menu of tiles.
   const [section, setSection] = useState<HomeSheetTab | null>(null)
+  // Furniture you own: loaded when the House tab opens.
+  const houseItems = useHouseItems(section === "house")
   // Leaving the House tab goes back to your own home.
   useEffect(() => {
     if (section !== "house") setPreviewHome(null)
@@ -367,12 +371,25 @@ export default function HomePage() {
               {/* Roof on/off and Reset live in the ⋯ menu at the top (one place for each). */}
               <HouseCustomizer
                 house={draftHouse}
+                saved={user.house ?? null}
                 room={homeLook(currentHome).room}
+                owned={houseItems.items}
+                busy={houseItems.busy}
+                onSell={async (id) => {
+                  const result = await houseItems.sell(id)
+                  if (typeof result === "string") return result
+                  // Sold pieces leave the saved room too.
+                  setUser((current) => (current?.house ? { ...current, house: { ...current.house, items: current.house.items.filter((item) => item.id !== id) } } : current))
+                  setDraftHouse((current) => ({ ...current, items: current.items.filter((item) => item.id !== id) }))
+                  void refreshPlayer()
+                  return null
+                }}
                 onChange={(next) => {
                   setDraftHouse(next)
                   setDirty(true)
                 }}
               />
+              <FurnitureShop busy={houseItems.busy} onBuy={houseItems.buy} />
             </div>
           }
           room={

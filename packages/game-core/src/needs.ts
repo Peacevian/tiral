@@ -34,6 +34,8 @@ export type StoredNeeds = Needs & {
   restingSince: Date | null
   /** Stress as stored; at/above STRESSED_THRESHOLD energy refills slower. */
   stress?: number
+  /** How well your bed rests you (homeComfort in @tiral/houses); 1 when unknown. */
+  restFactor?: number
 }
 
 const clamp = (value: number) => Math.min(NEED_MAX, Math.max(0, value))
@@ -45,7 +47,7 @@ export function currentNeeds(stored: StoredNeeds, now: Date): Needs {
   const stressed = (stored.stress ?? 0) >= STRESSED_THRESHOLD ? STRESSED_ENERGY_REGEN_FACTOR : 1
   return {
     energy: clamp(
-      stored.energy + hours * stressed * (resting ? RESTING_ENERGY_REGEN_PER_HOUR : ENERGY_REGEN_PER_HOUR)
+      stored.energy + hours * stressed * (resting ? RESTING_ENERGY_REGEN_PER_HOUR * (stored.restFactor ?? 1) : ENERGY_REGEN_PER_HOUR)
     ),
     health: clamp(stored.health + hours * (resting ? RESTING_HEALTH_REGEN_PER_HOUR : HEALTH_REGEN_PER_HOUR))
   }

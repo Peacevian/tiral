@@ -2,7 +2,7 @@
 
 import { RoundedBox } from "@react-three/drei"
 import * as THREE from "three"
-import type { FurnitureSpec } from "@tiral/houses"
+import type { FurnitureGrade, FurnitureSpec } from "@tiral/houses"
 
 function shade(color: string, factor: number): string {
   const c = new THREE.Color(color)
@@ -10,7 +10,33 @@ function shade(color: string, factor: number): string {
   return `#${c.getHexString()}`
 }
 
-export function Furniture3D({ spec, color }: { spec: FurnitureSpec; color: string }) {
+/**
+ * A piece of furniture. Its grade shows: Owino pieces are a little smaller and
+ * duller, Acacia Mall pieces stand on a gold trim with a glossy finish.
+ */
+export function Furniture3D({ spec, color, grade = "owino" }: { spec: FurnitureSpec; color: string; grade?: FurnitureGrade }) {
+  if (grade === "kikuubo") return <FurnitureBody spec={spec} color={color} />
+  if (grade === "acacia") {
+    return (
+      <group>
+        <mesh position={[0, 0.02, 0]} receiveShadow>
+          <boxGeometry args={[spec.width - 0.08, 0.04, spec.depth - 0.08]} />
+          <meshStandardMaterial color="#D4A72C" roughness={0.25} metalness={0.9} />
+        </mesh>
+        <group position={[0, 0.04, 0]}>
+          <FurnitureBody spec={spec} color={shade(color, 1.08)} />
+        </group>
+      </group>
+    )
+  }
+  return (
+    <group scale={[0.92, 0.92, 0.92]}>
+      <FurnitureBody spec={spec} color={shade(color, 0.82)} />
+    </group>
+  )
+}
+
+function FurnitureBody({ spec, color }: { spec: FurnitureSpec; color: string }) {
   const w = spec.width
   const d = spec.depth
   const dark = shade(color, 0.62)

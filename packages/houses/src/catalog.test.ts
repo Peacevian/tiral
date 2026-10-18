@@ -20,7 +20,8 @@ describe("isValidHouseLoadout", () => {
 
   it("rejects missing fields", () => {
     const { items, ...withoutItems } = DEFAULT_HOUSE
-    expect(items.length).toBeGreaterThan(0)
+    // Everyone starts with an empty room.
+    expect(items).toEqual([])
     expect(isValidHouseLoadout(withoutItems)).toBe(false)
   })
 
