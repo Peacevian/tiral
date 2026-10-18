@@ -167,6 +167,50 @@ export type LiveEvent =
   | { kind: "settled"; net: number; balance: number; at: number }
   | { kind: "notice"; text: string; at: number }
 
+/** The boda fleet office or shift as the server last described it. */
+export type FleetBikeState = "idle" | "road" | "garage" | "impounded" | "hire" | "stolen"
+export type FleetState = {
+  phase: "office" | "shift" | "closed"
+  bikes: Array<{
+    id: string
+    model: "boxa100" | "star125" | "zemboE"
+    rider: string
+    skill: number
+    wear: number
+    tracker: boolean
+    state: FleetBikeState
+    leftMs: number | null
+    earned: number
+    /** The run out now, so far. */
+    pending: number
+    sulking: boolean
+  }>
+  leftMs: number | null
+  dues: number
+  /** Runs out now, so far. */
+  pending: number
+  costs: number
+  fuelSpikeMs: number | null
+  event: {
+    id: number
+    kind: "crash" | "police" | "advance" | "theft" | "fuel" | "hire"
+    title: string
+    text: string
+    options: Array<{ id: "pay" | "free"; label: string; cost: number }>
+    leftMs: number
+    resolving: boolean
+  } | null
+  log: Array<{ id: number; text: string; tone: "good" | "bad" | "info" }>
+  busy: boolean
+  summary: { runs: number; dues: number; bonuses: number; repaid: number; costs: number; net: number; stolen: number; breakdowns: number } | null
+  receivedAt: number
+}
+
+export type FleetEvent =
+  | { kind: "charged"; amount: number; balance: number; at: number }
+  | { kind: "settled"; net: number; balance: number; at: number }
+  | { kind: "notice"; text: string; at: number }
+
 /** Latest thing to tell the player during a shift (receipt, failure, notice). */
 export type HustleEvent =
   | { kind: "receipt"; receipt: HustleReceipt; at: number }
@@ -275,6 +319,8 @@ export function useColyseus({
   const [stallEvent, setStallEvent] = useState<StallEvent | null>(null)
   const [live, setLive] = useState<LiveState | null>(null)
   const [liveEvent, setLiveEvent] = useState<LiveEvent | null>(null)
+  const [fleet, setFleet] = useState<FleetState | null>(null)
+  const [fleetEvent, setFleetEvent] = useState<FleetEvent | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const roomRef = useRef<Room | null>(null)
   const clientRef = useRef<Client | null>(null)
@@ -302,6 +348,8 @@ export function useColyseus({
     setStallEvent(null)
     setLive(null)
     setLiveEvent(null)
+    setFleet(null)
+    setFleetEvent(null)
   }, [])
 
   // Bumped by every join and leave: a join or reconnect that resolves after a
@@ -411,6 +459,13 @@ export function useColyseus({
       setHustleEvent({ kind: "notice", text, at: Date.now() })
       setStallEvent({ kind: "notice", text, at: Date.now() })
       setLiveEvent({ kind: "notice", text, at: Date.now() })
+      setFleetEvent({ kind: "notice", text, at: Date.now() })
+    })
+    // Boda fleet (town business).
+    room.onMessage("fleet", (next: Omit<FleetState, "receivedAt">) => setFleet({ ...next, receivedAt: Date.now() }))
+    room.onMessage("fleetEvent", (event: Omit<FleetEvent, "at">) => {
+      setFleetEvent({ ...event, at: Date.now() } as FleetEvent)
+      notifyCoinsChanged()
     })
     // LivTok (selling clothes on live).
     room.onMessage("live", (next: Omit<LiveState, "receivedAt">) => setLive({ ...next, receivedAt: Date.now() }))
@@ -593,7 +648,17 @@ export function useColyseus({
     }
   }, [joinWith])
 
-  /** Any stall or LivTok action: buyStock, cook, flip, run, scrub, rinse, close; buyBale, goLive, show, reply, end, again. */
+  /** Open your boda fleet office (send riders out from there). */
+  const startFleet = useCallback(async () => {
+    try {
+      await joinWith((client) => client.create("fleet"))
+    } catch (err) {
+      console.error("Start fleet failed:", err)
+      throw toFriendlyJoinError(err)
+    }
+  }, [joinWith])
+
+  /** Any stall, LivTok or fleet action: buyStock, cook, flip, run, scrub, rinse, close; buyBale, goLive, show, reply, end, again. */
   const sendStall = useCallback((type: string, payload?: unknown) => {
     roomRef.current?.send(type, payload)
   }, [])
@@ -746,6 +811,8 @@ export function useColyseus({
     stallEvent,
     live,
     liveEvent,
+    fleet,
+    fleetEvent,
     selfPosition,
     countdown,
     connect,
@@ -756,6 +823,7 @@ export function useColyseus({
     startHustle,
     startStall,
     startLive,
+    startFleet,
     sendStall,
     sendAcceptJob,
     sendAbandonJob,

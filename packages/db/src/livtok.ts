@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, count, eq, sql } from "drizzle-orm"
 import {
   LIVE_GRADES,
   STARTING_FOLLOWERS,
@@ -176,11 +176,12 @@ export async function settleLive(input: LiveSettlement, db: Database = getDataba
   })
 }
 
-/** Tier and followers, for the app shell. */
-export async function getCareer(userId: string, db: Database = getDatabase()): Promise<{ tier: TierId; followers: number }> {
-  const [tier, [user]] = await Promise.all([
+/** Tier, followers and LivTok lives done (towards Town business), for the app shell. */
+export async function getCareer(userId: string, db: Database = getDatabase()): Promise<{ tier: TierId; followers: number; lives: number }> {
+  const [tier, [user], [lives]] = await Promise.all([
     getTier(userId, db),
-    db.select({ followers: users.followers }).from(users).where(eq(users.id, userId)).limit(1)
+    db.select({ followers: users.followers }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select({ lives: count() }).from(coinLedger).where(and(eq(coinLedger.userId, userId), eq(coinLedger.reason, "livtok_sales")))
   ])
-  return { tier, followers: user?.followers ?? 0 }
+  return { tier, followers: user?.followers ?? 0, lives: Number(lives?.lives ?? 0) }
 }

@@ -9,6 +9,7 @@ function entryLabel(entry: WalletEntry): string {
   if (entry.reason === "food" && typeof entry.meta?.food === "string") {
     return findFood(entry.meta.food)?.name ?? "Food"
   }
+  if (entry.reason === "tier_up" && entry.meta?.tier === "town") return "Moved up to Town business"
   return REASON_LABELS[entry.reason] ?? entry.reason
 }
 

@@ -290,3 +290,27 @@ export const livtokStock = pgTable(
   },
   (table) => [primaryKey({ columns: [table.userId, table.bale, table.grade] })]
 )
+
+// Boda fleet: bikes a Town business owner runs, each with a hired rider
+// (separate from the bikes you ride yourself). status: ok | stolen.
+export const fleetBikes = pgTable(
+  "fleet_bikes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    rider: text("rider").notNull(),
+    /** The rider's dues multiplier, 0.85–1.15. */
+    skill: doublePrecision("skill").default(1).notNull(),
+    /** 0–100: lowers dues and raises breakdowns; a service resets it. */
+    wear: doublePrecision("wear").default(0).notNull(),
+    tracker: boolean("tracker").default(false).notNull(),
+    status: text("status").default("ok").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [index("fleet_bikes_user_idx").on(table.userId)]
+)
+
+export type FleetBikeRow = typeof fleetBikes.$inferSelect
