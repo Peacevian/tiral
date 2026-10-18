@@ -2,6 +2,8 @@
 // Pure rules; @tiral/db applies them lazily whenever the player shows up.
 // See docs/economy-progress.md §13–14.
 
+import { TIERS, type TierId } from "./tiers.js"
+
 // ---------------------------------------------------------------------------
 // Time: one "game week" is two real days, so rent pressure is felt while the
 // game is still fresh in a player's mind.
@@ -14,9 +16,23 @@ export const HOUSING_TIERS = [
   { id: "kisenyi", name: "Single room, Kisenyi", rent: 35_000 },
   { id: "kawempe", name: "Room & shared bathroom, Kawempe", rent: 60_000 },
   { id: "ntinda", name: "Self-contained, Ntinda", rent: 120_000 },
-  { id: "kololo", name: "Flat, Kololo", rent: 300_000 }
+  { id: "kololo", name: "Flat, Kololo", rent: 300_000 },
+  // The big homes: rent that means something to a business owner (§18).
+  { id: "muyenga", name: "House with a garden, Muyenga", rent: 1_500_000 },
+  { id: "naguru", name: "Villa with a pool, Naguru", rent: 8_000_000 },
+  { id: "munyonyo", name: "Lakeside mansion, Munyonyo", rent: 30_000_000 }
 ] as const
 export type HousingTierId = (typeof HOUSING_TIERS)[number]["id"]
+
+/** Homes only some careers can rent (the landlord wants to see the business). */
+export const HOME_CAREER: Partial<Record<HousingTierId, TierId>> = { muyenga: "town", naguru: "big", munyonyo: "tycoon" }
+
+/** Can someone at this career tier rent this home? */
+export function homeOpenTo(home: string, career: TierId): boolean {
+  const needed = HOME_CAREER[home as HousingTierId]
+  if (!needed) return true
+  return TIERS.findIndex((tier) => tier.id === career) >= TIERS.findIndex((tier) => tier.id === needed)
+}
 export const STARTING_TIER: HousingTierId = "kisenyi"
 
 export function findTier(id: string) {

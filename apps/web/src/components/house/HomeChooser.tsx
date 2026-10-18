@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { HOUSING_TIERS, RENT_PERIOD_HOURS } from "@tiral/game-core"
+import { HOME_CAREER, HOUSING_TIERS, RENT_PERIOD_HOURS, findTierById, homeOpenTo, type HousingTierId } from "@tiral/game-core"
 import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import { ActionButton, SectionLabel } from "@/components/ui"
@@ -15,6 +15,11 @@ export function HomeChooser({ preview, onPreview }: { preview: string | null; on
   const { player, busy, moveHouse } = usePlayer()
   const [notice, setNotice] = useState<string | null>(null)
   const current = player?.life?.tier.id ?? "kisenyi"
+  const career = player?.career?.tier ?? "street"
+  const needs = (home: string) => {
+    const tier = HOME_CAREER[home as HousingTierId]
+    return tier && !homeOpenTo(home, career) ? findTierById(tier).name : null
+  }
   const looking = preview ?? current
   const chosen = HOUSING_TIERS.find((tier) => tier.id === looking) ?? HOUSING_TIERS[0]
   const look = homeLook(looking)
@@ -45,7 +50,7 @@ export function HomeChooser({ preview, onPreview }: { preview: string | null; on
                     {mine && <span className="ml-1 text-xs text-flame-deep">· you live here</span>}
                   </span>
                   <span className="block text-[11px] text-sheet-mute">
-                    {homeLook(tier.id).room}×{homeLook(tier.id).room} room
+                    {needs(tier.id) ? `🔒 ${needs(tier.id)} owners` : `${homeLook(tier.id).room}×${homeLook(tier.id).room} room`}
                   </span>
                 </span>
                 <span className="shrink-0 font-mono text-xs font-bold text-sheet-blue">{formatCoins(tier.rent)}</span>
@@ -68,7 +73,7 @@ export function HomeChooser({ preview, onPreview }: { preview: string | null; on
             <ActionButton
               variant="flame"
               className="flex-[2]"
-              disabled={busy !== null}
+              disabled={busy !== null || needs(chosen.id) !== null}
               onClick={() => {
                 setNotice(null)
                 void moveHouse(chosen.id).then((error) => {
@@ -77,7 +82,7 @@ export function HomeChooser({ preview, onPreview }: { preview: string | null; on
                 })
               }}
             >
-              {busy?.startsWith("move:") ? "Moving…" : `Move here · ${formatCoins(chosen.rent)}`}
+              {needs(chosen.id) ? `🔒 ${needs(chosen.id)} only` : busy?.startsWith("move:") ? "Moving…" : `Move here · ${formatCoins(chosen.rent)}`}
             </ActionButton>
           </div>
         ) : (

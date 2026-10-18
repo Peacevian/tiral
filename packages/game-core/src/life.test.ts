@@ -75,3 +75,18 @@ describe("events", () => {
     expect(pickLifeEvent(0, ["maama_hospital"]).id).not.toBe("maama_hospital")
   })
 })
+
+describe("Big homes", () => {
+  it("need the career tier their landlord asks for", async () => {
+    const { homeOpenTo, HOUSING_TIERS } = await import("./life.js")
+    expect(homeOpenTo("kololo", "street")).toBe(true)
+    expect(homeOpenTo("muyenga", "small")).toBe(false)
+    expect(homeOpenTo("muyenga", "town")).toBe(true)
+    expect(homeOpenTo("naguru", "town")).toBe(false)
+    expect(homeOpenTo("naguru", "tycoon")).toBe(true)
+    expect(homeOpenTo("munyonyo", "big")).toBe(false)
+    // Rent goes up with every step.
+    const rents = HOUSING_TIERS.map((tier) => tier.rent)
+    expect([...rents].sort((a, b) => a - b)).toEqual(rents)
+  })
+})

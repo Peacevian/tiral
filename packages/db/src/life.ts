@@ -10,6 +10,7 @@ import {
   eventsDue,
   findLifeEvent,
   findTier,
+  homeOpenTo,
   kampalaDay,
   kampalaDayStart,
   pickLifeEvent,
@@ -20,6 +21,7 @@ import { getDatabase, type Database } from "./client.js"
 import { balanceOf, insertEntry, lockUser, lockUserRow, type Tx } from "./ledger.js"
 import { coinLedger, lifeEvents, users } from "./schema.js"
 import { settleLeases } from "./garage.js"
+import { getTier } from "./livtok.js"
 
 export type LifeEventView = {
   id: string
@@ -344,12 +346,17 @@ export async function resolveLifeEvent(
   })
 }
 
-/** Move house: the new rent applies from the next due date. */
-export async function moveHouse(userId: string, tierId: HousingTierId, db: Database = getDatabase()): Promise<void> {
+/**
+ * Move house: the new rent applies from the next due date. The big homes need
+ * a career tier (HOME_CAREER); false when yours is too low.
+ */
+export async function moveHouse(userId: string, tierId: HousingTierId, db: Database = getDatabase()): Promise<boolean> {
   // Rent is settled against the house tier under the coin lock (syncLife): move under it too.
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await lockUser(tx, userId)
+    if (!homeOpenTo(tierId, await getTier(userId, tx))) return false
     await tx.update(users).set({ houseTier: findTier(tierId).id }).where(eq(users.id, userId))
+    return true
   })
 }
 

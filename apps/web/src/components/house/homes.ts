@@ -51,6 +51,30 @@ export const HOME_LOOKS: Record<HousingTierId, HomeLook> = {
     camera: [11, 3, 13],
     target: [-2, -2, 0],
     blurb: "A flat on the top floor of an apartment block, with a balcony"
+  },
+  muyenga: {
+    room: 6,
+    level: 0,
+    ground: "#9CC37E",
+    camera: [12, 9, 15],
+    target: [-2.5, 0.5, 0.5],
+    blurb: "A family house with a veranda, a garden behind a hedge and parking for your car"
+  },
+  naguru: {
+    room: 6,
+    level: 3.2,
+    ground: "#9CC37E",
+    camera: [13, 5, 16],
+    target: [-2.5, -1.8, 2],
+    blurb: "A modern two-floor villa: your room upstairs with a balcony over the pool"
+  },
+  munyonyo: {
+    room: 6,
+    level: 0,
+    ground: "#8FBF6E",
+    camera: [16, 11, 19],
+    target: [-3, 0.5, 3],
+    blurb: "A mansion on Lake Victoria: terrace, fountain, a lawn down to your jetty and boat"
   }
 }
 

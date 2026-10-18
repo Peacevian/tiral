@@ -240,9 +240,211 @@ function Kololo({ h, level }: { h: number; level: number }) {
   )
 }
 
+function Palm({ at, height = 4.5 }: { at: [number, number]; height?: number }) {
+  return (
+    <group position={[at[0], 0, at[1]]}>
+      <mesh position={[0, height / 2 - 0.24, 0]} rotation={[0, 0, 0.06]} castShadow>
+        <cylinderGeometry args={[0.1, 0.16, height, 8]} />
+        <meshStandardMaterial color="#8A6A45" roughness={1} />
+      </mesh>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <group key={i} position={[0, height - 0.3, 0]} rotation={[0, (i * Math.PI) / 3, 0]}>
+          <mesh position={[0.9, -0.2, 0]} rotation={[0, 0, -0.45]} castShadow>
+            <boxGeometry args={[1.9, 0.04, 0.45]} />
+            <meshStandardMaterial color="#3F8A3A" roughness={0.9} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function Hedge({ from, to }: { from: [number, number]; to: [number, number] }) {
+  return <Block from={[from[0], 0, from[1]]} to={[to[0], 1.1, to[1]]} color="#4F8A3C" roughness={1} />
+}
+
+function Car({ at, color, turn = 0 }: { at: [number, number]; color: string; turn?: number }) {
+  return (
+    <group position={[at[0], 0, at[1]]} rotation={[0, turn, 0]}>
+      <Block from={[-0.9, 0.15, -2]} to={[0.9, 0.85, 2]} color={color} roughness={0.4} />
+      <Block from={[-0.8, 0.85, -1]} to={[0.8, 1.35, 0.9]} color="#33475B" roughness={0.3} />
+    </group>
+  )
+}
+
+/** A balcony in front of an upstairs room, with a glass railing. */
+function Balcony({ h, top }: { h: number; top: number }) {
+  return (
+    <group>
+      <Block from={[-h, top - 0.06, h]} to={[h, top + 0.06, h + 1.3]} color="#F5F5F4" />
+      <mesh position={[0, top + 0.55, h + 1.3]}>
+        <boxGeometry args={[2 * h, 1, 0.04]} />
+        <meshStandardMaterial color="#BFD7EA" transparent opacity={0.35} roughness={0.1} />
+      </mesh>
+      <Block from={[-h, top + 1.02, h + 1.26]} to={[h, top + 1.08, h + 1.34]} color="#9CA3AF" />
+    </group>
+  )
+}
+
+function Muyenga({ h }: { h: number }) {
+  const walls = "#F4EBDD"
+  const roof = "#B5502E"
+  return (
+    <group>
+      {/* The house: a wing beside your room and one behind it, under tiled roofs. */}
+      <Block from={[-h - 6, 0, -h]} to={[-h, 3, h]} color={walls} />
+      <Gable from={[-h - 6, -h]} to={[-h, h]} height={3} color={roof} />
+      <Block from={[-h - 6, 0, -h - 4]} to={[h, 3, -h]} color={walls} />
+      <Gable from={[-h - 6, -h - 4]} to={[h, -h]} height={3} color={roof} />
+      {[-h - 5, -h - 3.5, -h - 1.8].map((x) => (
+        <Panel key={x} at={[x, 1.6, h + 0.01]} size={[1, 1.2]} color="#33475B" glass />
+      ))}
+      {/* Veranda along the front of the wing. */}
+      <Block from={[-h - 6, 2.7, h]} to={[-h, 2.85, h + 1.8]} color="#F5F5F4" />
+      {[-h - 5.8, -h - 3, -h - 0.2].map((x) => (
+        <Block key={x} from={[x - 0.1, 0, h + 1.6]} to={[x + 0.1, 2.7, h + 1.8]} color="#F5F5F4" />
+      ))}
+      {/* Satellite dish on the roof. */}
+      <mesh position={[-h - 1.5, 4.3, -h - 2]} rotation={[0.6, 0.6, 0]}>
+        <sphereGeometry args={[0.45, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#E5E7EB" side={2} />
+      </mesh>
+      {/* Garden: a hedge all round with a gate, flowers, trees and a car on the drive. */}
+      <Hedge from={[-h - 9, -h - 6]} to={[h + 6, -h - 5.6]} />
+      <Hedge from={[-h - 9, -h - 6]} to={[-h - 8.6, h + 8]} />
+      <Hedge from={[h + 5.6, -h - 6]} to={[h + 6, h + 8]} />
+      <Hedge from={[-h - 9, h + 7.6]} to={[0.5, h + 8]} />
+      <Hedge from={[4, h + 7.6]} to={[h + 6, h + 8]} />
+      <Block from={[0.5, 0, h + 7.7]} to={[4, 1.7, h + 7.8]} color="#1F2937" roughness={0.4} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2.25, -0.2, h + 4.4]} receiveShadow>
+        <planeGeometry args={[3.5, 6.6]} />
+        <meshStandardMaterial color="#9CA3AF" roughness={0.95} />
+      </mesh>
+      <Car at={[2.25, h + 4.6]} color="#1E3A8A" />
+      {[-7, -6.2, -5.4, -4.6].map((x, i) => (
+        <mesh key={x} position={[x, 0.15, h + 3]}>
+          <sphereGeometry args={[0.28, 10, 8]} />
+          <meshStandardMaterial color={["#E85F0C", "#F2C14E", "#C2185B", "#F5F5F4"][i]} roughness={0.8} />
+        </mesh>
+      ))}
+      <Tree at={[-h - 7, h + 5.5]} scale={1.2} />
+      <Tree at={[h + 4, -h - 4]} />
+    </group>
+  )
+}
+
+function Pool({ from, to }: { from: [number, number]; to: [number, number] }) {
+  return (
+    <group>
+      <Block from={[from[0] - 0.3, 0, from[1] - 0.3]} to={[to[0] + 0.3, -0.05, to[1] + 0.3]} color="#F5F5F4" />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[(from[0] + to[0]) / 2, -0.03, (from[1] + to[1]) / 2]}>
+        <planeGeometry args={[to[0] - from[0], to[1] - from[1]]} />
+        <meshStandardMaterial color="#3BA7D9" roughness={0.1} metalness={0.2} />
+      </mesh>
+    </group>
+  )
+}
+
+function Naguru({ h, level }: { h: number; level: number }) {
+  const top = level - 0.24
+  const walls = "#F7F5F0"
+  return (
+    <group>
+      {/* Ground floor under your room and the rest of the upper floor beside it. */}
+      <Block from={[-h - 7, 0, -h]} to={[h, top, h]} color={walls} />
+      <Block from={[-h - 7, top, -h]} to={[-h, top + 3, h]} color={walls} />
+      <Block from={[-h - 7.4, top + 3, -h - 0.4]} to={[-h + 0.2, top + 3.2, h + 0.6]} color="#2F2F2F" />
+      {[-h - 5.5, -h - 3, 0.5].map((x) => (
+        <Panel key={x} at={[x, 1.4, h + 0.01]} size={[2, 2.2]} color="#3E5F80" glass />
+      ))}
+      <Panel at={[-h - 3.5, top + 1.5, h + 0.01]} size={[3.5, 2]} color="#3E5F80" glass />
+      <Balcony h={h} top={top} />
+      {/* The pool and loungers, palm trees, a high wall and the car. */}
+      <Pool from={[-h - 5, h + 2.5]} to={[h - 1, h + 6.5]} />
+      {[-h - 4, -h - 2.2].map((x) => (
+        <Block key={x} from={[x, 0, h + 7.4]} to={[x + 0.7, 0.4, h + 9.2]} color="#FFFFFF" />
+      ))}
+      <Palm at={[h + 1.5, h + 3]} />
+      <Palm at={[-h - 6.5, h + 7]} height={5.2} />
+      <Palm at={[h + 1.8, h + 8.5]} height={4} />
+      <Block from={[-h - 9, 0, -h - 3]} to={[h + 4.5, 2.2, -h - 2.8]} color="#E9E1D3" />
+      <Block from={[-h - 9, 0, -h - 3]} to={[-h - 8.8, 2.2, h + 11]} color="#E9E1D3" />
+      <Block from={[h + 4.3, 0, -h - 3]} to={[h + 4.5, 2.2, h + 11]} color="#E9E1D3" />
+      <Car at={[h + 2.6, h - 1]} color="#111827" />
+    </group>
+  )
+}
+
+function Munyonyo({ h }: { h: number }) {
+  const walls = "#FBF7EE"
+  const roof = "#4B4B4B"
+  return (
+    <group>
+      {/* The mansion: two-floor wings beside and behind your living room. */}
+      <Block from={[-h - 10, 0, -h - 2]} to={[-h, 6, h]} color={walls} />
+      <Gable from={[-h - 10, -h - 2]} to={[-h, h]} height={6} color={roof} />
+      <Block from={[-h, 0, -h - 7]} to={[h + 5, 6, -h]} color={walls} />
+      <Gable from={[-h, -h - 7]} to={[h + 5, -h]} height={6} color={roof} />
+      {[1.6, 4.4].map((y) =>
+        [-h - 8.5, -h - 6.5, -h - 4.5, -h - 2.5].map((x) => <Panel key={`${x},${y}`} at={[x, y, h + 0.01]} size={[1.2, 1.6]} color="#3E5F80" glass />)
+      )}
+      {[1, 3, 5].map((x) => (
+        <Panel key={x} at={[x, 4.4, -h + 0.01]} size={[1.2, 1.6]} color="#3E5F80" glass />
+      ))}
+      {/* Portico columns. */}
+      {[-h - 8, -h - 5.5, -h - 3, -h - 0.5].map((x) => (
+        <mesh key={x} position={[x, 2.76, h + 1.2]} castShadow>
+          <cylinderGeometry args={[0.22, 0.22, 6, 12]} />
+          <meshStandardMaterial color="#FFFFFF" roughness={0.6} />
+        </mesh>
+      ))}
+      <Block from={[-h - 9, 5.8, h]} to={[-h, 6.1, h + 1.6]} color="#FFFFFF" />
+      {/* Terrace and fountain, the lawn down to the lake, the jetty and your boat. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-3, -0.2, h + 2]} receiveShadow>
+        <planeGeometry args={[22, 4]} />
+        <meshStandardMaterial color="#D6CBB5" roughness={0.9} />
+      </mesh>
+      <group position={[h + 3, 0, h + 6]}>
+        <mesh position={[0, -0.05, 0]}>
+          <cylinderGeometry args={[1.4, 1.5, 0.4, 24]} />
+          <meshStandardMaterial color="#E7E2D6" />
+        </mesh>
+        <mesh position={[0, 0.16, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[1.25, 24]} />
+          <meshStandardMaterial color="#5BB5E0" roughness={0.1} />
+        </mesh>
+        <mesh position={[0, 0.7, 0]}>
+          <cylinderGeometry args={[0.12, 0.2, 1.2, 10]} />
+          <meshStandardMaterial color="#E7E2D6" />
+        </mesh>
+      </group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.21, h + 13]} receiveShadow>
+        <planeGeometry args={[60, 3]} />
+        <meshStandardMaterial color="#E3D3A8" roughness={1} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.18, h + 30]}>
+        <planeGeometry args={[80, 32]} />
+        <meshStandardMaterial color="#2E7FB8" roughness={0.15} metalness={0.1} />
+      </mesh>
+      <Block from={[3.4, -0.1, h + 12]} to={[4.6, 0.05, h + 21]} color="#8A6A45" />
+      <group position={[5.6, 0, h + 19.5]}>
+        <Block from={[-0.7, -0.15, -2]} to={[0.7, 0.45, 2]} color="#FFFFFF" roughness={0.3} />
+        <Block from={[-0.5, 0.45, -0.6]} to={[0.5, 0.85, 0.5]} color="#33475B" roughness={0.3} />
+      </group>
+      {[-12, -7, 7, 11].map((x) => (
+        <Palm key={x} at={[x, h + 12.5]} height={4 + (x % 3)} />
+      ))}
+      <Car at={[h + 3.5, -h - 3]} color="#E5E7EB" turn={Math.PI / 2} />
+    </group>
+  )
+}
+
 export function HomeExterior({ home, h, level }: { home: HousingTierId; h: number; level: number }) {
   if (home === "kawempe") return <Kawempe h={h} />
   if (home === "ntinda") return <Ntinda h={h} />
   if (home === "kololo") return <Kololo h={h} level={level} />
+  if (home === "muyenga") return <Muyenga h={h} />
+  if (home === "naguru") return <Naguru h={h} level={level} />
+  if (home === "munyonyo") return <Munyonyo h={h} />
   return <Kisenyi h={h} />
 }
