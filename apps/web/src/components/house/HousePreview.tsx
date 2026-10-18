@@ -25,7 +25,8 @@ export function HousePreview({
   onSelectSurface,
   hero = false,
   fill = false,
-  paused = false
+  paused = false,
+  home
 }: {
   house: HouseLoadout
   showRoof?: boolean
@@ -42,6 +43,8 @@ export function HousePreview({
   fill?: boolean
   /** Stop drawing (scene kept alive, e.g. while another view covers it). */
   paused?: boolean
+  /** The rented home (its building and room size); Kisenyi when unknown. */
+  home?: string
 }) {
   return (
     <div
@@ -62,6 +65,7 @@ export function HousePreview({
         onSelectAvatar={onSelectAvatar}
         onSelectSurface={onSelectSurface}
         paused={paused}
+        home={home}
       />
     </div>
   )
