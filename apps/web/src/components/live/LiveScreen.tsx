@@ -13,7 +13,7 @@ import {
   type LiveGrade,
   type PriceLevel
 } from "@tiral/game-core"
-import { useColyseusContext } from "@/components/ColyseusProvider"
+import { useColyseusContext, useColyseusStatus } from "@/components/ColyseusProvider"
 import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import type { LiveState } from "@/lib/useColyseus"
@@ -55,12 +55,29 @@ function clock(ms: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
 }
 
+/**
+ * Leaving the page (the app's navigation is on screen here) closes the room,
+ * like Back to base: a shift or live in progress ends and is paid.
+ */
+function useLeaveRoomOnExit(open: boolean) {
+  const { leaveRoom } = useColyseusStatus()
+  const openRef = useRef(open)
+  openRef.current = open
+  useEffect(
+    () => () => {
+      if (openRef.current) leaveRoom()
+    },
+    [leaveRoom]
+  )
+}
+
 export function LiveScreen() {
   const { player } = usePlayer()
   const { connected, live, liveEvent, startLive, leaveRoom } = useColyseusContext()
   const [error, setError] = useState<string | null>(null)
   const started = useRef(false)
   const allowed = player?.career?.tier !== undefined && player.career.tier !== "street" && player.user.tiktokLinked
+  useLeaveRoomOnExit(live !== null)
 
   // Open the market and stock as soon as we know you're allowed in.
   useEffect(() => {

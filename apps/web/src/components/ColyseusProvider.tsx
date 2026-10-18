@@ -5,8 +5,12 @@ import { useColyseus } from "@/lib/useColyseus"
 
 type ColyseusContextValue = ReturnType<typeof useColyseus>
 
-/** Just whether a room is open, and how to leave it: changes rarely. */
-export type ColyseusStatus = Pick<ColyseusContextValue, "connected" | "reconnecting" | "leaveRoom">
+/**
+ * Just whether a room is open, and how to leave it: changes rarely.
+ * `screenRoom`: the open room is a full-page screen (LivTok, the boda fleet)
+ * rather than a race or map shift, so the app shell can stay.
+ */
+export type ColyseusStatus = Pick<ColyseusContextValue, "connected" | "reconnecting" | "leaveRoom"> & { screenRoom: boolean }
 
 const ColyseusContext = createContext<ColyseusContextValue | null>(null)
 const ColyseusStatusContext = createContext<ColyseusStatus | null>(null)
@@ -17,9 +21,10 @@ export function ColyseusProvider({ children }: { children: ReactNode }) {
   // race). Components that only care about connected/reconnecting read this
   // memoised slice instead, so they (e.g. the app nav on every page) don't
   // re-render with each update.
+  const screenRoom = value.fleet !== null || value.live !== null
   const status = useMemo<ColyseusStatus>(
-    () => ({ connected: value.connected, reconnecting: value.reconnecting, leaveRoom: value.leaveRoom }),
-    [value.connected, value.reconnecting, value.leaveRoom]
+    () => ({ connected: value.connected, reconnecting: value.reconnecting, leaveRoom: value.leaveRoom, screenRoom }),
+    [value.connected, value.reconnecting, value.leaveRoom, screenRoom]
   )
   return (
     <ColyseusStatusContext.Provider value={status}>

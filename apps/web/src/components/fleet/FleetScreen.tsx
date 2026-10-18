@@ -13,7 +13,7 @@ import {
   fleetBikeValue,
   fleetServiceCost
 } from "@tiral/game-core"
-import { useColyseusContext } from "@/components/ColyseusProvider"
+import { useColyseusContext, useColyseusStatus } from "@/components/ColyseusProvider"
 import { usePlayer } from "@/lib/player"
 import { formatCoins } from "@/lib/useCoins"
 import type { FleetBikeState, FleetState } from "@/lib/useColyseus"
@@ -83,6 +83,22 @@ function WearBar({ wear }: { wear: number }) {
   )
 }
 
+/**
+ * Leaving the page (the app's navigation is on screen here) closes the room,
+ * like Back to base: a shift or live in progress ends and is paid.
+ */
+function useLeaveRoomOnExit(open: boolean) {
+  const { leaveRoom } = useColyseusStatus()
+  const openRef = useRef(open)
+  openRef.current = open
+  useEffect(
+    () => () => {
+      if (openRef.current) leaveRoom()
+    },
+    [leaveRoom]
+  )
+}
+
 export function FleetScreen() {
   const { player } = usePlayer()
   const { connected, fleet, startFleet, leaveRoom } = useColyseusContext()
@@ -90,6 +106,7 @@ export function FleetScreen() {
   const started = useRef(false)
   const tier = player?.career?.tier
   const allowed = tier !== undefined && tier !== "street" && tier !== "small"
+  useLeaveRoomOnExit(fleet !== null)
 
   // Open the office as soon as we know you're allowed in.
   useEffect(() => {
@@ -104,7 +121,7 @@ export function FleetScreen() {
 
   return (
     <main className="min-h-dvh w-full overflow-y-auto bg-sheet px-3 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+1rem)] text-sheet-ink">
-      <div className="mx-auto w-full max-w-md">
+      <div className="mx-auto w-full max-w-md md:max-w-4xl">
         {!player ? null : !allowed ? (
           <Closed />
         ) : !fleet ? (
@@ -186,7 +203,7 @@ function Office({ fleet }: { fleet: FleetState }) {
 
       <div className="mt-4">
         <SectionLabel aside={<span className="font-mono text-[11px]">{fleet.bikes.length} / {FLEET_MAX_BIKES}</span>}>Your bikes and riders</SectionLabel>
-        <ul className="flex flex-col gap-2">
+        <ul className="grid gap-2 md:grid-cols-2">
           {fleet.bikes.map((bike) => {
             const service = fleetServiceCost(bike.wear)
             return (
@@ -230,11 +247,11 @@ function Office({ fleet }: { fleet: FleetState }) {
 
       <div className="mt-4">
         <SectionLabel aside={player ? <span className="font-mono">🪙 {formatCoins(balance)}</span> : null}>Buy a bike (comes with a rider)</SectionLabel>
-        <ul className="flex flex-col gap-2">
+        <ul className="grid gap-2 md:grid-cols-3">
           {FLEET_MODELS.map((model) => {
             const price = fleetBikePrice(model.id)
             return (
-              <li key={model.id} className="flex items-center gap-3 rounded-xl border border-sheet-line bg-sheet-card p-3">
+              <li key={model.id} className="flex items-center gap-3 rounded-xl border border-sheet-line bg-sheet-card p-3 md:flex-col md:items-start">
                 <span aria-hidden className="text-2xl">
                   {model.id === "zemboE" ? "⚡" : "🛵"}
                 </span>
@@ -244,7 +261,7 @@ function Office({ fleet }: { fleet: FleetState }) {
                     ~{formatCoins(model.duesPerMinute)} a minute on the road · {model.blurb}
                   </div>
                 </div>
-                <ActionButton variant="sheet" disabled={fleet.busy || full || balance < price} onClick={() => sendStall("buyBike", model.id)}>
+                <ActionButton variant="sheet" className="md:w-full" disabled={fleet.busy || full || balance < price} onClick={() => sendStall("buyBike", model.id)}>
                   {formatCoins(price)}
                 </ActionButton>
               </li>
@@ -352,7 +369,7 @@ function Shift({ fleet }: { fleet: FleetState }) {
           </button>
         )}
       </div>
-      <ul className="grid grid-cols-2 gap-2">
+      <ul className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
         {fleet.bikes.map((bike) => (
           <BikeCard key={bike.id} fleet={fleet} bike={bike} now={now} />
         ))}
@@ -379,7 +396,7 @@ function Receipt({ fleet }: { fleet: FleetState }) {
   const summary = fleet.summary!
   const profit = summary.net - summary.costs
   return (
-    <Card>
+    <Card className="mx-auto max-w-md">
       <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-flame-deep">Shift over</div>
       <h1 className="mt-1 text-xl font-black">{profit >= 0 ? `+${formatCoins(profit)} BNG` : `−${formatCoins(-profit)} BNG`}</h1>
       <dl className="mt-3 flex flex-col gap-1 text-sm">
