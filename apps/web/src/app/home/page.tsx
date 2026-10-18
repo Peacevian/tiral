@@ -8,6 +8,8 @@ import { DEFAULT_LOADOUT, type AvatarLoadout } from "@tiral/avatars"
 import { DEFAULT_HOUSE, type HouseLoadout } from "@tiral/houses"
 import { ProfileCustomizer } from "@/components/ProfileCustomizer"
 import { HousePreview } from "@/components/house/HousePreview"
+import { HomeChooser } from "@/components/house/HomeChooser"
+import { homeLook } from "@/components/house/homes"
 import { HouseCustomizer } from "@/components/house/HouseCustomizer"
 import { HomeHud } from "@/components/house/HomeHud"
 import { HomeSheet, type HomeSheetTab } from "@/components/house/HomeSheet"
@@ -67,8 +69,15 @@ export default function HomePage() {
   const [draftHouse, setDraftHouse] = useState<HouseLoadout>(DEFAULT_HOUSE)
   const [showRoof, setShowRoof] = useState(true)
   const [homeView, setHomeView] = useState<HouseView>("outside")
+  // A home you're looking at before moving (null: the one you rent).
+  const [previewHome, setPreviewHome] = useState<string | null>(null)
+  const currentHome = player?.life?.tier.id ?? "kisenyi"
   // Open section of the home panel, or null for the menu of tiles.
   const [section, setSection] = useState<HomeSheetTab | null>(null)
+  // Leaving the House tab goes back to your own home.
+  useEffect(() => {
+    if (section !== "house") setPreviewHome(null)
+  }, [section])
   // The bike showroom mounts on first visit; it's kept (paused) afterwards
   // unless the phone is low-end (see the scene viewport below).
   const [showroomOpened, setShowroomOpened] = useState(false)
@@ -278,6 +287,7 @@ export default function HomePage() {
               fill
               paused={section === "bike"}
               house={draftHouse}
+              home={previewHome ?? currentHome}
               showRoof={showRoof}
               view={homeView}
               avatarLoadout={draftLoadout}
@@ -353,9 +363,11 @@ export default function HomePage() {
           wallet={<WalletPanel />}
           house={
             <div className="flex flex-col gap-3">
+              <HomeChooser preview={previewHome} onPreview={setPreviewHome} />
               {/* Roof on/off and Reset live in the ⋯ menu at the top (one place for each). */}
               <HouseCustomizer
                 house={draftHouse}
+                room={homeLook(currentHome).room}
                 onChange={(next) => {
                   setDraftHouse(next)
                   setDirty(true)

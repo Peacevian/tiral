@@ -11,7 +11,6 @@ import {
   ROOF_COLORS,
   ROOF_MATERIALS,
   ROOM_GRID,
-  ROTATIONS,
   TRIM_COLORS,
   WALL_COLORS,
   WALL_MATERIALS,
@@ -24,6 +23,7 @@ import {
   type Rotation,
   type WallMaterial
 } from "@tiral/houses"
+import { fitHouse, fitsRoom, freeSpot, packHouse } from "./homes"
 
 function itemDims(item: PlacedItem): { w: number; d: number } {
   const spec = FURNITURE_BY_ID[item.item]
@@ -51,20 +51,6 @@ function overlaps(items: PlacedItem[], candidate: PlacedItem): boolean {
   return cells(candidate).some((cell) => occupied.has(cell))
 }
 
-function findFreeSpot(items: PlacedItem[], furniture: FurnitureId): PlacedItem | null {
-  const spec = FURNITURE_BY_ID[furniture]
-  for (const rot of ROTATIONS) {
-    const probe = { id: "probe", item: furniture, x: 0, z: 0, rot, color: spec.colors[0] as string }
-    const { w, d } = itemDims(probe)
-    for (let z = 0; z + d <= ROOM_GRID; z++) {
-      for (let x = 0; x + w <= ROOM_GRID; x++) {
-        const candidate = { ...probe, x, z }
-        if (!overlaps(items, candidate)) return candidate
-      }
-    }
-  }
-  return null
-}
 
 function Chip({
   label,
@@ -136,25 +122,34 @@ function Swatches({
 
 export function HouseCustomizer({
   house,
+  room = ROOM_GRID,
   onChange
 }: {
   house: HouseLoadout
+  /** Your home's room: room × room squares (the rest of your furniture is in storage). */
+  room?: number
   onChange(next: HouseLoadout): void
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { placed, stored } = useMemo(() => fitHouse(house, room), [house, room])
 
   const selected = useMemo(
-    () => house.items.find((item) => item.id === selectedId) ?? null,
-    [house.items, selectedId]
+    () => placed.find((item) => item.id === selectedId) ?? null,
+    [placed, selectedId]
   )
 
   const occupied = useMemo(() => {
     const map = new Map<string, string>()
-    for (const item of house.items) {
+    for (const item of placed) {
       for (const cell of cells(item)) map.set(cell, item.id)
     }
     return map
-  }, [house.items])
+  }, [placed])
+
+  /** Save a change to the room's furniture (stored pieces kept, out of the way). */
+  function commitRoom(items: PlacedItem[], keepSelectedId?: string | null) {
+    commit({ ...house, items: packHouse(items, stored) }, keepSelectedId)
+  }
 
   function commit(next: HouseLoadout, keepSelectedId?: string | null) {
     if (!isValidHouseLoadout(next)) return
@@ -168,22 +163,26 @@ export function HouseCustomizer({
 
   function addFurniture(furniture: FurnitureId) {
     if (house.items.length >= MAX_ITEMS) return
-    const spot = findFreeSpot(house.items, furniture)
-    if (!spot) return
+    const spec = FURNITURE_BY_ID[furniture]
     const id = `item-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-    commit({ ...house, items: [...house.items, { ...spot, id }] }, id)
+    const spot = freeSpot(placed, { id, item: furniture, x: 0, z: 0, rot: 0, color: spec.colors[0] as string }, room)
+    if (!spot) return
+    commitRoom([...placed, spot], id)
   }
 
   function updateSelected(next: PlacedItem) {
-    commit(
-      { ...house, items: house.items.map((item) => (item.id === next.id ? next : item)) },
-      next.id
-    )
+    // Stay inside the room and off the other pieces.
+    if (!fitsRoom(next, room) || overlaps(placed, next)) return
+    commitRoom(placed.map((item) => (item.id === next.id ? next : item)), next.id)
   }
 
   function removeSelected() {
     if (!selected) return
-    commit({ ...house, items: house.items.filter((item) => item.id !== selected.id) }, null)
+    commitRoom(placed.filter((item) => item.id !== selected.id), null)
+  }
+
+  function removeStored(id: string) {
+    commit({ ...house, items: house.items.filter((item) => item.id !== id) })
   }
 
   function moveSelected(dx: number, dz: number) {
@@ -277,11 +276,11 @@ export function HouseCustomizer({
         <div className="relative w-full overflow-hidden rounded-xl border border-sheet-line bg-sheet-soft p-1">
           <div
             className="grid aspect-square w-full"
-            style={{ gridTemplateColumns: `repeat(${ROOM_GRID}, 1fr)`, gridTemplateRows: `repeat(${ROOM_GRID}, 1fr)` }}
+            style={{ gridTemplateColumns: `repeat(${room}, 1fr)`, gridTemplateRows: `repeat(${room}, 1fr)` }}
           >
-            {Array.from({ length: ROOM_GRID * ROOM_GRID }, (_, index) => {
-              const x = index % ROOM_GRID
-              const z = Math.floor(index / ROOM_GRID)
+            {Array.from({ length: room * room }, (_, index) => {
+              const x = index % room
+              const z = Math.floor(index / room)
               const owner = occupied.get(`${x},${z}`)
               return (
                 <div
@@ -291,7 +290,7 @@ export function HouseCustomizer({
               )
             })}
           </div>
-          {house.items.map((item) => {
+          {placed.map((item) => {
             const { w, d } = itemDims(item)
             const isSelected = item.id === selectedId
             return (
@@ -303,10 +302,10 @@ export function HouseCustomizer({
                   isSelected ? "ring-2 ring-flame" : "ring-1 ring-sheet-line"
                 }`}
                 style={{
-                  left: `calc(${(item.x / ROOM_GRID) * 100}% + 4px)`,
-                  top: `calc(${(item.z / ROOM_GRID) * 100}% + 4px)`,
-                  width: `calc(${(w / ROOM_GRID) * 100}% - 8px)`,
-                  height: `calc(${(d / ROOM_GRID) * 100}% - 8px)`,
+                  left: `calc(${(item.x / room) * 100}% + 4px)`,
+                  top: `calc(${(item.z / room) * 100}% + 4px)`,
+                  width: `calc(${(w / room) * 100}% - 8px)`,
+                  height: `calc(${(d / room) * 100}% - 8px)`,
                   backgroundColor: item.color
                 }}
               >
@@ -315,6 +314,29 @@ export function HouseCustomizer({
             )
           })}
         </div>
+
+        {stored.length > 0 && (
+          <div className="mt-3 rounded-xl border border-sheet-line bg-sheet-card p-3">
+            <div className="text-xs font-bold text-sheet-ink">In storage · no room for them here</div>
+            <p className="mt-0.5 text-[11px] text-sheet-mute">They come back when you move to a bigger home.</p>
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {stored.map((item) => (
+                <li key={item.id} className="flex items-center gap-1 rounded-lg border border-sheet-line px-2 py-1 text-xs font-bold text-sheet-ink">
+                  <span aria-hidden className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
+                  {FURNITURE_BY_ID[item.item].label}
+                  <button
+                    type="button"
+                    onClick={() => removeStored(item.id)}
+                    aria-label={`Throw away the ${FURNITURE_BY_ID[item.item].label.toLowerCase()}`}
+                    className="ml-1 min-h-[32px] px-1 text-flame-deep"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {selected ? (
           <div className="mt-3 flex flex-col gap-3 rounded-xl border border-sheet-line bg-sheet-card p-3">

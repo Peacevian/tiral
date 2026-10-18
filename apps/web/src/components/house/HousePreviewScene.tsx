@@ -12,17 +12,21 @@ import { RealisticAvatar } from "../RealisticAvatar"
 import { makeMaterialTexture, materialSurface } from "./houseTextures"
 
 import { AVATAR_HOME, type HouseView, type RoomSpot } from "./roomSpots"
+import { fitHouse, homeLook } from "./homes"
+import { HomeExterior } from "./HomeExteriors"
+import type { HousingTierId } from "@tiral/game-core"
 import { sceneQuality } from "@/lib/deviceTier"
 import { AdaptiveQuality } from "@/components/AdaptiveQuality"
 
 export { AVATAR_HOME, type HouseView, type RoomSpot }
 
-const OUTSIDE_CAMERA: [number, number, number] = [7.5, 6.5, 8.5]
-const OUTSIDE_TARGET: [number, number, number] = [0, 0.8, 0]
 const INSIDE_CAMERA: [number, number, number] = [2.6, 2.1, 4.8]
 const INSIDE_TARGET: [number, number, number] = [0, 1.0, -0.5]
 
-function CameraRig({ view, follow }: { view: HouseView; follow: RoomSpot | null }) {
+type V3 = [number, number, number]
+const up = (v: V3, y: number): V3 => [v[0], v[1] + y, v[2]]
+
+function CameraRig({ view, follow, outside, outsideTarget, level }: { view: HouseView; follow: RoomSpot | null; outside: V3; outsideTarget: V3; level: number }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls) as unknown as {
     target: THREE.Vector3
@@ -30,14 +34,14 @@ function CameraRig({ view, follow }: { view: HouseView; follow: RoomSpot | null 
   } | null
   useEffect(() => {
     if (view === "inside") {
-      camera.position.set(...INSIDE_CAMERA)
-      controls?.target.set(...INSIDE_TARGET)
+      camera.position.set(...up(INSIDE_CAMERA, level))
+      controls?.target.set(...up(INSIDE_TARGET, level))
     } else {
-      camera.position.set(...OUTSIDE_CAMERA)
-      controls?.target.set(...OUTSIDE_TARGET)
+      camera.position.set(...up(outside, level))
+      controls?.target.set(...up(outsideTarget, level))
     }
     controls?.update()
-  }, [view, camera, controls])
+  }, [view, camera, controls, outside, outsideTarget, level])
   // Gentle follow while strolling inside: glide the orbit target, never the camera.
   useFrame((_, delta) => {
     if (!controls || view !== "inside" || !follow) return
@@ -116,11 +120,10 @@ function StrollingAvatar({
   )
 }
 
-const HALF = ROOM_GRID / 2
 const WALL_HEIGHT = 2.5
 const WALL_THICKNESS = 0.15
 
-function itemTransform(item: PlacedItem) {
+function itemTransform(item: PlacedItem, HALF: number) {
   const spec = FURNITURE_BY_ID[item.item]
   const swapped = item.rot === 90 || item.rot === 270
   const w = swapped ? spec.depth : spec.width
@@ -160,20 +163,27 @@ function Wall({
 
 function Room({
   house,
+  size,
   showRoof,
   onSelectTile,
   onSelectSurface
 }: {
   house: HouseLoadout
+  /** The room is size × size squares, centred on the origin. */
+  size: number
   showRoof: boolean
   onSelectTile(x: number, z: number): void
   onSelectSurface(kind: "wall" | "roof"): void
 }) {
+  const ROOM_GRID = size
+  const HALF = size / 2
+  const { placed } = useMemo(() => fitHouse(house, size), [house, size])
   const tileFromPoint = (point: THREE.Vector3) => {
     const tx = Math.max(0, Math.min(ROOM_GRID - 1, Math.floor(point.x + HALF)))
     const tz = Math.max(0, Math.min(ROOM_GRID - 1, Math.floor(point.z + HALF)))
     return { x: tx + 0.5 - HALF, z: tz + 0.5 - HALF }
   }
+
   const wallTex = useMemo(() => makeMaterialTexture(house.wallMaterial, 3), [house.wallMaterial])
   const floorTex = useMemo(() => makeMaterialTexture(house.floorMaterial, 4), [house.floorMaterial])
   const roofTex = useMemo(() => makeMaterialTexture(house.roofMaterial, 3), [house.roofMaterial])
@@ -274,8 +284,8 @@ function Room({
         </mesh>
       )}
 
-      {house.items.map((item) => {
-        const { position, rotationY } = itemTransform(item)
+      {placed.map((item) => {
+        const { position, rotationY } = itemTransform(item, HALF)
         return (
           <group key={item.id} position={position} rotation={[0, rotationY, 0]}>
             <Furniture3D spec={FURNITURE_BY_ID[item.item]} color={item.color} />
@@ -296,9 +306,12 @@ export function HousePreviewScene({
   onSelectTile,
   onSelectAvatar,
   onSelectSurface,
-  paused = false
+  paused = false,
+  home = "kisenyi"
 }: {
   house: HouseLoadout
+  /** The rented home: its building, room size and floor. */
+  home?: string
   showRoof?: boolean
   view?: HouseView
   /** When set, the avatar lives inside the room (the profile hero). */
@@ -311,19 +324,25 @@ export function HousePreviewScene({
   paused?: boolean
 }) {
   const inside = view === "inside"
+  const look = homeLook(home)
+  const size = Math.min(ROOM_GRID, look.room)
+  const level = look.level
+  // Keep the avatar inside a smaller room.
+  const edge = size / 2 - 0.4
+  const spot = { x: Math.max(-edge, Math.min(edge, avatarSpot.x)), z: Math.max(-edge, Math.min(edge, avatarSpot.z)) }
   // Lighter on low-end / slow phones (no shadows, 1× pixels): lib/deviceTier.ts
   const quality = sceneQuality()
   return (
     <Canvas
       style={{ width: "100%", height: "100%" }}
-      camera={{ position: OUTSIDE_CAMERA, fov: 42 }}
+      camera={{ position: up(look.camera, level), fov: 42 }}
       gl={{ antialias: quality.antialias, alpha: true }}
       dpr={quality.dpr}
       shadows={quality.shadows}
       frameloop={paused ? "never" : "always"}
     >
       <AdaptiveQuality />
-      <CameraRig view={view} follow={avatarLoadout ? avatarSpot : null} />
+      <CameraRig view={view} follow={avatarLoadout ? spot : null} outside={look.camera} outsideTarget={look.target} level={level} />
       <hemisphereLight args={["#fff4d6", "#b9c9a6", 0.8]} />
       <directionalLight
         position={[6, 10, 6]}
@@ -342,29 +361,33 @@ export function HousePreviewScene({
       </Environment>
       {/* ground plane outside the house: daytime grass */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.24, 0]} receiveShadow>
-        <circleGeometry args={[14, 48]} />
-        <meshStandardMaterial color="#B7CF9F" roughness={1} />
+        <circleGeometry args={[22, 48]} />
+        <meshStandardMaterial color={look.ground} roughness={1} />
       </mesh>
-      <Room
-        house={house}
-        showRoof={showRoof && !inside}
-        onSelectTile={(x, z) => onSelectTile?.(x, z)}
-        onSelectSurface={(kind) => onSelectSurface?.(kind)}
-      />
-      {selection && <SelectionRing spot={selection} />}
-      {avatarLoadout && (
-        <StrollingAvatar
-          loadout={avatarLoadout}
-          spot={avatarSpot}
-          onTap={() => onSelectAvatar?.()}
+      <HomeExterior home={(home ?? "kisenyi") as HousingTierId} h={size / 2} level={level} />
+      <group position={[0, level, 0]}>
+        <Room
+          house={house}
+          size={size}
+          showRoof={showRoof && !inside}
+          onSelectTile={(x, z) => onSelectTile?.(x, z)}
+          onSelectSurface={(kind) => onSelectSurface?.(kind)}
         />
-      )}
+        {selection && <SelectionRing spot={selection} />}
+        {avatarLoadout && (
+          <StrollingAvatar
+            loadout={avatarLoadout}
+            spot={spot}
+            onTap={() => onSelectAvatar?.()}
+          />
+        )}
+      </group>
       <OrbitControls
         makeDefault
-        target={inside ? INSIDE_TARGET : OUTSIDE_TARGET}
+        target={inside ? up(INSIDE_TARGET, level) : up(look.target, level)}
         enablePan={false}
         minDistance={inside ? 2 : 6}
-        maxDistance={20}
+        maxDistance={28}
         maxPolarAngle={Math.PI / 2 + 0.05}
         autoRotate={!inside}
         autoRotateSpeed={0.9}
