@@ -40,6 +40,8 @@ import {
 
 const TICK_MS = 100
 const COUNTDOWN_SECONDS = configNumber("RACE_COUNTDOWN_SECONDS", 20, 1)
+/** "Start now (solo)": nobody to wait for, so a short countdown (never longer than the lobby's). */
+const SOLO_COUNTDOWN_SECONDS = Math.min(configNumber("RACE_SOLO_COUNTDOWN_SECONDS", 20, 1), COUNTDOWN_SECONDS)
 const ARRIVAL_RADIUS_METERS = configNumber("RACE_ARRIVAL_RADIUS", 25, 1)
 const FINISH_WINDOW_MS = 30_000
 /** A race nobody can finish (lost bounty, everyone idle) ends after this. */
@@ -255,7 +257,7 @@ export class RaceRoom extends Room {
       if (this.phase !== "lobby" || this.hosted) return
       if (!this.players[client.sessionId]) return
       if (Object.keys(this.players).length < 1) return
-      this.beginCountdown()
+      this.beginCountdown(SOLO_COUNTDOWN_SECONDS)
     })
 
     loadRoadGraph()
@@ -744,13 +746,13 @@ export class RaceRoom extends Room {
     }
   }
 
-  private beginCountdown() {
+  private beginCountdown(seconds = COUNTDOWN_SECONDS) {
+    let remaining = this.hosted ? this.hosted.countdownSeconds : seconds
+    this.countdownSeconds = remaining
     this.phase = "countdown"
     this.sendRoomState()
     this.syncMetadata()
 
-    let remaining = this.hosted ? this.hosted.countdownSeconds : COUNTDOWN_SECONDS
-    this.countdownSeconds = remaining
     this.countdownInterval = setInterval(guarded("race countdown", () => {
       remaining--
       this.countdownSeconds = remaining
