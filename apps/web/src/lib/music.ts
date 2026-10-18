@@ -1,21 +1,23 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
-import { isDataSaver } from "@/lib/deviceTier"
 
-// Background music for the game: one looping track, started on the player's
-// first tap or key press once they're in the game (browsers block sound until
-// then), paused while the tab is hidden, on/off remembered per device.
+// Background music for the game: one looping track, paused while the tab is
+// hidden, on/off remembered per device. It starts off: nothing plays when the
+// site loads until the player turns it on with the 🎵 button (after that it
+// comes back on their first tap or key press on later visits, since browsers
+// block sound until then).
 //
-// The track is a ~770 KB download, fetched only once the music starts; with
-// Data Saver or on 2G it starts off (the 🎵 button turns it on).
+// The track is a ~770 KB download, fetched only once the music starts.
 //
 // Files live in public/music/ (licences in public/music/CREDITS.md). When the file is
 // missing the button hides itself and nothing else happens.
 
 export const TRACK = { src: "/music/lofi-v1.mp3", title: "Lofi Hip Hop Loop", artist: "OMF-Games" }
 
-const STORAGE_KEY = "tiral-music"
+// A new key: "on" saved under the old one came from when music started by
+// default, so it doesn't count as the player choosing it.
+const STORAGE_KEY = "tiral-music-v2"
 const VOLUME = 0.45
 
 type MusicState = { enabled: boolean; playing: boolean; missing: boolean }
@@ -38,7 +40,7 @@ function readPreference(): boolean {
   } catch {
     // storage blocked: fall through to the default
   }
-  return !isDataSaver()
+  return false
 }
 
 function savePreference(enabled: boolean) {
