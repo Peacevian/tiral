@@ -93,7 +93,7 @@ export function HomeChooser({ preview, onPreview }: { preview: string | null; on
             {notice}
           </p>
         )}
-        <p className="mt-1 text-[11px] text-sheet-mute">New rent applies from your next due date. Furniture that doesn&apos;t fit a smaller home goes into storage.</p>
+        <p className="mt-1 text-[11px] text-sheet-mute">New rent applies from your next due date. Your furniture comes with you (a boda, pickup or lorry: 15,000–180,000); what doesn&apos;t fit a smaller home goes into storage.</p>
       </div>
     </div>
   )

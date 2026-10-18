@@ -13,11 +13,17 @@ export async function POST(request: NextRequest) {
   if (!tier) return NextResponse.json({ error: "Bad request" }, { status: 400 })
   try {
     const moved = await moveHouse(claims.userId, tier.id as HousingTierId)
-    if (!moved) {
+    if (!moved.ok) {
       const needed = HOME_CAREER[tier.id as HousingTierId]
-      return NextResponse.json({ error: `Only for ${needed ? findTierById(needed).name : "bigger"} owners` }, { status: 403 })
+      const error =
+        moved.reason === "career"
+          ? `Only for ${needed ? findTierById(needed).name : "bigger"} owners`
+          : moved.reason === "insufficient"
+            ? `Moving your things costs ${moved.fee.toLocaleString("en-US")} BNG: not enough BNG.`
+            : "You already live there."
+      return NextResponse.json({ error }, { status: moved.reason === "career" ? 403 : 409 })
     }
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, fee: moved.fee })
   } catch (error) {
     console.error("Move failed:", error)
     return NextResponse.json({ error: "Unavailable" }, { status: 503 })

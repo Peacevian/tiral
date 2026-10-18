@@ -52,7 +52,12 @@ export const REASON_LABELS: Record<string, string> = {
   fleet_service: "Fleet bike service",
   fleet_tracker: "Fleet bike tracker",
   fleet_cost: "Fleet costs (repairs, fines, advances)",
-  fleet_dues: "Boda fleet dues"
+  fleet_dues: "Boda fleet dues",
+  furniture_buy: "Bought furniture",
+  furniture_sell: "Sold furniture",
+  house_paint: "Painter",
+  house_floor: "New floor (fundi)",
+  house_move: "Moving your things"
 }
 
 export function formatCoins(amount: number): string {

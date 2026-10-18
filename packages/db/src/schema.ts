@@ -19,6 +19,11 @@ export const users = pgTable("users", {
   rentDueAt: timestamp("rent_due_at", { withTimezone: true }),
   stress: doublePrecision("stress").default(20).notNull(),
   stressAt: timestamp("stress_at", { withTimezone: true }).defaultNow().notNull(),
+  // What your furniture does for you (homeComfort in @tiral/houses), kept up
+  // to date when the house is saved: resting energy refill (no bed: 0.7) and
+  // how fast stress fades.
+  restFactor: doublePrecision("rest_factor").default(0.7).notNull(),
+  calmFactor: doublePrecision("calm_factor").default(1).notNull(),
   lastEventAt: timestamp("last_event_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
@@ -314,3 +319,25 @@ export const fleetBikes = pgTable(
 )
 
 export type FleetBikeRow = typeof fleetBikes.$inferSelect
+
+// Furniture a player owns (bought at Owino, Kikuubo or Acacia Mall). Placed
+// pieces are the house loadout's items, which use these ids; the rest are in
+// storage. Sold pieces are deleted (the ledger keeps the money side).
+export const houseItems = pgTable(
+  "house_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    item: text("item").notNull(),
+    grade: text("grade").notNull(),
+    color: text("color").notNull(),
+    /** What was paid (selling back gets half). */
+    price: integer("price").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [index("house_items_user_idx").on(table.userId)]
+)
+
+export type HouseItemRow = typeof houseItems.$inferSelect

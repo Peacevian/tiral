@@ -27,7 +27,8 @@ async function readStored(executor: Database | Tx, userId: string) {
       health: users.health,
       at: users.needsAt,
       restingSince: users.restingSince,
-      stress: users.stress
+      stress: users.stress,
+      restFactor: users.restFactor
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -77,13 +78,15 @@ export async function applyNeedsDeltas(
   // Stressed players refill energy slower (judged on stress as stored).
   const stressedFactor = sql`(case when u.stress >= ${STRESSED_THRESHOLD}::float8 then ${STRESSED_ENERGY_REGEN_FACTOR}::float8 else 1::float8 end)`
   const stressHours = sql`greatest(0::float8, extract(epoch from (now() - u.stress_at))::float8 / 3600.0)`
+  // Resting refills energy at the bed's rate (u.rest_factor); stress fades faster with a sofa or TV (u.calm_factor).
+  const restedEnergy = sql`least(${max}, u.energy + ${hours} * ${stressedFactor} * (case when u.resting_since is null then ${ENERGY_REGEN_PER_HOUR}::float8 else ${RESTING_ENERGY_REGEN_PER_HOUR}::float8 * u.rest_factor end))`
   const updated = await db.execute<{ id: string; energy: number; health: number }>(sql`
     update users as u set
-      energy = least(${max}, greatest(0::float8, ${regen(sql`u.energy`, ENERGY_REGEN_PER_HOUR, RESTING_ENERGY_REGEN_PER_HOUR, stressedFactor)} + d.energy)),
+      energy = least(${max}, greatest(0::float8, ${restedEnergy} + d.energy)),
       health = least(${max}, greatest(0::float8, ${regen(sql`u.health`, HEALTH_REGEN_PER_HOUR, RESTING_HEALTH_REGEN_PER_HOUR)} + d.health)),
       needs_at = now(),
       resting_since = null,
-      stress = least(${STRESS_MAX}::float8, greatest(0::float8, greatest(0::float8, u.stress - ${stressHours} * ${STRESS_DECAY_PER_HOUR}::float8) + d.stress)),
+      stress = least(${STRESS_MAX}::float8, greatest(0::float8, greatest(0::float8, u.stress - ${stressHours} * ${STRESS_DECAY_PER_HOUR}::float8 * u.calm_factor) + d.stress)),
       stress_at = now()
     from (values ${rows}) as d(id, energy, health, stress)
     where u.id = d.id

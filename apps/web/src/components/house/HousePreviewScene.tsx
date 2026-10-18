@@ -288,7 +288,7 @@ function Room({
         const { position, rotationY } = itemTransform(item, HALF)
         return (
           <group key={item.id} position={position} rotation={[0, rotationY, 0]}>
-            <Furniture3D spec={FURNITURE_BY_ID[item.item]} color={item.color} />
+            <Furniture3D spec={FURNITURE_BY_ID[item.item]} color={item.color} grade={item.grade} />
           </group>
         )
       })}
