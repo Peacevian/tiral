@@ -91,7 +91,7 @@ export function LiveScreen() {
   }, [player, allowed, live, connected, leaveRoom, startLive])
 
   return (
-    <main className="min-h-dvh w-full overflow-y-auto bg-sheet px-3 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+1rem)] text-sheet-ink">
+    <main className="h-dvh w-full overflow-y-auto overscroll-contain bg-sheet px-3 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+1rem)] text-sheet-ink">
       <div className="mx-auto w-full max-w-md">
         {!player ? null : !allowed ? (
           <Closed tiktok={player.user.tiktokLinked} />
