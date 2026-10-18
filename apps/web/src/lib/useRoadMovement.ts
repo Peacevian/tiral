@@ -9,6 +9,7 @@ import {
   getDistanceToUpcomingNode,
   getRoadCoordinate,
   getRoadHeading,
+  getUpcomingNode,
   lateTurn,
   type PassedJunction,
   type RoadDirection,
@@ -17,8 +18,19 @@ import {
 } from "@tiral/road-graph"
 
 const WALK_SPEED_METERS_PER_SECOND = 18
+/**
+ * A junction's turns can be picked once it's this close: at least 28 m, or
+ * ~2.5 s of running at the current speed (sprinting covers 28 m in about 1 s).
+ */
 const TURN_DECISION_DISTANCE_METERS = 28
+const TURN_DECISION_SECONDS = 2.5
+/** A picked turn lasts this long on the server; it's renewed until the junction is passed. */
 const TURN_INTENT_TIMEOUT_MS = 3000
+const TURN_INTENT_RENEW_MS = 2000
+
+/** One way on at the next junction, named after its street when it has one. */
+export type JunctionOption = { direction: RoadDirection; name: string | null }
+const DIRECTION_ORDER: readonly RoadDirection[] = ["left", "straight", "right"]
 /**
  * How far the predicted runner may stray from the server's before it's
  * corrected. While moving, the phone legitimately runs ahead of the server by
@@ -63,11 +75,19 @@ export function useRoadMovement(
   const [moving, setMoving] = useState(false)
   const [turnIntent, setTurnIntent] = useState<RoadDirection | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  // Bumped when a picked turn is actually taken at a junction (the bar flashes).
+  const [turnLandedAt, setTurnLandedAt] = useState(0)
   const positionRef = useRef<RoadPosition | null>(null)
   const liveRef = useRef<LiveRunner | null>(null)
   const publishedAtRef = useRef(0)
   const movingRef = useRef(false)
   const turnIntentRef = useRef<{ direction: RoadDirection; expiresAt: number } | null>(null)
+  /**
+   * A turn tapped before its junction was close (or at one without that
+   * road): picked once a junction is close, other than the one skipped.
+   */
+  const queuedRef = useRef<{ direction: RoadDirection; skipNodeId: string | null } | null>(null)
+  const [queuedTurn, setQueuedTurn] = useState<RoadDirection | null>(null)
   // The junction just passed, for a turn tapped a moment late (lateTurn).
   const lastJunctionRef = useRef<PassedJunction | null>(null)
   // A small correction from the server, played out over GLIDE_MS while standing.
@@ -76,6 +96,12 @@ export function useRoadMovement(
   onInputRef.current = onInput
   const lockedRef = useRef(locked)
   lockedRef.current = locked
+
+  /** How close a junction must be for its turns to be picked (by distance or by time at this speed). */
+  const decisionDistance = useCallback(
+    () => Math.max(TURN_DECISION_DISTANCE_METERS, WALK_SPEED_METERS_PER_SECOND * (speedRef?.current ?? 1) * TURN_DECISION_SECONDS),
+    [speedRef]
+  )
 
   /** Move the runner: refs always; React state now, or at most every PUBLISH_EVERY_MS. */
   const commit = useCallback(
@@ -174,6 +200,26 @@ export function useRoadMovement(
         }
       }
 
+      // A turn tapped early becomes the pick once its junction is close.
+      const queued = queuedRef.current
+      if (
+        queued && current &&
+        getUpcomingNode(graph, current)?.id !== queued.skipNodeId &&
+        getDistanceToUpcomingNode(graph, current) <= decisionDistance()
+      ) {
+        queuedRef.current = null
+        setQueuedTurn(null)
+        controlsRef.current.requestTurn(queued.direction)
+      }
+
+      // A picked turn stays picked until the junction: renew it (here and on
+      // the server) before it expires, e.g. while standing still before the turn.
+      const picked = turnIntentRef.current
+      if (picked && current && picked.expiresAt - time < TURN_INTENT_TIMEOUT_MS - TURN_INTENT_RENEW_MS) {
+        turnIntentRef.current = { direction: picked.direction, expiresAt: time + TURN_INTENT_TIMEOUT_MS }
+        onInputRef.current?.({ type: "turn", direction: picked.direction })
+      }
+
       if (movingRef.current && current) {
         const edge = graph.edges[current.edgeId]
         if (edge) {
@@ -197,6 +243,7 @@ export function useRoadMovement(
               const next = enterEdge(chosen.edgeId, nodeId, overflow)
               if (next) {
                 lastJunctionRef.current = { nodeId, candidates, chosenEdgeId: chosen.edgeId, intent }
+                if (intent && intent !== "straight") setTurnLandedAt(time)
                 commit(next)
                 setTurnIntent(null)
                 turnIntentRef.current = null
@@ -223,7 +270,7 @@ export function useRoadMovement(
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [enterEdge, graph, commit])
+  }, [enterEdge, graph, commit, decisionDistance])
 
   // Handlers change with the graph; the listeners are registered once and call
   // the latest ones through this ref (not re-added on every render).
@@ -294,30 +341,37 @@ export function useRoadMovement(
       return
     }
     const distance = getDistanceToUpcomingNode(graph, current)
-    if (distance > TURN_DECISION_DISTANCE_METERS) {
-      setFeedback(`Turn available in ${Math.round(distance)} m`)
+    if (distance > decisionDistance()) {
+      // Too early to see the junction's roads: remember it until it's close.
+      queuedRef.current = { direction, skipNodeId: null }
+      setQueuedTurn(direction)
+      setFeedback(`${direction[0]!.toUpperCase()}${direction.slice(1)} at the next junction`)
       return
     }
     const available = classifyConnectedEdges(graph, current)
     if (!available.some((candidate) => candidate.direction === direction)) {
-      setFeedback(`No ${direction} road here`)
+      // Not at this junction: keep it for the one after.
+      queuedRef.current = { direction, skipNodeId: getUpcomingNode(graph, current)?.id ?? null }
+      setQueuedTurn(direction)
+      setFeedback(`No ${direction} here, so ${direction} at the one after`)
       return
     }
     turnIntentRef.current = { direction, expiresAt: performance.now() + TURN_INTENT_TIMEOUT_MS }
     setTurnIntent(direction)
     onInputRef.current?.({ type: "turn", direction })
     setFeedback(`${direction[0]!.toUpperCase()}${direction.slice(1)} turn selected`)
-  }, [graph, commit])
+  }, [graph, commit, decisionDistance])
 
+  // Running keeps running the other way (the server does the same).
   const turnAround = useCallback(() => {
     if (lockedRef.current) {
       setFeedback("Wait for the race to start")
       return
     }
-    setMoving(false)
-    movingRef.current = false
     onInputRef.current?.({ type: "turnAround" })
     turnIntentRef.current = null
+    queuedRef.current = null
+    setQueuedTurn(null)
     lastJunctionRef.current = null
     glideRef.current = null
     setTurnIntent(null)
@@ -359,6 +413,16 @@ export function useRoadMovement(
     [graph, commit]
   )
 
+  /** Undo a picked or queued turn (tapping the lit arrow again). */
+  const cancelTurn = useCallback(() => {
+    queuedRef.current = null
+    setQueuedTurn(null)
+    turnIntentRef.current = null
+    setTurnIntent(null)
+    // The server's copy runs out on its own (it's no longer renewed).
+    setFeedback(null)
+  }, [])
+
   controlsRef.current = { updateMoving, requestTurn, turnAround }
 
   const coordinate = useMemo(
@@ -373,6 +437,16 @@ export function useRoadMovement(
     () => graph && position ? getDistanceToUpcomingNode(graph, position) : null,
     [graph, position]
   )
+  // The next junction's ways on, once it's close enough to pick one (only the roads that exist).
+  const junction = useMemo<JunctionOption[] | null>(() => {
+    if (!graph || !position || distanceToJunction === null || distanceToJunction > decisionDistance()) return null
+    const candidates = classifyConnectedEdges(graph, position)
+    const options = DIRECTION_ORDER.flatMap((direction) => {
+      const best = chooseBestEdge(candidates, direction)
+      return best ? [{ direction, name: graph.edges[best.edgeId]?.name ?? null }] : []
+    })
+    return options.length > 0 ? options : null
+  }, [graph, position, distanceToJunction, decisionDistance])
 
   return {
     position,
@@ -380,13 +454,20 @@ export function useRoadMovement(
     heading,
     moving,
     turnIntent,
+    /** A turn tapped before its junction was close (it becomes turnIntent there). */
+    queuedTurn,
     feedback,
     distanceToJunction,
+    /** The next junction's choices once it's close (null otherwise). */
+    junction,
+    /** performance.now() of the last turn actually taken (for a flash / vibration). */
+    turnLandedAt,
     /** Read every frame to draw the runner smoothly (React state lags up to 100 ms). */
     live: liveRef,
     setMoving: updateMoving,
     requestTurn,
     turnAround,
+    cancelTurn,
     reconcile
   }
 }

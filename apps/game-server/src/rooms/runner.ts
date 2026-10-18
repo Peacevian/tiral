@@ -208,9 +208,9 @@ export function requestTurn(graph: RoadGraph, runner: Runner, direction: RoadDir
   runner.turnIntent = { direction, expiresAt: now + TURN_INTENT_TIMEOUT_MS }
 }
 
+/** Face the other way on the same road; a runner who was running keeps running. */
 export function turnAround(runner: Runner) {
   if (!runner.roadPosition) return
-  runner.moving = false
   runner.turnIntent = null
   runner.lastJunction = null
   runner.roadPosition = {
