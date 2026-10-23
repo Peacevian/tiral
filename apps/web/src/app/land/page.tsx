@@ -15,8 +15,9 @@ import {
   WALL_COLOURS,
   allPlots,
   buildProgress,
+  buildReadyAt,
   buildingCost,
-  buildingHours,
+  buildingMinutes,
   claimCost,
   findPlot,
   weeklyGroundRent,
@@ -418,7 +419,17 @@ function timeLeft(ms: number): string {
 /** What's on your plot: going up (and how long), or finished. */
 function OnThePlot({ building, home, busy, onDemolish, onMoveIn }: { building: Building; home: boolean; busy: boolean; onDemolish(): void; onMoveIn(): void }) {
   const design = BUILDING_DESIGNS[building.design]
+  // Builds take minutes: keep the progress bar moving, and tell the city when it's done.
+  const [, setTick] = useState(0)
   const { progress, ready } = buildProgress(building)
+  useEffect(() => {
+    if (ready) return
+    const timer = window.setInterval(() => {
+      setTick((t) => t + 1)
+      if (buildProgress(building).ready) notifyLandChanged()
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [ready, building])
   return (
     <div>
       <div className="text-sm font-black">
@@ -445,7 +456,7 @@ function OnThePlot({ building, home, busy, onDemolish, onMoveIn }: { building: B
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-sheet-soft">
             <div className="h-full rounded-full bg-flame" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
-          <p className="mt-1 text-sm text-sheet-mute">Going up: ready in {timeLeft(new Date(building.readyAt).getTime() - Date.now())}.</p>
+          <p className="mt-1 text-sm text-sheet-mute">Going up: ready in {timeLeft(buildReadyAt(building).getTime() - Date.now())}.</p>
         </>
       )}
       <ConfirmButton
@@ -474,7 +485,7 @@ function BuildPlanner({ balance, busy, onBuild }: { balance: number; busy: boole
     setFloors(BUILDING_DESIGNS[id].minFloors)
   }
   const cost = buildingCost(design, floors)
-  const hours = buildingHours(design, floors)
+  const minutes = buildingMinutes(design, floors)
   return (
     <div>
       <div className="text-xs font-bold uppercase tracking-[0.12em] text-sheet-mute">Build</div>
@@ -533,7 +544,7 @@ function BuildPlanner({ balance, busy, onBuild }: { balance: number; busy: boole
         <dt className="text-sheet-mute">Cost</dt>
         <dd className="text-right font-black text-flame-deep">{formatCoins(cost)} BNG</dd>
         <dt className="text-sheet-mute">Building time</dt>
-        <dd className="text-right font-bold">{timeLeft(hours * 3_600_000)}</dd>
+        <dd className="text-right font-bold">{timeLeft(minutes * 60_000)}</dd>
       </dl>
       {balance < cost ? (
         <p className="mt-3 text-sm font-bold text-flame-deep">You need {formatCoins(cost - balance)} more BNG.</p>

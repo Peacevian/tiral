@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { BUILDING_DESIGNS, BUILDING_DESIGN_IDS, PLOT_SIZE_METERS, ROOF_COLOURS, WALL_COLOURS, buildProgress, buildingCost, checkPlan, cleanSign, ownHouseLook, readBuilding } from "./index.js"
+import { BUILDING_DESIGNS, BUILDING_DESIGN_IDS, PLOT_SIZE_METERS, ROOF_COLOURS, WALL_COLOURS, buildProgress, buildReadyAt, buildingCost, buildingMinutes, checkPlan, cleanSign, ownHouseLook, readBuilding } from "./index.js"
 
 const wall = WALL_COLOURS[0]
 const roof = ROOF_COLOURS[0]
@@ -48,13 +48,22 @@ describe("plans", () => {
 
 describe("construction", () => {
   it("goes from 0 to ready over the build time", () => {
-    const b = { startedAt: "2026-10-24T00:00:00Z", readyAt: "2026-10-24T10:00:00Z" }
-    expect(buildProgress(b, new Date("2026-10-24T05:00:00Z"))).toEqual({ progress: 0.5, ready: false })
-    expect(buildProgress(b, new Date("2026-10-24T11:00:00Z"))).toEqual({ progress: 1, ready: true })
+    const shop = { design: "shop" as const, floors: 2, startedAt: "2026-10-24T00:00:00Z" }
+    expect(buildingMinutes(BUILDING_DESIGNS.shop, 2)).toBe(8)
+    expect(buildReadyAt(shop).toISOString()).toBe("2026-10-24T00:08:00.000Z")
+    expect(buildProgress(shop, new Date("2026-10-24T00:04:00Z"))).toEqual({ progress: 0.5, ready: false })
+    expect(buildProgress(shop, new Date("2026-10-24T00:09:00Z"))).toEqual({ progress: 1, ready: true })
+  })
+
+  it("takes minutes, an hour at most", () => {
+    expect(buildingMinutes(BUILDING_DESIGNS.kiosk, 1)).toBe(2)
+    expect(buildingMinutes(BUILDING_DESIGNS.house, 2)).toBe(25)
+    expect(buildingMinutes(BUILDING_DESIGNS.flats, 6)).toBe(35)
+    expect(buildingMinutes(BUILDING_DESIGNS.office, 10)).toBe(60)
   })
 
   it("reads back what was stored, and nothing broken", () => {
-    const stored = { design: "bar", floors: 1, wall, roof, sign: "Club 7", cost: 1_500_000, startedAt: "a", readyAt: "b" }
+    const stored = { design: "bar", floors: 1, wall, roof, sign: "Club 7", cost: 1_500_000, startedAt: "2026-10-24T00:00:00Z", readyAt: "2026-10-25T00:00:00Z" }
     expect(readBuilding(stored)?.sign).toBe("Club 7")
     expect(readBuilding({ ...stored, design: "castle" })).toBeNull()
     expect(readBuilding(null)).toBeNull()

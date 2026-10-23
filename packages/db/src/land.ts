@@ -1,6 +1,5 @@
 import { and, eq, sql } from "drizzle-orm"
 import {
-  HOUR_MS,
   MAX_PLOTS_PER_PLAYER,
   RENT_WEEK_MS,
   buildProgress,
@@ -22,8 +21,8 @@ import { coinLedger, landPlots, users } from "./schema.js"
 // Claiming land and paying its ground rent (docs/land.md). A plot is bought
 // outright (plus its first week's rent); rent is then paid ahead, week by
 // week; more than RENT_GRACE_WEEKS behind and the plot is back on the market
-// for anyone to claim. Building on a plot is paid up front and takes real
-// time; a finished house can be lived in (users.home_plot_id: no rent while
+// for anyone to claim. Building on a plot is paid up front and takes a few
+// minutes; a finished house can be lived in (users.home_plot_id: no rent while
 // it stands). Ledger reasons: land_claim, land_rent, land_build, house_move.
 
 /** A claimed plot as everyone sees it on the map (and what's built on it). */
@@ -191,7 +190,7 @@ export async function startBuilding(input: { userId: string; plotId: string; pla
     if (balance < check.cost) return { ok: false, reason: "insufficient", balance }
     const inserted = await insertEntry(tx, { userId: input.userId, delta: -check.cost, reason: "land_build", refId: input.refId, meta: { plot: row.plotId, design: check.plan.design, floors: check.plan.floors } })
     if (!inserted) return { ok: true, plot: null, balance }
-    const building: Building = { ...check.plan, cost: check.cost, startedAt: now.toISOString(), readyAt: new Date(now.getTime() + check.hours * HOUR_MS).toISOString() }
+    const building: Building = { ...check.plan, cost: check.cost, startedAt: now.toISOString(), readyAt: new Date(now.getTime() + check.minutes * 60_000).toISOString() }
     await tx.update(landPlots).set({ building }).where(eq(landPlots.plotId, row.plotId))
     const mine = (await getMyPlots(input.userId, tx, now)).find((p) => p.plotId === row.plotId) ?? null
     return { ok: true, plot: mine, balance: balance - check.cost }

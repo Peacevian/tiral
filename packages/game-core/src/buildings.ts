@@ -1,7 +1,8 @@
 // What players build on their plots (docs/land.md, phase 2): ready-made
 // designs they make their own with colours, floors (within limits) and a
-// sign. Building is paid up front and takes real time; meanwhile the 3D city
-// shows scaffolding. A house can be lived in instead of renting.
+// sign. Building is paid up front and takes a few minutes (an office tower up
+// to an hour); meanwhile the 3D city shows scaffolding. A house can be lived
+// in instead of renting.
 
 export type BuildingDesignId = "kiosk" | "shop" | "bar" | "flats" | "office" | "house"
 
@@ -15,9 +16,9 @@ export type BuildingDesign = {
   /** Cost with the fewest floors, and for each floor above that. */
   cost: number
   costPerFloor: number
-  /** Build time with the fewest floors, and for each floor above that. */
-  hours: number
-  hoursPerFloor: number
+  /** Build time in minutes with the fewest floors, and for each floor above that. */
+  minutes: number
+  minutesPerFloor: number
   /** Footprint in metres: along the street, and back from it. */
   width: number
   depth: number
@@ -28,12 +29,12 @@ export type BuildingDesign = {
 }
 
 export const BUILDING_DESIGNS: Record<BuildingDesignId, BuildingDesign> = {
-  kiosk: { id: "kiosk", name: "Kiosk", icon: "🏪", blurb: "A small kiosk on the street: airtime, sweets, a rolex stand.", minFloors: 1, maxFloors: 1, cost: 150_000, costPerFloor: 0, hours: 6, hoursPerFloor: 0, width: 4, depth: 3, setback: 1, signed: true },
-  shop: { id: "shop", name: "Shop", icon: "🛍️", blurb: "Lock-up shops along the front, a store room upstairs.", minFloors: 1, maxFloors: 2, cost: 400_000, costPerFloor: 200_000, hours: 12, hoursPerFloor: 6, width: 14, depth: 10, setback: 1.5, signed: true },
-  bar: { id: "bar", name: "Bar", icon: "🍻", blurb: "A bar and restaurant: music, pork and cold drinks.", minFloors: 1, maxFloors: 2, cost: 1_500_000, costPerFloor: 500_000, hours: 24, hoursPerFloor: 12, width: 15, depth: 12, setback: 3, signed: true },
-  flats: { id: "flats", name: "Flats", icon: "🏢", blurb: "A block of flats with balconies.", minFloors: 2, maxFloors: 6, cost: 1_500_000, costPerFloor: 500_000, hours: 36, hoursPerFloor: 12, width: 16, depth: 14, setback: 2.5, signed: false },
-  office: { id: "office", name: "Office tower", icon: "🏙️", blurb: "Glass offices: your mark on the skyline.", minFloors: 4, maxFloors: 10, cost: 10_000_000, costPerFloor: 1_000_000, hours: 72, hoursPerFloor: 12, width: 16, depth: 16, setback: 2, signed: true },
-  house: { id: "house", name: "House", icon: "🏡", blurb: "Your own house with a compound: live in it and stop paying rent.", minFloors: 1, maxFloors: 2, cost: 2_000_000, costPerFloor: 2_500_000, hours: 36, hoursPerFloor: 24, width: 12, depth: 10, setback: 5, signed: false }
+  kiosk: { id: "kiosk", name: "Kiosk", icon: "🏪", blurb: "A small kiosk on the street: airtime, sweets, a rolex stand.", minFloors: 1, maxFloors: 1, cost: 150_000, costPerFloor: 0, minutes: 2, minutesPerFloor: 0, width: 4, depth: 3, setback: 1, signed: true },
+  shop: { id: "shop", name: "Shop", icon: "🛍️", blurb: "Lock-up shops along the front, a store room upstairs.", minFloors: 1, maxFloors: 2, cost: 400_000, costPerFloor: 200_000, minutes: 5, minutesPerFloor: 3, width: 14, depth: 10, setback: 1.5, signed: true },
+  bar: { id: "bar", name: "Bar", icon: "🍻", blurb: "A bar and restaurant: music, pork and cold drinks.", minFloors: 1, maxFloors: 2, cost: 1_500_000, costPerFloor: 500_000, minutes: 10, minutesPerFloor: 5, width: 15, depth: 12, setback: 3, signed: true },
+  flats: { id: "flats", name: "Flats", icon: "🏢", blurb: "A block of flats with balconies.", minFloors: 2, maxFloors: 6, cost: 1_500_000, costPerFloor: 500_000, minutes: 15, minutesPerFloor: 5, width: 16, depth: 14, setback: 2.5, signed: false },
+  office: { id: "office", name: "Office tower", icon: "🏙️", blurb: "Glass offices: your mark on the skyline.", minFloors: 4, maxFloors: 10, cost: 10_000_000, costPerFloor: 1_000_000, minutes: 30, minutesPerFloor: 5, width: 16, depth: 16, setback: 2, signed: true },
+  house: { id: "house", name: "House", icon: "🏡", blurb: "Your own house with a compound: live in it and stop paying rent.", minFloors: 1, maxFloors: 2, cost: 2_000_000, costPerFloor: 2_500_000, minutes: 15, minutesPerFloor: 10, width: 12, depth: 10, setback: 5, signed: false }
 }
 
 export const BUILDING_DESIGN_IDS = Object.keys(BUILDING_DESIGNS) as BuildingDesignId[]
@@ -49,14 +50,15 @@ export const FLOOR_HEIGHT_METERS = 3.2
 export type BuildingPlan = { design: BuildingDesignId; floors: number; wall: string; roof: string; sign: string | null }
 
 /** A building on a plot, as stored (land_plots.building). */
-export type Building = BuildingPlan & { cost: number; startedAt: string; readyAt: string }
+/** `readyAt` is when it was due to finish under the build times when it started (kept for the record; progress follows today's times, buildReadyAt). */
+export type Building = BuildingPlan & { cost: number; startedAt: string; readyAt?: string }
 
 export function buildingCost(design: BuildingDesign, floors: number): number {
   return design.cost + design.costPerFloor * (floors - design.minFloors)
 }
 
-export function buildingHours(design: BuildingDesign, floors: number): number {
-  return design.hours + design.hoursPerFloor * (floors - design.minFloors)
+export function buildingMinutes(design: BuildingDesign, floors: number): number {
+  return design.minutes + design.minutesPerFloor * (floors - design.minFloors)
 }
 
 /** Height in metres (a bar and a shop have a tall ground floor). */
@@ -79,7 +81,7 @@ export function cleanSign(text: string): string | null {
   return tidy
 }
 
-export type PlanCheck = { ok: true; plan: BuildingPlan; cost: number; hours: number } | { ok: false; error: string }
+export type PlanCheck = { ok: true; plan: BuildingPlan; cost: number; minutes: number } | { ok: false; error: string }
 
 /** Check (and tidy) what a player wants to build. */
 export function checkPlan(input: { design?: unknown; floors?: unknown; wall?: unknown; roof?: unknown; sign?: unknown }): PlanCheck {
@@ -95,13 +97,22 @@ export function checkPlan(input: { design?: unknown; floors?: unknown; wall?: un
     sign = cleanSign(input.sign)
     if (!sign) return { ok: false, error: `Signs are up to ${SIGN_MAX} letters and numbers, and nothing rude.` }
   }
-  return { ok: true, plan: { design: design.id, floors, wall, roof, sign }, cost: buildingCost(design, floors), hours: buildingHours(design, floors) }
+  return { ok: true, plan: { design: design.id, floors, wall, roof, sign }, cost: buildingCost(design, floors), minutes: buildingMinutes(design, floors) }
+}
+
+/**
+ * When a building is finished: when it was started plus its design's build
+ * time as it is today (so changing the times also moves buildings already
+ * going up).
+ */
+export function buildReadyAt(building: Pick<Building, "design" | "floors" | "startedAt">): Date {
+  return new Date(new Date(building.startedAt).getTime() + buildingMinutes(BUILDING_DESIGNS[building.design], building.floors) * 60_000)
 }
 
 /** How far along a building is (0 to 1), and whether it's finished. */
-export function buildProgress(building: Pick<Building, "startedAt" | "readyAt">, now: Date = new Date()): { progress: number; ready: boolean } {
+export function buildProgress(building: Pick<Building, "design" | "floors" | "startedAt">, now: Date = new Date()): { progress: number; ready: boolean } {
   const start = new Date(building.startedAt).getTime()
-  const end = new Date(building.readyAt).getTime()
+  const end = buildReadyAt(building).getTime()
   const progress = end <= start ? 1 : Math.min(1, Math.max(0, (now.getTime() - start) / (end - start)))
   return { progress, ready: now.getTime() >= end }
 }
@@ -111,8 +122,8 @@ export function readBuilding(value: unknown): Building | null {
   if (!value || typeof value !== "object") return null
   const v = value as Record<string, unknown>
   const check = checkPlan({ design: v.design, floors: v.floors, wall: v.wall, roof: v.roof, sign: v.sign })
-  if (!check.ok || typeof v.startedAt !== "string" || typeof v.readyAt !== "string" || typeof v.cost !== "number") return null
-  return { ...check.plan, cost: v.cost, startedAt: v.startedAt, readyAt: v.readyAt }
+  if (!check.ok || typeof v.startedAt !== "string" || Number.isNaN(Date.parse(v.startedAt)) || typeof v.cost !== "number") return null
+  return { ...check.plan, cost: v.cost, startedAt: v.startedAt, ...(typeof v.readyAt === "string" ? { readyAt: v.readyAt } : {}) }
 }
 
 /** Your own house's look on the Home page: a bungalow, or a house with a garden. */
