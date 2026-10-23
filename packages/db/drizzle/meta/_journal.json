@@ -134,6 +134,13 @@
       "when": 1792740733055,
       "tag": "0018_land_plots",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792743212048,
+      "tag": "0019_home_plot",
+      "breakpoints": true
     }
   ]
 }

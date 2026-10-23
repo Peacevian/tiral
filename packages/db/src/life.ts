@@ -14,6 +14,7 @@ import {
   kampalaDay,
   kampalaDayStart,
   pickLifeEvent,
+  ownHouseLook,
   settleRent,
   type HousingTierId
 } from "@tiral/game-core"
@@ -24,6 +25,7 @@ import { settleLeases } from "./garage.js"
 import { getTier } from "./livtok.js"
 import { countHouseItems } from "./house.js"
 import { movingFee } from "@tiral/houses"
+import { ownHome } from "./land.js"
 
 export type LifeEventView = {
   id: string
@@ -38,7 +40,10 @@ export type LifeEventView = {
 }
 
 export type LifeState = {
+  /** Where you live: a rented home, or (id = its look) the house you built. */
   tier: { id: string; name: string; rent: number }
+  /** Living in the house you built on your plot (no rent while it stands). */
+  ownHome: { plotId: string; areaName: string } | null
   rentDueAt: string
   stress: number
   balance: number
@@ -54,6 +59,10 @@ const RENT_NOTICE_TEXT: Record<string, (meta: Record<string, unknown>) => { from
   evicted: (meta) => ({
     from: "Landlord",
     text: `You couldn't make rent, so you moved down to ${findTier(String(meta.to)).name}.`
+  }),
+  home_lost: (meta) => ({
+    from: "Land office",
+    text: `The house on your plot is gone, so you're back at ${findTier(String(meta.to)).name}. Rent is due there again.`
   }),
   rent_grace: (meta) => ({
     from: "Landlord",
@@ -144,10 +153,18 @@ function viewEvent(row: typeof lifeEvents.$inferSelect): LifeEventView {
   }
 }
 
+/** Where you live, as LifeState shows it. */
+function homeView(houseTier: string, own: { plotId: string; floors: number; areaName: string } | null) {
+  if (own) return { tier: { id: ownHouseLook(own.floors), name: `Your house, ${own.areaName}`, rent: 0 }, ownHome: { plotId: own.plotId, areaName: own.areaName } }
+  const tier = findTier(houseTier)
+  return { tier: { id: tier.id, name: tier.name, rent: tier.rent }, ownHome: null }
+}
+
 async function readLifeRow(tx: Tx | Database, userId: string) {
   const rows = await tx
     .select({
       houseTier: users.houseTier,
+      homePlotId: users.homePlotId,
       rentDueAt: users.rentDueAt,
       stress: users.stress,
       stressAt: users.stressAt,
@@ -172,10 +189,9 @@ export async function readLife(userId: string, db: Database = getDatabase()): Pr
     balanceOf(db, userId),
     db.select().from(lifeEvents).where(eq(lifeEvents.userId, userId)).orderBy(desc(lifeEvents.createdAt)).limit(20)
   ])
-  const tier = findTier(row.houseTier)
   const rentDueAt = row.rentDueAt ?? new Date(now.getTime() + RENT_PERIOD_HOURS * HOUR_MS)
   return {
-    tier: { id: tier.id, name: tier.name, rent: tier.rent },
+    ...homeView(row.houseTier, await ownHome(userId, row.homePlotId, db, now)),
     rentDueAt: rentDueAt.toISOString(),
     stress: currentStress(row.stress ?? STRESS_START, row.stressAt, now, row.calmFactor),
     balance,
@@ -220,8 +236,17 @@ export async function syncLife(userId: string, db: Database = getDatabase()): Pr
       }
     }
 
-    // 2. Rent.
-    const settlement = settleRent({ tier: row.houseTier, rentDueAt, balance }, now)
+    // 2. Rent: none while you live in the house you built (the clock rolls on,
+    // so moving back to a rented home starts a fresh period). If that house
+    // is gone (plot lost or knocked down), you're back in your rented home.
+    const own = await ownHome(userId, row.homePlotId, tx, now)
+    if (row.homePlotId && !own) {
+      await tx.update(users).set({ homePlotId: null }).where(eq(users.id, userId))
+      await tx.insert(lifeEvents).values({ userId, kind: "home_lost", amount: 0, status: "info", meta: { plot: row.homePlotId, to: row.houseTier } })
+    }
+    const settlement = own
+      ? { tier: row.houseTier as HousingTierId, rentDueAt: new Date(Math.max(rentDueAt.getTime(), now.getTime() + RENT_PERIOD_HOURS * HOUR_MS)), notices: [], charged: 0, stressDelta: 0 }
+      : settleRent({ tier: row.houseTier, rentDueAt, balance }, now)
     for (const notice of settlement.notices) {
       const meta =
         notice.kind === "evicted"
@@ -294,9 +319,8 @@ export async function syncLife(userId: string, db: Database = getDatabase()): Pr
       .where(eq(lifeEvents.userId, userId))
       .orderBy(desc(lifeEvents.createdAt))
       .limit(20)
-    const tier = findTier(settlement.tier)
     return {
-      tier: { id: tier.id, name: tier.name, rent: tier.rent },
+      ...homeView(settlement.tier, own),
       rentDueAt: settlement.rentDueAt.toISOString(),
       stress,
       balance,
@@ -362,15 +386,16 @@ export async function moveHouse(
   return db.transaction(async (tx) => {
     await lockUser(tx, userId)
     if (!homeOpenTo(tierId, await getTier(userId, tx))) return { ok: false, reason: "career", fee: 0 }
-    const [user] = await tx.select({ houseTier: users.houseTier }).from(users).where(eq(users.id, userId)).limit(1)
-    if (user?.houseTier === tierId) return { ok: false, reason: "same", fee: 0 }
+    const [user] = await tx.select({ houseTier: users.houseTier, home: users.homePlotId }).from(users).where(eq(users.id, userId)).limit(1)
+    // Living in your own house, moving back to the same rented home is a move.
+    if (user?.houseTier === tierId && !user.home) return { ok: false, reason: "same", fee: 0 }
     // Your furniture comes with you: a boda, a pickup or a lorry.
     const { fee, by } = movingFee(await countHouseItems(userId, tx))
     if (fee > 0) {
       if ((await balanceOf(tx, userId)) < fee) return { ok: false, reason: "insufficient", fee }
       await insertEntry(tx, { userId, delta: -fee, reason: "house_move", refId: `${tierId}:${Date.now()}`, meta: { to: tierId, by } })
     }
-    await tx.update(users).set({ houseTier: findTier(tierId).id }).where(eq(users.id, userId))
+    await tx.update(users).set({ houseTier: findTier(tierId).id, homePlotId: null }).where(eq(users.id, userId))
     return { ok: true, fee }
   })
 }

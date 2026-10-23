@@ -18,6 +18,7 @@ export const MAX_RENT_WEEKS_AHEAD = 8
 
 export type PlotArea = "central" | "lugogo"
 export type Frontage = "main" | "street" | "back"
+export type Facing = "north" | "east" | "south" | "west"
 
 export type Plot = {
   id: string
@@ -26,6 +27,8 @@ export type Plot = {
   price: number
   frontage: Frontage
   area: PlotArea
+  /** The side towards the nearest street: where a building's front goes. */
+  facing: Facing
   /** North-west, north-east, south-east, south-west. */
   corners: [LatLng, LatLng, LatLng, LatLng]
   center: LatLng
@@ -57,8 +60,9 @@ export function plotId(gx: number, gy: number): string {
 
 const AREAS: PlotArea[] = ["central", "lugogo"]
 const FRONTAGES: Frontage[] = ["back", "street", "main"]
+const FACINGS: Facing[] = ["north", "east", "south", "west"]
 
-function toPlot([gx, gy, price, frontage, area]: readonly [number, number, number, 0 | 1 | 2, 0 | 1]): Plot {
+function toPlot([gx, gy, price, frontage, area, facing]: (typeof LAND_PLOT_ROWS)[number]): Plot {
   const x0 = gx * PLOT_SIZE_METERS
   const y0 = gy * PLOT_SIZE_METERS
   const x1 = x0 + PLOT_SIZE_METERS
@@ -70,6 +74,7 @@ function toPlot([gx, gy, price, frontage, area]: readonly [number, number, numbe
     price,
     frontage: FRONTAGES[frontage]!,
     area: AREAS[area]!,
+    facing: FACINGS[facing]!,
     corners: [landToLatLng(x0, y0), landToLatLng(x1, y0), landToLatLng(x1, y1), landToLatLng(x0, y1)],
     center: landToLatLng(x0 + PLOT_SIZE_METERS / 2, y0 + PLOT_SIZE_METERS / 2)
   }

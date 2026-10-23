@@ -238,6 +238,49 @@ export function houseTexture() {
   })
 }
 
+/** A building going up: grey blocks behind scaffolding poles and planks (one floor a tile). */
+export function scaffoldTexture() {
+  return canvas(128, 128, (ctx, w, h) => {
+    ctx.fillStyle = "#B9B4AA"
+    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = "rgba(0,0,0,0.12)"
+    for (let y = 0; y < h; y += 12) for (let x = (y / 12) % 2 ? 0 : 16; x < w; x += 32) ctx.fillRect(x, y, 30, 10)
+    ctx.fillStyle = "#7A5C3A"
+    for (const x of [6, 64, 122]) ctx.fillRect(x - 3, 0, 6, h)
+    ctx.fillStyle = "#9C7A4E"
+    ctx.fillRect(0, h * 0.45, w, 7)
+    ctx.fillRect(0, h - 9, w, 7)
+  })
+}
+
+/** A shop sign: the name in white on a painted board. */
+export function signTexture(text: string, board: string) {
+  const texture = new THREE.CanvasTexture(
+    paint(512, 96, (ctx, w, h) => {
+      ctx.fillStyle = board
+      ctx.fillRect(0, 0, w, h)
+      ctx.strokeStyle = "rgba(255,255,255,0.6)"
+      ctx.lineWidth = 4
+      ctx.strokeRect(6, 6, w - 12, h - 12)
+      ctx.fillStyle = "#FFFFFF"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      let size = 60
+      do {
+        ctx.font = `900 ${size}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`
+        size -= 2
+      } while (ctx.measureText(text).width > w - 40 && size > 18)
+      ctx.fillText(text, w / 2, h / 2 + 2)
+    })
+  )
+  texture.colorSpace = THREE.SRGBColorSpace
+  // The map's frame is mirrored (y runs south), so a plane facing the street
+  // shows its texture back to front: flip it to read left to right.
+  texture.repeat.x = -1
+  texture.offset.x = 1
+  return texture
+}
+
 /** Pavement: worn concrete slabs and red murram showing through (a map fill pattern, under the map's roads). */
 export function groundImage(): ImageData {
   const element = paint(128, 128, (ctx, w, h) => {

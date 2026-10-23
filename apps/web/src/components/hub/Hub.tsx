@@ -153,7 +153,7 @@ function NeedsAttention() {
     <section aria-labelledby="attention-title">
       <SectionTitle id="attention-title">Needs attention</SectionTitle>
       <div className="divide-y divide-sheet-line overflow-hidden rounded-xl border border-sheet-line bg-sheet-card">
-        {life && (short > 0 || dueSoon) && (
+        {life && !life.ownHome && (short > 0 || dueSoon) && (
           <AttentionRow
             icon="🏠"
             title={`Rent due ${untilText(life.rentDueAt)}`}

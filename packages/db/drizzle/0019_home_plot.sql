@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "home_plot_id" text;

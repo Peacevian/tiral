@@ -26,7 +26,7 @@ const WHITE = new THREE.Color("#ffffff")
 const TOWER_ROOF = new THREE.Color("#C9C6C0")
 
 /** Geometry under construction: positions, uvs, colours and triangles. */
-class Builder {
+export class Builder {
   positions: number[] = []
   uvs: number[] = []
   colors: number[] = []
@@ -68,7 +68,7 @@ class Builder {
 const SUN = new THREE.Vector2(-0.8, -0.35).normalize()
 
 /** Walls of one band around a ring, UVs in bays and floors, sun baked into the colour. */
-function walls(builder: Builder, ring: number[][], z0: number, z1: number, color: THREE.Color, bayWidth: number, floorHeight: number) {
+export function walls(builder: Builder, ring: number[][], z0: number, z1: number, color: THREE.Color, bayWidth: number, floorHeight: number) {
   let along = 0
   for (let i = 0; i < ring.length - 1; i++) {
     const [ax, ay] = ring[i]!

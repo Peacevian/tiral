@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { notFound } from "next/navigation"
 import dynamic from "next/dynamic"
+import { BUILDING_DESIGNS, ROOF_COLOURS, WALL_COLOURS, allPlots, buildingHours, type BuildingDesignId } from "@tiral/game-core"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const ThreeLayer = dynamic(() => import("@/components/ThreeLayer").then((m) => m.ThreeLayer), { ssr: false })
@@ -11,6 +12,8 @@ const City = dynamic(() => import("@/components/city/City").then((m) => m.City),
 // Tiral's city on the map, to look at and measure (window.__cityStats).
 // Development only. ?view=street: down at shop level; ?view=lugogo: Kyadondo's
 // corner; ?view=kisenyi: dense houses; ?view=race: the race camera's zoom.
+// ?buildings=demo: one of each player building on real plots nearest the
+// view (one still going up), to look at without a database.
 
 const VIEWS = {
   city: { lat: 0.3132, lng: 32.5828, zoom: 17.2, pitch: 62, bearing: -35 },
@@ -30,11 +33,16 @@ export default function CityBench() {
   const [view, setView] = useState<(typeof VIEWS)[keyof typeof VIEWS] | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    setView(VIEWS[(params.get("view") ?? "city") as keyof typeof VIEWS] ?? VIEWS.city)
+    const chosen = VIEWS[(params.get("view") ?? "city") as keyof typeof VIEWS] ?? VIEWS.city
+    if (params.get("buildings") === "demo") (window as unknown as { __demoLand?: unknown }).__demoLand = demoLand(chosen)
+    setView(chosen)
   }, [])
   return (
     <main className="relative h-dvh w-screen bg-sheet">
-      {view && <MapView center={{ lat: view.lat, lng: view.lng }} zoom={view.zoom} pitch={view.pitch} bearing={view.bearing} onMapReady={setMap} />}
+      {view && <MapView center={{ lat: view.lat, lng: view.lng }} zoom={view.zoom} pitch={view.pitch} bearing={view.bearing} onMapReady={(ready) => {
+        setMap(ready)
+        ;(window as unknown as { __devMap?: maplibregl.Map }).__devMap = ready
+      }} />}
       {map && (
         <ThreeLayer map={map}>
           <City map={map} />
@@ -75,4 +83,31 @@ function Diagnostics() {
     }
   }, [])
   return <pre className="absolute left-2 top-2 z-50 max-w-[90vw] whitespace-pre-wrap rounded bg-black/75 p-2 text-[11px] leading-tight text-white">{text}</pre>
+}
+
+/** One of each design (plus one going up) on the plots nearest a point. */
+function demoLand(near: { lat: number; lng: number }) {
+  const plots = allPlots()
+    .map((plot) => ({ plot, d: Math.hypot(plot.center.lat - near.lat, plot.center.lng - near.lng) }))
+    .sort((a, b) => a.d - b.d)
+    .map((x) => x.plot)
+  const plans: Array<[BuildingDesignId, number, string | null, number]> = [
+    ["kiosk", 1, "Rolex Point", 1],
+    ["shop", 2, "Mama Rose Shop", 1],
+    ["bar", 2, "Club Bukoto", 1],
+    ["flats", 5, null, 1],
+    ["office", 8, "Nakasero House", 1],
+    ["house", 2, null, 1],
+    ["house", 1, null, 1],
+    ["flats", 4, null, 0.4]
+  ]
+  const now = Date.now()
+  return plans.map(([design, floors, sign, progress], i) => {
+    const hours = buildingHours(BUILDING_DESIGNS[design], floors)
+    const startedAt = new Date(now - progress * hours * 3_600_000).toISOString()
+    return {
+      plotId: plots[i * 2]!.id,
+      building: { design, floors, wall: WALL_COLOURS[(i * 3) % WALL_COLOURS.length]!, roof: ROOF_COLOURS[i % ROOF_COLOURS.length]!, sign, cost: 0, startedAt, readyAt: new Date(Date.parse(startedAt) + hours * 3_600_000).toISOString() }
+    }
+  })
 }
