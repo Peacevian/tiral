@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
+import { cityEnabled } from "@/lib/deviceTier"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type maplibregl from "maplibre-gl"
@@ -74,6 +75,7 @@ const ThreeLayer = dynamic(
   () => import("@/components/ThreeLayer").then((module) => ({ default: module.ThreeLayer })),
   { ssr: false }
 )
+const City = dynamic(() => import("@/components/city/City").then((module) => ({ default: module.City })), { ssr: false })
 const Avatar3D = dynamic(
   () => import("@/components/Avatar3D").then((module) => ({ default: module.Avatar3D })),
   { ssr: false }
@@ -95,6 +97,9 @@ const REMOTE_COLORS = [
 
 export default function Home() {
   const [map, setMap] = useState<maplibregl.Map | null>(null)
+  // Tiral's own 3D city over the map (strong phones; see components/city).
+  const [city, setCity] = useState(false)
+  useEffect(() => setCity(cityEnabled()), [])
   const [graph, setGraph] = useState<RoadGraph | null>(null)
   const [loadingRoads, setLoadingRoads] = useState(true)
   const [roadError, setRoadError] = useState<string | null>(null)
@@ -521,6 +526,12 @@ export default function Home() {
             bearing={-18}
             onMapReady={onMapReady}
           />
+          {/* Tiral's 3D city on the lobby map too (inside the map's box, so it lines up). */}
+          {map && city && (
+            <ThreeLayer map={map}>
+              <City map={map} />
+            </ThreeLayer>
+          )}
         </div>
         {map && <BillboardLayer map={map} pins={billboardPins} onPinClick={setBrandCardPin} />}
         {map && player && <VenuePins map={map} onOpen={setVenueCard} />}
@@ -630,6 +641,7 @@ export default function Home() {
 
       {map && (
         <ThreeLayer map={map}>
+          {city && <City map={map} />}
           {/* Map world is z-up (three defaults to y-up): sky from above, ground below. */}
           <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
           <directionalLight position={[4, 8, 10]} intensity={2.2} />

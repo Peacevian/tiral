@@ -45,3 +45,22 @@ export function isDataSaver(): boolean {
   const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
   return Boolean(connection?.saveData) || ["slow-2g", "2g"].includes(connection?.effectiveType ?? "")
 }
+
+/**
+ * Tiral's city: is it on for this phone? On for computers and strong phones;
+ * cheap phones keep the map's plain blocks until it's been tried on one.
+ * `?city=1` / `?city=0` turns it on or off on any phone (remembered).
+ */
+export function cityEnabled(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    const asked = new URLSearchParams(window.location.search).get("city")
+    if (asked === "1" || asked === "0") localStorage.setItem("tiral-city", asked)
+    const saved = localStorage.getItem("tiral-city")
+    if (saved === "1") return true
+    if (saved === "0") return false
+  } catch {
+    // Storage blocked: fall back to the phone's tier.
+  }
+  return !isLiteDevice()
+}
