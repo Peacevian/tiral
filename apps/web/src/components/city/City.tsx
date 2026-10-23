@@ -4,7 +4,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import { lngLatToMercator, mercatorToLngLat } from "@tiral/map"
-import { buildProgress, findPlot, type Building } from "@tiral/game-core"
+import maplibregl from "maplibre-gl"
+import { BUILDING_DESIGNS, buildProgress, findPlot, type Building } from "@tiral/game-core"
 import { LAND_CHANGED_EVENT } from "@/lib/landEvents"
 import { shapeBuilding, type BuildingPart } from "./playerBuildings"
 import { useMapOrigin } from "@/components/ThreeLayer"
@@ -471,7 +472,10 @@ function report(entries: Map<string, Entry>, list: Shown[], s: { downloaded: num
 // land list, rebuilt when it changes (LAND_CHANGED_EVENT) and every 20 s
 // (builds take minutes).
 
-type PlotBuilding = { plotId: string; building: Building | null }
+type PlotBuilding = { plotId: string; ownerName?: string; building: Building | null }
+
+/** Name tags show from this zoom in (closer than a race's usual view). */
+const TAG_ZOOM = 16.3
 
 const SIGN_BOARDS = ["#E85F0C", "#1E56A8", "#C8102E", "#2F7D4A", "#6D28D9", "#0E7490", "#B45309"]
 
@@ -523,6 +527,56 @@ function PlayerBuildings({ parts, map }: { parts: Parts; map: maplibregl.Map | n
       return [{ plotId, meshes, sign }]
     })
   }, [plots, minute])
+
+  // Tags change only when a building finishes (not on every refresh).
+  const tagKey = JSON.stringify(plots.map(({ plotId, ownerName, building }) => [plotId, ownerName, building?.design, building?.sign, building ? buildProgress(building).ready : null]))
+
+  // A name tag over each player's building: what it is and whose it is
+  // ("🏪 Mama Rose · VibeTrader"). On the Land page a tap opens the plot;
+  // elsewhere (races, hustles) they can't be tapped, so nobody leaves a race
+  // by accident.
+  useEffect(() => {
+    if (!map) return
+    const onLand = window.location.pathname === "/land"
+    const markers = plots.flatMap(({ plotId, ownerName, building }) => {
+      const plot = findPlot(plotId)
+      if (!plot || !building) return []
+      const design = BUILDING_DESIGNS[building.design]
+      const ready = buildProgress(building).ready
+      const el = document.createElement(onLand ? "button" : "div")
+      el.className = `tiral-plot-tag${onLand ? "" : " tiral-plot-tag--still"}`
+      const what = document.createElement("span")
+      what.className = "tiral-plot-tag__what"
+      // Text only (names and signs are typed by players).
+      what.textContent = `${ready ? design.icon : "🚧"} ${building.sign ?? design.name}`
+      el.append(what)
+      if (ownerName) {
+        const who = document.createElement("span")
+        who.className = "tiral-plot-tag__who"
+        who.textContent = ownerName
+        el.append(who)
+      }
+      if (onLand) {
+        el.setAttribute("aria-label", `${building.sign ?? design.name}, ${ownerName ?? "a player"}'s plot`)
+        el.addEventListener("click", (event) => {
+          event.stopPropagation()
+          window.dispatchEvent(new CustomEvent("tiral:select-plot", { detail: plotId }))
+        })
+      }
+      return [new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -6] }).setLngLat([plot.center.lng, plot.center.lat]).addTo(map)]
+    })
+    const show = () => {
+      const visible = map.getZoom() >= TAG_ZOOM
+      for (const marker of markers) marker.getElement().style.visibility = visible ? "visible" : "hidden"
+    }
+    show()
+    map.on("zoom", show)
+    return () => {
+      map.off("zoom", show)
+      for (const marker of markers) marker.remove()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuilt when tagKey says so
+  }, [tagKey, map])
 
   useEffect(() => {
     map?.triggerRepaint()

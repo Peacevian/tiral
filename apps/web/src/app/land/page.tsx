@@ -179,6 +179,20 @@ export default function LandPage() {
     }
   }, [map])
 
+  // A building's name tag (City) or a link (?plot=ID) opens that plot.
+  useEffect(() => {
+    const open = (id: string) => {
+      if (!findPlot(id)) return
+      setSelected(id)
+      setError(null)
+    }
+    const fromLink = new URLSearchParams(window.location.search).get("plot")
+    if (fromLink) open(fromLink)
+    const onTag = (event: Event) => open(String((event as CustomEvent).detail))
+    window.addEventListener("tiral:select-plot", onTag)
+    return () => window.removeEventListener("tiral:select-plot", onTag)
+  }, [])
+
   const goTo = (target: { lat: number; lng: number; zoom?: number }) => map?.flyTo({ center: [target.lng, target.lat], zoom: target.zoom ?? 18, pitch: 50, duration: 1200 })
 
   const send = async (url: string, body: Record<string, unknown>) => {
