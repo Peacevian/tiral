@@ -474,8 +474,6 @@ function report(entries: Map<string, Entry>, list: Shown[], s: { downloaded: num
 
 type PlotBuilding = { plotId: string; ownerName?: string; building: Building | null }
 
-/** Name tags show from this zoom in (closer than a race's usual view). */
-const TAG_ZOOM = 16.3
 
 const SIGN_BOARDS = ["#E85F0C", "#1E56A8", "#C8102E", "#2F7D4A", "#6D28D9", "#0E7490", "#B45309"]
 
@@ -528,52 +526,72 @@ function PlayerBuildings({ parts, map }: { parts: Parts; map: maplibregl.Map | n
     })
   }, [plots, minute])
 
-  // Tags change only when a building finishes (not on every refresh).
-  const tagKey = JSON.stringify(plots.map(({ plotId, ownerName, building }) => [plotId, ownerName, building?.design, building?.sign, building ? buildProgress(building).ready : null]))
-
-  // A name tag over each player's building: what it is and whose it is
-  // ("🏪 Mama Rose · VibeTrader"). On the Land page a tap opens the plot;
-  // elsewhere (races, hustles) they can't be tapped, so nobody leaves a race
-  // by accident.
+  // Tapping a player's building shows its name tag ("🏪 Mama Rose ·
+  // VibeTrader"); tapping anywhere else hides it. Taps reach the map (the 3D
+  // overlay lets them through), so a tap is turned into a ray through the
+  // overlay's camera and tested against the players' buildings only.
+  const camera = useThree((state) => state.camera)
+  const buildingsGroup = useRef<THREE.Group>(null)
+  const [tagged, setTagged] = useState<string | null>(null)
   useEffect(() => {
     if (!map) return
-    const onLand = window.location.pathname === "/land"
-    const markers = plots.flatMap(({ plotId, ownerName, building }) => {
-      const plot = findPlot(plotId)
-      if (!plot || !building) return []
-      const design = BUILDING_DESIGNS[building.design]
-      const ready = buildProgress(building).ready
-      const el = document.createElement(onLand ? "button" : "div")
-      el.className = `tiral-plot-tag${onLand ? "" : " tiral-plot-tag--still"}`
-      const what = document.createElement("span")
-      what.className = "tiral-plot-tag__what"
-      // Text only (names and signs are typed by players).
-      what.textContent = `${ready ? design.icon : "🚧"} ${building.sign ?? design.name}`
-      el.append(what)
-      if (ownerName) {
-        const who = document.createElement("span")
-        who.className = "tiral-plot-tag__who"
-        who.textContent = ownerName
-        el.append(who)
-      }
-      if (onLand) {
-        el.setAttribute("aria-label", `${building.sign ?? design.name}, ${ownerName ?? "a player"}'s plot`)
-        el.addEventListener("click", (event) => {
-          event.stopPropagation()
-          window.dispatchEvent(new CustomEvent("tiral:select-plot", { detail: plotId }))
-        })
-      }
-      return [new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -6] }).setLngLat([plot.center.lng, plot.center.lat]).addTo(map)]
-    })
-    const show = () => {
-      const visible = map.getZoom() >= TAG_ZOOM
-      for (const marker of markers) marker.getElement().style.visibility = visible ? "visible" : "hidden"
+    const raycaster = new THREE.Raycaster()
+    const inverse = new THREE.Matrix4()
+    const onClick = (event: maplibregl.MapMouseEvent) => {
+      const group = buildingsGroup.current
+      if (!group) return
+      const canvas = map.getCanvas()
+      const x = (event.point.x / canvas.clientWidth) * 2 - 1
+      const y = -(event.point.y / canvas.clientHeight) * 2 + 1
+      inverse.copy(camera.projectionMatrix).invert()
+      const near = new THREE.Vector3(x, y, -1).applyMatrix4(inverse)
+      const far = new THREE.Vector3(x, y, 1).applyMatrix4(inverse)
+      raycaster.set(near, far.sub(near).normalize())
+      const hit = raycaster.intersectObject(group, true)[0]
+      let node: THREE.Object3D | null = hit?.object ?? null
+      while (node && !node.userData.plotId) node = node.parent
+      setTagged(node ? String(node.userData.plotId) : null)
     }
-    show()
-    map.on("zoom", show)
+    map.on("click", onClick)
     return () => {
-      map.off("zoom", show)
-      for (const marker of markers) marker.remove()
+      map.off("click", onClick)
+    }
+  }, [map, camera])
+
+  // The open tag (on the Land page it can be tapped to open the plot; on race
+  // and hustle maps it can't, so nobody leaves a race by accident).
+  const taggedPlot = plots.find((p) => p.plotId === tagged) ?? null
+  const tagKey = taggedPlot ? JSON.stringify([taggedPlot.plotId, taggedPlot.ownerName, taggedPlot.building?.design, taggedPlot.building?.sign, taggedPlot.building ? buildProgress(taggedPlot.building).ready : null]) : ""
+  useEffect(() => {
+    if (!map || !taggedPlot?.building) return
+    const { plotId, ownerName, building } = taggedPlot
+    const plot = findPlot(plotId)
+    if (!plot) return
+    const onLand = window.location.pathname === "/land"
+    const design = BUILDING_DESIGNS[building.design]
+    const el = document.createElement(onLand ? "button" : "div")
+    el.className = `tiral-plot-tag${onLand ? "" : " tiral-plot-tag--still"}`
+    const what = document.createElement("span")
+    what.className = "tiral-plot-tag__what"
+    // Text only (names and signs are typed by players).
+    what.textContent = `${buildProgress(building).ready ? design.icon : "🚧"} ${building.sign ?? design.name}`
+    el.append(what)
+    if (ownerName) {
+      const who = document.createElement("span")
+      who.className = "tiral-plot-tag__who"
+      who.textContent = ownerName
+      el.append(who)
+    }
+    if (onLand) {
+      el.setAttribute("aria-label", `${building.sign ?? design.name}, ${ownerName ?? "a player"}'s plot`)
+      el.addEventListener("click", (event) => {
+        event.stopPropagation()
+        window.dispatchEvent(new CustomEvent("tiral:select-plot", { detail: plotId }))
+      })
+    }
+    const marker = new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -6] }).setLngLat([plot.center.lng, plot.center.lat]).addTo(map)
+    return () => {
+      marker.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuilt when tagKey says so
   }, [tagKey, map])
@@ -599,9 +617,9 @@ function PlayerBuildings({ parts, map }: { parts: Parts; map: maplibregl.Map | n
     scaffold: parts.scaffold
   }
   return (
-    <>
+    <group ref={buildingsGroup}>
       {built.map((b) => (
-        <group key={b.plotId}>
+        <group key={b.plotId} userData={{ plotId: b.plotId }}>
           {b.meshes.map((m) => (
             <mesh key={m.part} geometry={m.geometry} material={material[m.part]} />
           ))}
@@ -613,6 +631,6 @@ function PlayerBuildings({ parts, map }: { parts: Parts; map: maplibregl.Map | n
           )}
         </group>
       ))}
-    </>
+    </group>
   )
 }
