@@ -59,6 +59,8 @@ export const REASON_LABELS: Record<string, string> = {
   house_floor: "New floor (fundi)",
   house_move: "Moving your things",
   venue_ride: "Boda to Kyadondo",
+  land_claim: "Bought a plot",
+  land_rent: "Ground rent",
   venue_order: "Kyadondo: pork and drinks"
 }
 

@@ -127,6 +127,13 @@
       "when": 1792324441870,
       "tag": "0017_house_items",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792740733055,
+      "tag": "0018_land_plots",
+      "breakpoints": true
     }
   ]
 }

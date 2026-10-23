@@ -341,3 +341,25 @@ export const houseItems = pgTable(
 )
 
 export type HouseItemRow = typeof houseItems.$inferSelect
+
+// Land players have claimed (docs/land.md): one row per plot (ids from
+// @tiral/game-core's plot grid). A plot whose ground rent is more than
+// RENT_GRACE_WEEKS overdue is back on the market: the next claim takes the row
+// over. `building` is what's built on it (phase 2).
+export const landPlots = pgTable(
+  "land_plots",
+  {
+    plotId: text("plot_id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** What the plot cost when claimed (ground rent is a share of this). */
+    price: integer("price").notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).defaultNow().notNull(),
+    rentPaidUntil: timestamp("rent_paid_until", { withTimezone: true }).notNull(),
+    building: jsonb("building").$type<Record<string, unknown> | null>()
+  },
+  (table) => [index("land_plots_user_idx").on(table.userId)]
+)
+
+export type LandPlotRow = typeof landPlots.$inferSelect
