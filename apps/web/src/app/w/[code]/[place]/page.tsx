@@ -5,7 +5,7 @@ import { getSharedPrizeRace } from "@tiral/db"
 
 export const dynamic = "force-dynamic"
 
-// A prize race winner's brag link (tiral.geinz.lol/w/CODE/PLACE).
+// A prize race winner's brag link (playtiral.com/w/CODE/PLACE).
 
 async function load(code: string, place: string) {
   const position = Number(place)

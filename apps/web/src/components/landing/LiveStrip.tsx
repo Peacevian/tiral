@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { onThisHost } from "@/lib/serverAddress"
 
 type LiveState = {
   races: number
@@ -16,7 +17,7 @@ export function LiveStrip() {
 
   useEffect(() => {
     let cancelled = false
-    const racesUrl = process.env.NEXT_PUBLIC_RACES_API_URL ?? ""
+    const racesUrl = process.env.NEXT_PUBLIC_RACES_API_URL ? onThisHost(process.env.NEXT_PUBLIC_RACES_API_URL) : ""
     const jobs: Promise<Partial<NonNullable<LiveState>>>[] = [
       fetch("/api/leaderboard?limit=3")
         .then((r) => (r.ok ? r.json() : null))

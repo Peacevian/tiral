@@ -14,7 +14,7 @@ import { readAvatar } from "@/lib/avatars"
 // for the race itself and for each winner (a brag card). Text is Noto Sans
 // Bold/Black (assets/fonts); there's no emoji font, so emoji are dropped.
 
-const SITE = (process.env.PUBLIC_BASE_URL ?? "https://tiral.geinz.lol").replace(/\/$/, "")
+const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.PUBLIC_BASE_URL ?? "https://playtiral.com").replace(/\/$/, "")
 const HOST = SITE.replace(/^https?:\/\//, "")
 
 // Cream and terracotta: calm, printed-poster colours with one warm accent.

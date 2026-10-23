@@ -5,7 +5,7 @@ import { PlayerProvider } from "@/lib/player"
 import { AppNav } from "@/components/shell/AppNav"
 import { ServiceWorker } from "@/components/ServiceWorker"
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tiral.geinz.lol"
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://playtiral.com"
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

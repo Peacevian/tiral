@@ -6,7 +6,7 @@ import { getSharedPrizeRace } from "@tiral/db"
 
 export const dynamic = "force-dynamic"
 
-// A prize race's shareable link (tiral.geinz.lol/r/CODE): chats show its
+// A prize race's shareable link (playtiral.com/r/CODE): chats show its
 // poster as the link preview; tapping through joins the race.
 
 async function load(code: string) {

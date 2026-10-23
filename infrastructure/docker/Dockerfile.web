@@ -10,8 +10,8 @@ COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile
 
-ARG NEXT_PUBLIC_GAME_URL=wss://tiral.geinz.lol
-ARG NEXT_PUBLIC_RACES_API_URL=https://tiral.geinz.lol/races
+ARG NEXT_PUBLIC_GAME_URL=wss://playtiral.com
+ARG NEXT_PUBLIC_RACES_API_URL=https://playtiral.com/races
 ENV NEXT_PUBLIC_GAME_URL=$NEXT_PUBLIC_GAME_URL
 ENV NEXT_PUBLIC_RACES_API_URL=$NEXT_PUBLIC_RACES_API_URL
 
