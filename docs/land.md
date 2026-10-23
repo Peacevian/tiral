@@ -39,17 +39,20 @@ screen at `/land` (Hub: "Land: claim a plot").
 On a plot you hold (rent paid up), pick a ready-made design and make it
 yours: floors within its limits, wall and roof colours, and a sign (shops,
 bars, kiosks and towers; up to 24 letters, nothing rude). It's paid up front
-and goes up in real time; the 3D city shows grey blocks and scaffolding as
+and goes up in minutes; the 3D city shows grey blocks and scaffolding as
 high as the work has got, then the finished building, for every player.
 
 | Design | Floors | Cost | Time |
 |---|---|---|---|
-| Kiosk | 1 | 150,000 | 6 h |
-| Shop | 1–2 | 400,000 + 200,000 a floor | 12 h + 6 h a floor |
-| Bar | 1–2 | 1,500,000 + 500,000 a floor | 24 h + 12 h a floor |
-| Flats | 2–6 | 1,500,000 + 500,000 a floor | 36 h + 12 h a floor |
-| Office tower | 4–10 | 10,000,000 + 1,000,000 a floor | 72 h + 12 h a floor |
-| House | 1–2 | 2,000,000 (4,500,000 with two floors) | 36 h (60 h) |
+| Kiosk | 1 | 150,000 | 2 min |
+| Shop | 1–2 | 400,000 + 200,000 a floor | 5 min + 3 a floor |
+| Bar | 1–2 | 1,500,000 + 500,000 a floor | 10 min + 5 a floor |
+| Flats | 2–6 | 1,500,000 + 500,000 a floor | 15 min + 5 a floor |
+| Office tower | 4–10 | 10,000,000 + 1,000,000 a floor | 30 min + 5 a floor (1 h at 10) |
+| House | 1–2 | 2,000,000 (4,500,000 with two floors) | 15 min (25 min) |
+
+Progress follows the build times as they are now (started at + today's
+time), so changing the times also moves buildings already going up.
 
 Buildings stand back from the plot's street side (`facing` in the plot list)
 with their front and sign towards the street; a house gets a hipped roof and

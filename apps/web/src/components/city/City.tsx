@@ -468,8 +468,8 @@ function report(entries: Map<string, Entry>, list: Shown[], s: { downloaded: num
 
 // ---------------------------------------------------------------------------
 // What players have built on their plots (docs/land.md): fetched with the
-// land list, rebuilt when it changes (LAND_CHANGED_EVENT) and every minute
-// while something is going up.
+// land list, rebuilt when it changes (LAND_CHANGED_EVENT) and every 20 s
+// (builds take minutes).
 
 type PlotBuilding = { plotId: string; building: Building | null }
 
@@ -499,7 +499,7 @@ function PlayerBuildings({ parts, map }: { parts: Parts; map: maplibregl.Map | n
     const timer = window.setInterval(() => {
       setMinute((m) => m + 1)
       void load()
-    }, 60_000)
+    }, 20_000)
     return () => {
       alive = false
       window.removeEventListener(LAND_CHANGED_EVENT, onChange)

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { notFound } from "next/navigation"
 import dynamic from "next/dynamic"
-import { BUILDING_DESIGNS, ROOF_COLOURS, WALL_COLOURS, allPlots, buildingHours, type BuildingDesignId } from "@tiral/game-core"
+import { BUILDING_DESIGNS, ROOF_COLOURS, WALL_COLOURS, allPlots, buildingMinutes, type BuildingDesignId } from "@tiral/game-core"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const ThreeLayer = dynamic(() => import("@/components/ThreeLayer").then((m) => m.ThreeLayer), { ssr: false })
@@ -103,11 +103,11 @@ function demoLand(near: { lat: number; lng: number }) {
   ]
   const now = Date.now()
   return plans.map(([design, floors, sign, progress], i) => {
-    const hours = buildingHours(BUILDING_DESIGNS[design], floors)
-    const startedAt = new Date(now - progress * hours * 3_600_000).toISOString()
+    const minutes = buildingMinutes(BUILDING_DESIGNS[design], floors)
+    const startedAt = new Date(now - progress * minutes * 60_000).toISOString()
     return {
       plotId: plots[i * 2]!.id,
-      building: { design, floors, wall: WALL_COLOURS[(i * 3) % WALL_COLOURS.length]!, roof: ROOF_COLOURS[i % ROOF_COLOURS.length]!, sign, cost: 0, startedAt, readyAt: new Date(Date.parse(startedAt) + hours * 3_600_000).toISOString() }
+      building: { design, floors, wall: WALL_COLOURS[(i * 3) % WALL_COLOURS.length]!, roof: ROOF_COLOURS[i % ROOF_COLOURS.length]!, sign, cost: 0, startedAt }
     }
   })
 }
