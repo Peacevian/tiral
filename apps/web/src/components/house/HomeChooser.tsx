@@ -27,9 +27,14 @@ export function HomeChooser({ preview, onPreview }: { preview: string | null; on
   return (
     <div>
       <SectionLabel>Your home</SectionLabel>
+      {player?.life?.ownHome && (
+        <p className="mb-2 rounded-xl border border-flame bg-flame-soft px-3 py-2 text-sm">
+          <b>{player.life.tier.name}</b> · you live here, no rent. Moving to a rented home below moves you out.
+        </p>
+      )}
       <ul className="flex flex-col gap-1.5">
         {HOUSING_TIERS.map((tier) => {
-          const mine = tier.id === current
+          const mine = tier.id === current && !player?.life?.ownHome
           const showing = tier.id === looking
           return (
             <li key={tier.id}>

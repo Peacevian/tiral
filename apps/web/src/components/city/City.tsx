@@ -4,6 +4,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import { lngLatToMercator, mercatorToLngLat } from "@tiral/map"
+import { buildProgress, findPlot, type Building } from "@tiral/game-core"
+import { LAND_CHANGED_EVENT } from "@/lib/landEvents"
+import { shapeBuilding, type BuildingPart } from "./playerBuildings"
 import { useMapOrigin } from "@/components/ThreeLayer"
 import { isLiteDevice } from "@/lib/deviceTier"
 import { OWN_BUILDING_AREAS, buildingsHeight } from "@/lib/mapStyle"
@@ -19,7 +22,9 @@ import {
   houseTexture,
   ironRoofTexture,
   louvreTexture,
+  scaffoldTexture,
   shopTexture,
+  signTexture,
   towerTexture
 } from "./cityTextures"
 
@@ -93,6 +98,7 @@ function makeParts(lite: boolean) {
     houses: make(houseTexture()),
     iron: make(ironRoofTexture()),
     concrete: make(concreteRoofTexture()),
+    scaffold: make(scaffoldTexture()),
     plain: make(),
     painted: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
     // A trunk and one leafy crown: ~30 triangles a tree.
@@ -254,6 +260,7 @@ export function City({ map }: { map: maplibregl.Map | null }) {
   const origin = useMapOrigin()
   const group = useRef<THREE.Group>(null)
   const gl = useThree((state) => state.gl)
+  const scene = useThree((state) => state.scene)
   const [parts, setParts] = useState<Parts | null>(null)
   const [shown, setShown] = useState<Shown[]>([])
   const [drawn, setDrawn] = useState<number[][][][]>([])
@@ -275,8 +282,8 @@ export function City({ map }: { map: maplibregl.Map | null }) {
 
   useEffect(() => {
     // Draw calls and triangles per frame, for the test bench.
-    if (process.env.NODE_ENV === "development") (window as unknown as { __cityRenderer?: THREE.WebGLRenderer }).__cityRenderer = gl
-  }, [gl])
+    if (process.env.NODE_ENV === "development") Object.assign(window, { __cityRenderer: gl, __cityScene: scene })
+  }, [gl, scene])
 
   useEffect(() => {
     let alive = true
@@ -426,6 +433,7 @@ export function City({ map }: { map: maplibregl.Map | null }) {
       {shown.map((tile) => (
         <group key={tile.key}>{tile.near ? <NearMeshes near={tile.near} parts={parts} /> : tile.far && <mesh geometry={tile.far} material={parts.plain} />}</group>
       ))}
+      <PlayerBuildings parts={parts} map={map} />
     </group>
   )
 }
@@ -456,4 +464,101 @@ function report(entries: Map<string, Entry>, list: Shown[], s: { downloaded: num
     queued
   }
   ;(window as unknown as { __cityStats?: CityStats }).__cityStats = stats
+}
+
+// ---------------------------------------------------------------------------
+// What players have built on their plots (docs/land.md): fetched with the
+// land list, rebuilt when it changes (LAND_CHANGED_EVENT) and every minute
+// while something is going up.
+
+type PlotBuilding = { plotId: string; building: Building | null }
+
+const SIGN_BOARDS = ["#E85F0C", "#1E56A8", "#C8102E", "#2F7D4A", "#6D28D9", "#0E7490", "#B45309"]
+
+function PlayerBuildings({ parts, map }: { parts: Parts; map: maplibregl.Map | null }) {
+  const [plots, setPlots] = useState<PlotBuilding[]>([])
+  const [minute, setMinute] = useState(0)
+  useEffect(() => {
+    let alive = true
+    // The test bench can show made-up buildings (dev only: /dev/city?buildings=demo).
+    const demo = process.env.NODE_ENV === "development" ? (window as unknown as { __demoLand?: PlotBuilding[] }).__demoLand : undefined
+    if (demo) {
+      setPlots(demo)
+      return
+    }
+    const load = () =>
+      fetch("/api/land", { cache: "no-store" })
+        .then((r) => (r.ok ? (r.json() as Promise<{ claimed: PlotBuilding[] }>) : null))
+        .then((body) => {
+          if (alive && body) setPlots(body.claimed.filter((c) => c.building))
+        })
+        .catch(() => undefined)
+    void load()
+    const onChange = () => void load()
+    window.addEventListener(LAND_CHANGED_EVENT, onChange)
+    const timer = window.setInterval(() => {
+      setMinute((m) => m + 1)
+      void load()
+    }, 60_000)
+    return () => {
+      alive = false
+      window.removeEventListener(LAND_CHANGED_EVENT, onChange)
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  const built = useMemo(() => {
+    void minute
+    const now = new Date()
+    return plots.flatMap(({ plotId, building }) => {
+      const plot = findPlot(plotId)
+      if (!plot || !building) return []
+      const { progress, ready } = buildProgress(building, now)
+      const shape = shapeBuilding(plot, building, progress, ready)
+      const meshes = (Object.entries(shape.parts) as Array<[BuildingPart, NonNullable<(typeof shape.parts)[BuildingPart]>]>).flatMap(([part, builder]) => {
+        const geometry = builder.geometry()
+        return geometry ? [{ part, geometry }] : []
+      })
+      const sign = shape.sign && { ...shape.sign, texture: signTexture(shape.sign.text, SIGN_BOARDS[Math.abs(plot.gx * 31 + plot.gy * 17) % SIGN_BOARDS.length]!) }
+      return [{ plotId, meshes, sign }]
+    })
+  }, [plots, minute])
+
+  useEffect(() => {
+    map?.triggerRepaint()
+    return () => {
+      for (const b of built) {
+        for (const m of b.meshes) m.geometry.dispose()
+        b.sign?.texture.dispose()
+      }
+    }
+  }, [built, map])
+
+  const material: Record<BuildingPart, THREE.Material> = {
+    shops: parts.shops,
+    flats: parts.flats[0]!,
+    balcony: parts.flats[1]!,
+    towers: parts.towers[0]!,
+    houses: parts.houses,
+    iron: parts.iron,
+    concrete: parts.concrete,
+    scaffold: parts.scaffold
+  }
+  return (
+    <>
+      {built.map((b) => (
+        <group key={b.plotId}>
+          {b.meshes.map((m) => (
+            <mesh key={m.part} geometry={m.geometry} material={material[m.part]} />
+          ))}
+          {b.sign && (
+            <mesh position={[b.sign.x, b.sign.y, b.sign.z]} rotation={[Math.PI / 2, 0, b.sign.angle, "ZXY"]}>
+              <planeGeometry args={[b.sign.width, b.sign.height]} />
+              <meshBasicMaterial map={b.sign.texture} side={THREE.DoubleSide} toneMapped={false} />
+            </mesh>
+          )}
+        </group>
+      ))}
+    </>
+  )
 }

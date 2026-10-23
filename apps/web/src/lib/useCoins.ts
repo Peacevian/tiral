@@ -61,6 +61,7 @@ export const REASON_LABELS: Record<string, string> = {
   venue_ride: "Boda to Kyadondo",
   land_claim: "Bought a plot",
   land_rent: "Ground rent",
+  land_build: "Building on your plot",
   venue_order: "Kyadondo: pork and drinks"
 }
 

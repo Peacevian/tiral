@@ -26,10 +26,16 @@ export function HomeStatusCard({ life, balance }: { life: Life; balance: number 
           <div className="truncate text-sm font-black text-sheet-ink">{life.tier.name}</div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="font-mono text-sm font-black text-sheet-blue">{formatCoins(life.tier.rent)}</div>
-          <div className={`text-[11px] ${short ? "font-bold text-flame-deep" : "text-sheet-mute"}`}>
-            due {untilText(life.rentDueAt)}
-          </div>
+          {life.ownHome ? (
+            <div className="text-[11px] font-bold text-leaf">Your own house: no rent</div>
+          ) : (
+            <>
+              <div className="font-mono text-sm font-black text-sheet-blue">{formatCoins(life.tier.rent)}</div>
+              <div className={`text-[11px] ${short ? "font-bold text-flame-deep" : "text-sheet-mute"}`}>
+                due {untilText(life.rentDueAt)}
+              </div>
+            </>
+          )}
         </div>
       </div>
       {short && (
@@ -117,7 +123,7 @@ export function MoveHouse({ life }: { life: Life }) {
       <ul className="flex flex-col gap-1.5">
         {/* The big homes show once your business can rent them (Home → House shows them all). */}
         {HOUSING_TIERS.filter((tier) => homeOpenTo(tier.id, career)).map((tier) => {
-          const current = tier.id === life.tier.id
+          const current = tier.id === life.tier.id && !life.ownHome
           return (
             <li key={tier.id}>
               <ConfirmButton

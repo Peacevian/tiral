@@ -3,7 +3,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { FRONTAGE_LABEL, MAX_PLOTS_PER_PLAYER, PLOT_AREAS, PLOT_SIZE_METERS, allPlots, claimCost, findPlot, weeklyGroundRent, type Plot, type PlotArea } from "@tiral/game-core"
+import {
+  BUILDING_DESIGNS,
+  BUILDING_DESIGN_IDS,
+  FRONTAGE_LABEL,
+  MAX_PLOTS_PER_PLAYER,
+  PLOT_AREAS,
+  PLOT_SIZE_METERS,
+  ROOF_COLOURS,
+  SIGN_MAX,
+  WALL_COLOURS,
+  allPlots,
+  buildProgress,
+  buildingCost,
+  buildingHours,
+  claimCost,
+  findPlot,
+  weeklyGroundRent,
+  type Building,
+  type BuildingDesignId,
+  type Plot,
+  type PlotArea
+} from "@tiral/game-core"
+import { notifyLandChanged } from "@/lib/landEvents"
 import { usePlayer } from "@/lib/player"
 import { cityEnabled } from "@/lib/deviceTier"
 import { formatCoins, notifyCoinsChanged } from "@/lib/useCoins"
@@ -17,8 +39,8 @@ const City = dynamic(() => import("@/components/city/City").then((module) => ({ 
 // Tap one to see it; claim it with BNG (plus a small weekly ground rent);
 // building on it comes next.
 
-type Claimed = { plotId: string; ownerName: string; mine: boolean }
-type MyPlot = { plotId: string; price: number; rentPaidUntil: string; rent: "paid" | "overdue"; weeklyRent: number; weeksPayable: number }
+type Claimed = { plotId: string; ownerName: string; mine: boolean; building: Building | null }
+type MyPlot = { plotId: string; price: number; rentPaidUntil: string; rent: "paid" | "overdue"; weeklyRent: number; weeksPayable: number; building: Building | null; home: boolean }
 
 const AREA_VIEW: Record<PlotArea, { lat: number; lng: number; zoom: number }> = {
   central: { lat: 0.3145, lng: 32.5815, zoom: 16.3 },
@@ -58,7 +80,7 @@ function rentText(plot: MyPlot): string {
 }
 
 export default function LandPage() {
-  const { player } = usePlayer()
+  const { player, refresh } = usePlayer()
   const [map, setMap] = useState<maplibregl.Map | null>(null)
   const [city, setCity] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
@@ -166,7 +188,10 @@ export default function LandPage() {
       const result = (await response.json().catch(() => ({}))) as { error?: string }
       if (!response.ok) setError(result.error ?? "Something went wrong. Try again.")
       notifyCoinsChanged()
+      notifyLandChanged()
       await reload()
+      // Where you live may have changed (moving into your house).
+      if (url.endsWith("/home") || url.endsWith("/demolish")) await refresh()
     } catch {
       setError("No connection. Try again.")
     } finally {
@@ -205,13 +230,16 @@ export default function LandPage() {
               onClose={() => setSelected(null)}
               onClaim={() => void send("/api/land/claim", { plotId: plot.id })}
               onPayRent={(weeks) => void send("/api/land/rent", { plotId: plot.id, weeks })}
+              onBuild={(plan) => void send("/api/land/build", { plotId: plot.id, ...plan })}
+              onDemolish={() => void send("/api/land/demolish", { plotId: plot.id })}
+              onMoveIn={() => void send("/api/land/home", { plotId: plot.id })}
             />
           ) : (
             <>
               <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-flame-deep">Land</div>
               <h1 className="mt-1 text-xl font-black">Claim a plot in town</h1>
               <p className="mt-1 text-sm leading-snug text-sheet-mute">
-                Every empty {PLOT_SIZE_METERS} m plot in central Kampala and Lugogo is for sale. Tap a coloured square: <b className="text-[#E85F0C]">orange</b> is on a main road, <b className="text-[#D97706]">amber</b> on a street, <b className="text-[#22A06B]">green</b> a back plot. Building on your land is coming next.
+                Every empty {PLOT_SIZE_METERS} m plot in central Kampala and Lugogo is for sale. Tap a coloured square: <b className="text-[#E85F0C]">orange</b> is on a main road, <b className="text-[#D97706]">amber</b> on a street, <b className="text-[#22A06B]">green</b> a back plot. Then build on it: a kiosk, a shop, a bar, flats, an office tower or your own house.
               </p>
               <div className="mt-3 flex gap-2">
                 {(Object.keys(PLOT_AREAS) as PlotArea[]).map((area) => (
@@ -278,7 +306,10 @@ function PlotCard({
   error,
   onClose,
   onClaim,
-  onPayRent
+  onPayRent,
+  onBuild,
+  onDemolish,
+  onMoveIn
 }: {
   plot: Plot
   owner: Claimed | undefined
@@ -291,6 +322,9 @@ function PlotCard({
   onClose(): void
   onClaim(): void
   onPayRent(weeks: number): void
+  onBuild(plan: { design: BuildingDesignId; floors: number; wall: string; roof: string; sign: string }): void
+  onDemolish(): void
+  onMoveIn(): void
 }) {
   const cost = claimCost(plot)
   const rent = weeklyGroundRent(plot.price)
@@ -312,7 +346,7 @@ function PlotCard({
         <>
           <p className={`mt-2 text-sm ${myPlot.rent === "overdue" ? "font-bold text-flame-deep" : "text-sheet-mute"}`}>{rentText(myPlot)}.</p>
           <p className="mt-1 text-sm text-sheet-mute">
-            Ground rent: <b className="text-sheet-ink">{formatCoins(myPlot.weeklyRent)} BNG</b> a week. Building on it is coming soon.
+            Ground rent: <b className="text-sheet-ink">{formatCoins(myPlot.weeklyRent)} BNG</b> a week.
           </p>
           <div className="mt-3 flex gap-2">
             {[1, 4].map((weeks) =>
@@ -324,9 +358,21 @@ function PlotCard({
             )}
             {myPlot.weeksPayable === 0 && <p className="text-sm text-sheet-mute">Rent is paid as far ahead as it can be.</p>}
           </div>
+          <div className="mt-4 border-t border-sheet-line pt-3">
+            {myPlot.building ? (
+              <OnThePlot building={myPlot.building} home={myPlot.home} busy={busy} onDemolish={onDemolish} onMoveIn={onMoveIn} />
+            ) : myPlot.rent === "overdue" ? (
+              <p className="text-sm font-bold text-flame-deep">Pay the ground rent to build here.</p>
+            ) : (
+              <BuildPlanner balance={balance} busy={busy} onBuild={onBuild} />
+            )}
+          </div>
         </>
       ) : owner ? (
-        <p className="mt-2 text-sm text-sheet-mute">Taken. If its ground rent goes unpaid for four weeks it comes back on the market.</p>
+        <p className="mt-2 text-sm text-sheet-mute">
+          {owner.building ? `${BUILDING_DESIGNS[owner.building.design].icon} ${owner.building.sign ?? BUILDING_DESIGNS[owner.building.design].name}${buildProgress(owner.building).ready ? "" : " (going up)"}. ` : ""}
+          Taken. If its ground rent goes unpaid for four weeks it comes back on the market.
+        </p>
       ) : (
         <>
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
@@ -356,6 +402,173 @@ function PlotCard({
         </>
       )}
       {error && <p className="mt-2 rounded-xl bg-flame-soft p-2 text-sm font-bold text-flame-deep">{error}</p>}
+    </div>
+  )
+}
+
+/** Time left in words: "3 h 20 min", "2 days 4 h". */
+function timeLeft(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000))
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  if (days) return `${days} day${days === 1 ? "" : "s"}${hours ? ` ${hours} h` : ""}`
+  return hours ? `${hours} h ${minutes % 60} min` : `${minutes} min`
+}
+
+/** What's on your plot: going up (and how long), or finished. */
+function OnThePlot({ building, home, busy, onDemolish, onMoveIn }: { building: Building; home: boolean; busy: boolean; onDemolish(): void; onMoveIn(): void }) {
+  const design = BUILDING_DESIGNS[building.design]
+  const { progress, ready } = buildProgress(building)
+  return (
+    <div>
+      <div className="text-sm font-black">
+        {design.icon} {building.sign ?? design.name}
+        {design.maxFloors > 1 && <span className="font-bold text-sheet-mute"> · {building.floors} floor{building.floors === 1 ? "" : "s"}</span>}
+      </div>
+      {ready ? (
+        building.design === "house" ? (
+          home ? (
+            <p className="mt-1 text-sm text-leaf">You live here: no rent while it stands. Moving to a rented home (Home → House) moves you out.</p>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-sheet-mute">Finished. Move in and stop paying rent; your furniture comes with you.</p>
+              <button type="button" disabled={busy} onClick={onMoveIn} className={`${actionButtonClass("flame", "lg")} mt-2 w-full`}>
+                🏡 Move in
+              </button>
+            </>
+          )
+        ) : (
+          <p className="mt-1 text-sm text-sheet-mute">Finished, and up in the city for everyone to see. Earning from it is coming next.</p>
+        )
+      ) : (
+        <>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-sheet-soft">
+            <div className="h-full rounded-full bg-flame" style={{ width: `${Math.round(progress * 100)}%` }} />
+          </div>
+          <p className="mt-1 text-sm text-sheet-mute">Going up: ready in {timeLeft(new Date(building.readyAt).getTime() - Date.now())}.</p>
+        </>
+      )}
+      <ConfirmButton
+        disabled={busy}
+        onConfirm={onDemolish}
+        confirmLabel="Tap again: knock it down, nothing back"
+        className={`${actionButtonClass("sheet-danger")} mt-3 w-full`}
+        armedClassName="!bg-flame-soft"
+      >
+        Knock it down
+      </ConfirmButton>
+    </div>
+  )
+}
+
+/** Choose what to build: the design, its floors, colours and sign. */
+function BuildPlanner({ balance, busy, onBuild }: { balance: number; busy: boolean; onBuild(plan: { design: BuildingDesignId; floors: number; wall: string; roof: string; sign: string }): void }) {
+  const [designId, setDesignId] = useState<BuildingDesignId>("shop")
+  const design = BUILDING_DESIGNS[designId]
+  const [floors, setFloors] = useState(design.minFloors)
+  const [wall, setWall] = useState<string>(WALL_COLOURS[0])
+  const [roof, setRoof] = useState<string>(ROOF_COLOURS[0])
+  const [sign, setSign] = useState("")
+  const pick = (id: BuildingDesignId) => {
+    setDesignId(id)
+    setFloors(BUILDING_DESIGNS[id].minFloors)
+  }
+  const cost = buildingCost(design, floors)
+  const hours = buildingHours(design, floors)
+  return (
+    <div>
+      <div className="text-xs font-bold uppercase tracking-[0.12em] text-sheet-mute">Build</div>
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        {BUILDING_DESIGN_IDS.map((id) => {
+          const d = BUILDING_DESIGNS[id]
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={id === designId}
+              onClick={() => pick(id)}
+              className={`rounded-xl border p-2 text-center text-xs font-bold ${id === designId ? "border-flame bg-flame-soft" : "border-sheet-line bg-sheet-card"}`}
+            >
+              <span className="block text-xl">{d.icon}</span>
+              {d.name}
+              <span className="block font-mono text-[10px] text-sheet-mute">{formatCoins(buildingCost(d, d.minFloors))}</span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-2 text-sm text-sheet-mute">{design.blurb}</p>
+
+      {design.maxFloors > design.minFloors && (
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-sm font-bold">Floors</span>
+          <span className="flex items-center gap-2">
+            <button type="button" aria-label="Fewer floors" disabled={floors <= design.minFloors} onClick={() => setFloors(floors - 1)} className="grid h-9 w-9 place-items-center rounded-full border border-sheet-line text-lg disabled:opacity-40">
+              −
+            </button>
+            <span className="w-6 text-center font-black">{floors}</span>
+            <button type="button" aria-label="More floors" disabled={floors >= design.maxFloors} onClick={() => setFloors(floors + 1)} className="grid h-9 w-9 place-items-center rounded-full border border-sheet-line text-lg disabled:opacity-40">
+              +
+            </button>
+          </span>
+        </div>
+      )}
+
+      <Swatches label="Walls" colours={WALL_COLOURS} value={wall} onChange={setWall} />
+      <Swatches label="Roof" colours={ROOF_COLOURS} value={roof} onChange={setRoof} />
+
+      {design.signed && (
+        <label className="mt-3 block text-sm font-bold">
+          Sign
+          <input
+            value={sign}
+            onChange={(event) => setSign(event.target.value.slice(0, SIGN_MAX))}
+            placeholder={designId === "bar" ? "e.g. Club Bukoto" : designId === "office" ? "e.g. Nakasero House" : "e.g. Mama Rose Shop"}
+            maxLength={SIGN_MAX}
+            className="mt-1 w-full rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-sm font-normal"
+          />
+        </label>
+      )}
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+        <dt className="text-sheet-mute">Cost</dt>
+        <dd className="text-right font-black text-flame-deep">{formatCoins(cost)} BNG</dd>
+        <dt className="text-sheet-mute">Building time</dt>
+        <dd className="text-right font-bold">{timeLeft(hours * 3_600_000)}</dd>
+      </dl>
+      {balance < cost ? (
+        <p className="mt-3 text-sm font-bold text-flame-deep">You need {formatCoins(cost - balance)} more BNG.</p>
+      ) : (
+        <ConfirmButton
+          disabled={busy}
+          onConfirm={() => onBuild({ design: designId, floors, wall, roof, sign })}
+          confirmLabel={`Tap again to pay ${formatCoins(cost)}`}
+          className={`${actionButtonClass("flame", "lg")} mt-3 w-full`}
+          armedClassName="!bg-flame-dark"
+        >
+          Start building
+        </ConfirmButton>
+      )}
+    </div>
+  )
+}
+
+function Swatches({ label, colours, value, onChange }: { label: string; colours: readonly string[]; value: string; onChange(colour: string): void }) {
+  return (
+    <div className="mt-3">
+      <div className="text-sm font-bold">{label}</div>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {colours.map((colour) => (
+          <button
+            key={colour}
+            type="button"
+            aria-label={`${label} colour ${colour}`}
+            aria-pressed={colour === value}
+            onClick={() => onChange(colour)}
+            className={`h-8 w-8 rounded-full border-2 ${colour === value ? "border-sheet-ink" : "border-sheet-line"}`}
+            style={{ background: colour }}
+          />
+        ))}
+      </div>
     </div>
   )
 }

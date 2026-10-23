@@ -16,6 +16,8 @@ export const users = pgTable("users", {
   restingSince: timestamp("resting_since", { withTimezone: true }),
   // Kampala Hustle life: where you live, when rent is due, how stressed you are.
   houseTier: text("house_tier").default("kisenyi").notNull(),
+  /** Living in a house you built on your own plot (docs/land.md): no rent while it stands. */
+  homePlotId: text("home_plot_id"),
   rentDueAt: timestamp("rent_due_at", { withTimezone: true }),
   stress: doublePrecision("stress").default(20).notNull(),
   stressAt: timestamp("stress_at", { withTimezone: true }).defaultNow().notNull(),

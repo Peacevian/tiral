@@ -34,17 +34,42 @@ Code: rules in `packages/game-core/src/land.ts` (plot list generated into
 `land_plots`, migration 0018), API under `apps/web/src/app/api/land`, the
 screen at `/land` (Hub: "Land: claim a plot").
 
-## Phase 2: building (next)
+## Phase 2: building (built)
 
-Ready-made designs you personalise (colours, floors within limits, a sign):
-kiosk, shop, bar, flats, office tower, your own house. Building takes real
-time, with scaffolding in the 3D city meanwhile. Your house can be lived in
-(instead of renting a room) or rented out to other players.
+On a plot you hold (rent paid up), pick a ready-made design and make it
+yours: floors within its limits, wall and roof colours, and a sign (shops,
+bars, kiosks and towers; up to 24 letters, nothing rude). It's paid up front
+and goes up in real time; the 3D city shows grey blocks and scaffolding as
+high as the work has got, then the finished building, for every player.
+
+| Design | Floors | Cost | Time |
+|---|---|---|---|
+| Kiosk | 1 | 150,000 | 6 h |
+| Shop | 1–2 | 400,000 + 200,000 a floor | 12 h + 6 h a floor |
+| Bar | 1–2 | 1,500,000 + 500,000 a floor | 24 h + 12 h a floor |
+| Flats | 2–6 | 1,500,000 + 500,000 a floor | 36 h + 12 h a floor |
+| Office tower | 4–10 | 10,000,000 + 1,000,000 a floor | 72 h + 12 h a floor |
+| House | 1–2 | 2,000,000 (4,500,000 with two floors) | 36 h (60 h) |
+
+Buildings stand back from the plot's street side (`facing` in the plot list)
+with their front and sign towards the street; a house gets a hipped roof and
+a compound wall.
+
+**Living in your house:** once it's finished, Move in (the usual moving fee
+for your furniture). No rent while you live there: the Home page shows it as
+a bungalow (one floor) or a house with a garden (two). Renting a home again
+moves you out; if the house goes (knocked down, or the plot lapses) you're
+back in your last rented home and the Land office tells you so.
+`users.home_plot_id`, migration 0019.
+
+**Knocking down** is free and pays nothing back; you can then build again.
+
+Ledger reasons: `land_build` (and `house_move` for moving in).
 
 ## Phase 3: earning
 
 Shops earn from players' race and hustle routes passing them (capped daily),
-flats from other players' rent, bars from orders.
+flats and houses from other players' rent, bars from orders.
 
 ## Remaking the plots
 

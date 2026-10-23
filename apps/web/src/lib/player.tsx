@@ -18,7 +18,10 @@ export type LifeEvent = {
 }
 
 export type Life = {
+  /** Where you live: a rented home, or (id = its look) the house you built. */
   tier: { id: string; name: string; rent: number }
+  /** Living in the house you built on your plot (docs/land.md): no rent. */
+  ownHome?: { plotId: string; areaName: string } | null
   rentDueAt: string
   stress: number
   balance: number

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     const [held, mine] = await Promise.all([listClaimedPlots(), claims ? getMyPlots(claims.userId) : Promise.resolve([])])
     return NextResponse.json({
-      claimed: held.map((plot) => ({ plotId: plot.plotId, ownerName: plot.ownerName, mine: plot.ownerId === claims?.userId })),
+      claimed: held.map((plot) => ({ plotId: plot.plotId, ownerName: plot.ownerName, mine: plot.ownerId === claims?.userId, building: plot.building })),
       mine
     })
   } catch (error) {
