@@ -60,7 +60,7 @@ function CameraSync({ map, origin }: { map: maplibregl.Map | null; origin: Mutab
  *    each map frame, so avatars don't swim a frame behind the roads;
  *  - otherwise on a light loop of our own, for the avatars' animations: every
  *    other frame on low-end phones, and not at all while there's nothing but
- *    lights in the scene (the lobby).
+ *    lights and static things in the scene (the lobby, the city).
  */
 function MapDriver({ map }: { map: maplibregl.Map | null }) {
   const get = useThree((state) => state.get)
@@ -70,17 +70,29 @@ function MapDriver({ map }: { map: maplibregl.Map | null }) {
     let tick = 0
     let lastMapDraw = -Infinity
     let drewEmpty = false
-    const draw = () => {
+    let drewStill = false
+    // `withMap`: the map just drew (it moved), so everything is redrawn with
+    // it. Our own loop only redraws what animates: lights and static things
+    // (the city) don't.
+    const draw = (withMap: boolean) => {
       const state = get()
-      const empty = !state.scene.children.some((child) => !(child as THREE.Light).isLight)
+      let any = false
+      let moving = false
+      for (const child of state.scene.children) {
+        if ((child as THREE.Light).isLight) continue
+        any = true
+        if (!child.userData.static) moving = true
+      }
       // One last frame clears what was there; then rest until something shows up.
-      if (empty && drewEmpty) return
-      drewEmpty = empty
+      if (!any && drewEmpty) return
+      if (any && !moving && !withMap && drewStill) return
+      drewEmpty = !any
+      drewStill = any && !moving
       advance(performance.now() / 1000, false, state)
     }
     const onMapRender = () => {
       lastMapDraw = performance.now()
-      draw()
+      draw(true)
     }
     map?.on("render", onMapRender)
     const loop = (now: number) => {
@@ -91,7 +103,7 @@ function MapDriver({ map }: { map: maplibregl.Map | null }) {
       const mapFrame = map && ((map as unknown as { _frameRequest?: unknown })._frameRequest || lastMapDraw >= now - 1)
       if (mapFrame) return
       if (lite && tick % 2) return
-      draw()
+      draw(false)
     }
     raf = requestAnimationFrame(loop)
     return () => {

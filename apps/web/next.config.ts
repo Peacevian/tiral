@@ -27,6 +27,9 @@ const nextConfig: NextConfig = {
         source: "/music/:file*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
       },
+      // Map data is versioned (kampala-buildings-v1.json, city/v1/…): new data,
+      // new name. Not in development, where the files change in place.
+      ...(process.env.NODE_ENV === "production" ? [{ source: "/data/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }] : []),
       {
         // Landing images are versioned too (hero-phone-v1.webp).
         source: "/landing/:file*",

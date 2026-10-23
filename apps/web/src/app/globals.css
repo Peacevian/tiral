@@ -264,11 +264,14 @@ body.has-shell {
   position: absolute;
 }
 
-/* Map pins (maplibre DOM markers): keep them on the map, not in page flow. */
+/* Map pins (maplibre DOM markers): keep them on the map, not in page flow,
+   and above the 3D overlay (z-10: runners and the city's buildings), so a
+   building never hides a pin you need to tap. */
 .maplibregl-marker {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 20;
   will-change: transform;
 }
 

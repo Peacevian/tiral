@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
+import { cityEnabled } from "@/lib/deviceTier"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type maplibregl from "maplibre-gl"
@@ -44,6 +45,7 @@ const ThreeLayer = dynamic(
   () => import("@/components/ThreeLayer").then((module) => ({ default: module.ThreeLayer })),
   { ssr: false }
 )
+const City = dynamic(() => import("@/components/city/City").then((module) => ({ default: module.City })), { ssr: false })
 const Avatar3D = dynamic(
   () => import("@/components/Avatar3D").then((module) => ({ default: module.Avatar3D })),
   { ssr: false }
@@ -115,6 +117,9 @@ function MapHustle() {
   const { ready, player } = usePlayer()
   const myLoadout = useMyLoadout()
   const [map, setMap] = useState<maplibregl.Map | null>(null)
+  // Tiral's own 3D city over the map (strong phones; see components/city).
+  const [city, setCity] = useState(false)
+  useEffect(() => setCity(cityEnabled()), [])
   const [graph, setGraph] = useState<RoadGraph | null>(null)
   const [roadError, setRoadError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
@@ -290,10 +295,17 @@ function MapHustle() {
       {/* Between the app shell's bars before a shift (they hide during one). */}
       <div className="absolute inset-x-0 bottom-[var(--shell-bottom)] top-[var(--shell-top)]">
         <MapView center={KIKUUBO_CENTER} zoom={16} pitch={48} bearing={-18} onMapReady={onMapReady} />
+        {/* Before a shift: Tiral's 3D city inside the map's box (the shift's own layer has it after). */}
+        {map && city && !inShift && (
+          <ThreeLayer map={map}>
+            <City map={map} />
+          </ThreeLayer>
+        )}
       </div>
 
       {map && inShift && (
         <ThreeLayer map={map}>
+          {city && <City map={map} />}
           <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
           <directionalLight position={[4, 8, 10]} intensity={2.2} />
           {movement.coordinate && (
