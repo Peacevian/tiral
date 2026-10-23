@@ -8,6 +8,7 @@ import type { RoadDirection } from "@tiral/road-graph"
 import type { AvatarLoadout } from "@tiral/avatars"
 import type { BikeLook } from "@tiral/game-core"
 import { notifyCoinsChanged } from "./useCoins"
+import { onThisHost } from "@/lib/serverAddress"
 
 type RoomPlayer = {
   id: string
@@ -305,7 +306,7 @@ function clearReconnectToken() {
 }
 
 export function useColyseus({
-  serverUrl = process.env.NEXT_PUBLIC_GAME_URL ?? "ws://localhost:2567",
+  serverUrl = onThisHost(process.env.NEXT_PUBLIC_GAME_URL ?? "ws://localhost:2567"),
 }: UseColyseusOptions = {}) {
   const [connected, setConnected] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
@@ -718,8 +719,7 @@ export function useColyseus({
   }, [joinWith])
 
   const listRaces = useCallback(async (): Promise<RaceListing[]> => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_RACES_API_URL ?? "http://localhost:2568"
+    const baseUrl = onThisHost(process.env.NEXT_PUBLIC_RACES_API_URL ?? "http://localhost:2568")
     const response = await fetch(`${baseUrl}/races`)
     if (!response.ok) {
       throw new Error(`Race listing failed with ${response.status}`)

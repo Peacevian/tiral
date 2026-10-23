@@ -4,7 +4,7 @@ import { mintOAuthState, readSessionCookie, verifySession } from "@/lib/session"
 
 export async function GET(request: NextRequest) {
   try {
-    const config = getTikTokConfig()
+    const config = getTikTokConfig(request.headers.get("host"))
     let guestUserId: string | null = null
     const token = readSessionCookie(request.headers.get("cookie"))
     if (token) {

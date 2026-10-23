@@ -11,10 +11,18 @@ export type TikTokConfig = {
   redirectUri: string
 }
 
-export function getTikTokConfig(): TikTokConfig {
+/**
+ * `host`: the address the player is on. If it's one of TIKTOK_LOGIN_HOSTS
+ * (comma-separated, e.g. "playtiral.com", each registered as a redirect URI
+ * in TikTok's developer portal), TikTok sends them back to that same address,
+ * so the login cookie lands where they are; otherwise to TIKTOK_REDIRECT_URI.
+ */
+export function getTikTokConfig(host?: string | null): TikTokConfig {
   const clientKey = process.env.TIKTOK_CLIENT_KEY
   const clientSecret = process.env.TIKTOK_CLIENT_SECRET
-  const redirectUri = process.env.TIKTOK_REDIRECT_URI
+  const allowed = (process.env.TIKTOK_LOGIN_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean)
+  const here = host?.toLowerCase().split(":")[0]
+  const redirectUri = here && allowed.includes(here) ? `https://${here}/api/auth/tiktok/callback` : process.env.TIKTOK_REDIRECT_URI
   if (!clientKey || !clientSecret || !redirectUri) {
     throw new Error("TikTok Login Kit is not configured")
   }

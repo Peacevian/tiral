@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const config = getTikTokConfig()
+    const config = getTikTokConfig(request.headers.get("host"))
     const tokens = await exchangeCode(config, code)
     const tiktokUser = await fetchTikTokUser(tokens.accessToken)
     const account = {
