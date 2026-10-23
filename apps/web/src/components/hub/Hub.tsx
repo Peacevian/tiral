@@ -194,6 +194,7 @@ function NeedsAttention() {
         <AttentionRow icon="💼" title="Earn BNG" detail={nextUnlockText(ladder.next, ladder.balance, ladder.tier)} onClick={() => toggle("earn")} expanded={open === "earn"} />
         {open === "earn" && <HustleLadder />}
         <AttentionRow icon="🏉" title="Go out: Kyadondo" detail="Music, pork and drinks with everyone who's out" href="/out?place=kyadondo" />
+        <AttentionRow icon="🏗️" title="Land: claim a plot" detail="Empty plots in town and Lugogo, yours to build on" href="/land" />
       </div>
     </section>
   )
