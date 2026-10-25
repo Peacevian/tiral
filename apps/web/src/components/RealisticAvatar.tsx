@@ -7,7 +7,7 @@ import * as THREE from "three"
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js"
 import { MergeStatic } from "@/components/MergeStatic"
 import { newBodiesOn } from "@/lib/newBodies"
-import { beatsAt, danceFrame, type DanceFrame, type DanceState, type Limb, type Vec } from "@/lib/dance/moves"
+import { beatsAt, danceFrame, type DanceFrame, type DanceState } from "@/lib/dance/moves"
 import { resolveLoadout, type AvatarLoadout, type Outfit } from "@tiral/avatars"
 import {
   BODA_VEST_COLOR,
@@ -24,6 +24,7 @@ import {
   Robe,
   useNumberTexture
 } from "./avatarParts"
+import { applyDanceFrame, applyRidePose, resetDanceBones, rootSpace, type PoseRig, type RidePose, type Skeleton } from "./avatarPose"
 import { NewBody } from "./NewBody"
 
 // Rigged human: "Casual Character" by Quaternius (CC0), see public/models/CREDITS.md.
@@ -306,7 +307,19 @@ function instantiate(scene: THREE.Object3D) {
   const bodyBind = bones.get("Body")?.position.clone() ?? null
   const hipsBind = bones.get("Hips")?.quaternion.clone() ?? null
 
-  return { root, parts, bones, bindInverse, footOffset, legEndY, bodyBind, hipsBind }
+  const rig: PoseRig & { parts: Parts; bones: Map<string, THREE.Bone>; bindInverse: Map<string, THREE.Matrix4>; footOffset: Map<string, THREE.Vector3> } = {
+    root,
+    parts,
+    bones,
+    bindInverse,
+    footOffset,
+    legEndY,
+    bodyBind,
+    hipsBind,
+    skeleton: SKELETON
+  }
+  rig.settle = () => attachFeet(rig)
+  return rig
 }
 
 function setPattern(materials: THREE.MeshStandardMaterial[], mode: number, base: string, accent: string) {
@@ -348,146 +361,25 @@ function OnBone({
 
 export type AvatarPose = "auto" | "dance"
 
-// ---------------------------------------------------------------------------
-// Seated poses (riding a boda, or on the back of one). The model has no sitting
-// clip, so limbs are aimed at target directions every frame on top of the idle
-// clip. Directions are in model space: +Z forward, +Y up, +X the model's left.
-export type RidePose = "rider" | "passenger"
+export type { RidePose } from "./avatarPose"
 
-type Aim = { bone: string; toward: string; direction: [number, number, number] }
-
-function sideAims(side: "L" | "R", legs: { thigh: number[]; shin: number[] }, arms: { upper: number[]; fore: number[] }): Aim[] {
-  const s = side === "L" ? 1 : -1
-  const mirror = (v: number[]): [number, number, number] => [v[0]! * s, v[1]!, v[2]!]
-  return [
-    { bone: `UpperLeg${side}`, toward: `LowerLeg${side}`, direction: mirror(legs.thigh) },
-    { bone: `LowerLeg${side}`, toward: `LowerLeg${side}_end`, direction: mirror(legs.shin) },
-    { bone: `UpperArm${side}`, toward: `LowerArm${side}`, direction: mirror(arms.upper) },
-    { bone: `LowerArm${side}`, toward: `Wrist${side}`, direction: mirror(arms.fore) }
-  ]
+/** The old model's bones, for the hand-made poses (avatarPose). */
+const SKELETON: Skeleton = {
+  torso: "Torso",
+  neck: "Neck",
+  head: "Head",
+  headTip: "Head_end",
+  hips: "Hips",
+  body: "Body",
+  upperArm: (side) => `UpperArm${side}`,
+  lowerArm: (side) => `LowerArm${side}`,
+  wrist: (side) => `Wrist${side}`,
+  upperLeg: (side) => `UpperLeg${side}`,
+  lowerLeg: (side) => `LowerLeg${side}`,
+  ankle: (side) => `LowerLeg${side}_end`
 }
 
-const RIDE_AIMS: Record<RidePose, Aim[]> = {
-  // Leaning a little forward, thighs along the tank, feet on the pegs, hands on the bars.
-  rider: [
-    { bone: "Torso", toward: "Neck", direction: [0, 1, 0.4] },
-    ...sideAims("L", { thigh: [0.24, -0.3, 1], shin: [0.04, -1, -0.62] }, { upper: [0.4, -0.75, 0.7], fore: [0.06, -0.2, 1] }),
-    ...sideAims("R", { thigh: [0.24, -0.3, 1], shin: [0.04, -1, -0.62] }, { upper: [0.4, -0.75, 0.7], fore: [0.06, -0.2, 1] })
-  ],
-  // Upright on the back, knees wider, hands resting on the thighs.
-  passenger: [
-    { bone: "Torso", toward: "Neck", direction: [0, 1, 0.06] },
-    ...sideAims("L", { thigh: [0.32, -0.18, 1], shin: [0.1, -1, -0.5] }, { upper: [0.22, -1, 0.28], fore: [0.12, -0.55, 1] }),
-    ...sideAims("R", { thigh: [0.32, -0.18, 1], shin: [0.1, -1, -0.5] }, { upper: [0.22, -1, 0.28], fore: [0.12, -0.55, 1] })
-  ]
-}
-
-const scratch = {
-  matrix: new THREE.Matrix4(),
-  parentMatrix: new THREE.Matrix4(),
-  position: new THREE.Vector3(),
-  childPosition: new THREE.Vector3(),
-  scale: new THREE.Vector3(),
-  quaternion: new THREE.Quaternion(),
-  parentQuaternion: new THREE.Quaternion(),
-  delta: new THREE.Quaternion(),
-  current: new THREE.Vector3(),
-  target: new THREE.Vector3()
-}
-
-/**
- * An object's transform relative to the rig root, from the local transforms
- * along its parent chain (a handful of bones). Cheaper than refreshing the
- * world matrices of the whole rig and its accessories every frame, and immune
- * to whatever rotates and mirrors the model above the root.
- */
-function rootSpace(object: THREE.Object3D, root: THREE.Object3D, out: THREE.Matrix4) {
-  out.identity()
-  for (let node: THREE.Object3D | null = object; node && node !== root; node = node.parent) {
-    node.updateMatrix()
-    out.premultiply(node.matrix)
-  }
-  return out
-}
-
-/** Bone position/rotation relative to the rig root. */
-function relative(object: THREE.Object3D, root: THREE.Object3D, position: THREE.Vector3, quaternion: THREE.Quaternion) {
-  rootSpace(object, root, scratch.matrix).decompose(position, quaternion, scratch.scale)
-}
-
-/** Turn `bone` so the line to `toward` points along `direction` (model space). */
-function aimBone(rig: ReturnType<typeof instantiate>, boneName: string, toward: string, direction: Vec) {
-  const { root, bones } = rig
-  const bone = bones.get(boneName)
-  const child = bones.get(toward)
-  if (!bone || !child || !bone.parent) return
-  relative(bone, root, scratch.position, scratch.quaternion)
-  relative(child, root, scratch.childPosition, scratch.delta)
-  scratch.current.subVectors(scratch.childPosition, scratch.position).normalize()
-  scratch.target.set(...direction).normalize()
-  scratch.delta.setFromUnitVectors(scratch.current, scratch.target)
-  // New root-space rotation, expressed in the parent's frame.
-  scratch.quaternion.premultiply(scratch.delta)
-  relative(bone.parent, root, scratch.position, scratch.parentQuaternion)
-  bone.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
-}
-
-function applyRidePose(rig: ReturnType<typeof instantiate>, pose: RidePose) {
-  for (const aim of RIDE_AIMS[pose]) aimBone(rig, aim.bone, aim.toward, aim.direction)
-  attachFeet(rig)
-}
-
-/** Put back what a dance frame moves relative to the bind pose. */
-function resetDanceBones(rig: ReturnType<typeof instantiate>) {
-  if (rig.bodyBind) rig.bones.get("Body")?.position.copy(rig.bodyBind)
-  if (rig.hipsBind) rig.bones.get("Hips")?.quaternion.copy(rig.hipsBind)
-}
-
-const danceScratch = { euler: new THREE.Euler(), turn: new THREE.Quaternion(), point: new THREE.Vector3() }
-
-/**
- * Pose the rig for one dance frame, on top of the idle clip: turn the pelvis,
- * aim the spine, head and limbs, then raise or lower the body so the lower
- * foot stays on the floor (bent knees crouch; a hop lifts it off).
- */
-function applyDanceFrame(rig: ReturnType<typeof instantiate>, frame: DanceFrame) {
-  const { root, bones } = rig
-  resetDanceBones(rig)
-  const hips = bones.get("Hips")
-  if (hips?.parent) {
-    relative(hips, root, scratch.position, scratch.quaternion)
-    danceScratch.turn.setFromEuler(danceScratch.euler.set(0, frame.hipsYaw, frame.hipsRoll))
-    scratch.quaternion.premultiply(danceScratch.turn)
-    relative(hips.parent, root, scratch.position, scratch.parentQuaternion)
-    hips.quaternion.copy(scratch.parentQuaternion.invert().multiply(scratch.quaternion))
-  }
-  aimBone(rig, "Torso", "Neck", frame.torso)
-  aimBone(rig, "Head", "Head_end", frame.head)
-  // Limb directions are written outward-positive; the right side is mirrored.
-  for (const side of ["L", "R"] as const) {
-    const s = side === "L" ? 1 : -1
-    const limb = (upper: string, lower: string, tip: string, pose: Limb) => {
-      aimBone(rig, upper, lower, [pose.upper[0] * s, pose.upper[1], pose.upper[2]])
-      aimBone(rig, lower, tip, [pose.lower[0] * s, pose.lower[1], pose.lower[2]])
-    }
-    limb(`UpperArm${side}`, `LowerArm${side}`, `Wrist${side}`, side === "L" ? frame.armL : frame.armR)
-    limb(`UpperLeg${side}`, `LowerLeg${side}`, `LowerLeg${side}_end`, side === "L" ? frame.legL : frame.legR)
-  }
-
-  const body = bones.get("Body")
-  if (body?.parent && Number.isFinite(rig.legEndY)) {
-    let lowest = Infinity
-    for (const side of ["L", "R"]) {
-      const end = bones.get(`LowerLeg${side}_end`)
-      if (end) lowest = Math.min(lowest, danceScratch.point.setFromMatrixPosition(rootSpace(end, root, scratch.matrix)).y)
-    }
-    const dy = rig.legEndY - lowest + frame.lift
-    danceScratch.point.setFromMatrixPosition(rootSpace(body, root, scratch.matrix))
-    danceScratch.point.y += dy
-    body.position.copy(danceScratch.point.applyMatrix4(rootSpace(body.parent, root, scratch.parentMatrix).invert()))
-  }
-  attachFeet(rig)
-}
+const feetScratch = { matrix: new THREE.Matrix4(), parentMatrix: new THREE.Matrix4(), point: new THREE.Vector3() }
 
 /**
  * The feet are separate bones (not children of the shins): carry each along
@@ -505,9 +397,9 @@ function attachFeet(rig: ReturnType<typeof instantiate>) {
     if (!foot || !end || !foot.parent || !offset) continue
     // The offset is in model (root) space: add it there, then express the
     // point in the foot's parent frame.
-    scratch.childPosition.setFromMatrixPosition(rootSpace(end, root, scratch.matrix)).add(offset)
-    rootSpace(foot.parent, root, scratch.parentMatrix).invert()
-    foot.position.copy(scratch.childPosition.applyMatrix4(scratch.parentMatrix))
+    feetScratch.point.setFromMatrixPosition(rootSpace(end, root, feetScratch.matrix)).add(offset)
+    rootSpace(foot.parent, root, feetScratch.parentMatrix).invert()
+    foot.position.copy(feetScratch.point.applyMatrix4(feetScratch.parentMatrix))
   }
 }
 
@@ -727,13 +619,11 @@ export function RealisticAvatar({
   /** Leave the backpack off (scripted scenes: Mum at home). */
   noBackpack?: boolean
 }) {
-  // The new realistic bodies, when switched on. Riding, dance routines and
-  // scripted poses still need the old model's hand-made poses.
-  const plain = !ride && !dance && !posed
-  if (plain && newBodiesOn()) {
+  // The new realistic bodies, when switched on.
+  if (newBodiesOn()) {
     return (
       <Suspense fallback={null}>
-        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} noBackpack={noBackpack} />
+        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} />
       </Suspense>
     )
   }

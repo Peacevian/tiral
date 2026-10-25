@@ -1,12 +1,13 @@
 "use client"
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, type ReactNode } from "react"
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react"
 import { createPortal, useFrame } from "@react-three/fiber"
 import { useGLTF } from "@react-three/drei"
 import * as THREE from "three"
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js"
 import { resolveLoadout, type AvatarLoadout, type Body, type HairStyle } from "@tiral/avatars"
 import { MergeStatic } from "@/components/MergeStatic"
+import { beatsAt, danceFrame, type DanceFrame, type DanceState } from "@/lib/dance/moves"
 import { newBodiesOn } from "@/lib/newBodies"
 import {
   BODA_VEST_COLOR,
@@ -23,6 +24,7 @@ import {
   Robe,
   useNumberTexture
 } from "./avatarParts"
+import { applyDanceFrame, applyRidePose, resetDanceBones, type PoseRig, type RidePose, type Skeleton } from "./avatarPose"
 import type { AvatarAct, AvatarPose } from "./RealisticAvatar"
 
 // The realistic young man and woman, made from code (scripts/characters),
@@ -119,12 +121,39 @@ const LIFT = 1.2
 const MODEL_HAIR: ReadonlySet<HairStyle> = new Set(["short", "afro"])
 const BONES = { head: "mixamorigHead", spine: "mixamorigSpine2", neck: "mixamorigNeck", hips: "mixamorigHips" }
 
+const SIDES = { L: "Left", R: "Right" } as const
+/** A point added 20 cm above the head (Mixamo has no head tip), to aim it by. */
+const HEAD_TIP = "headTip"
+/** Longer arms from lower shoulders than the old model's: reach up and in to the grips. */
+const RIDER_ARMS = { upper: [0.3, -0.85, 0.45], fore: [-0.05, 0, 1] }
+/** Where the old model's hips are at rest: seated on a boda, the new bodies' hips go there (the bike is built round it). */
+const OLD_HIPS_Y = 0.894
+
+/** Mixamo's bones, for the hand-made poses (avatarPose). The hips are the root here, so they also carry the body up and down. */
+const SKELETON: Skeleton = {
+  torso: "mixamorigSpine",
+  neck: "mixamorigNeck",
+  head: "mixamorigHead",
+  headTip: HEAD_TIP,
+  hips: "mixamorigHips",
+  body: "mixamorigHips",
+  upperArm: (side) => `mixamorig${SIDES[side]}Arm`,
+  lowerArm: (side) => `mixamorig${SIDES[side]}ForeArm`,
+  wrist: (side) => `mixamorig${SIDES[side]}Hand`,
+  upperLeg: (side) => `mixamorig${SIDES[side]}UpLeg`,
+  lowerLeg: (side) => `mixamorig${SIDES[side]}Leg`,
+  ankle: (side) => `mixamorig${SIDES[side]}Foot`
+}
+
 export function NewBody({
   loadout,
   moving,
   pose = "auto",
   gait = "walk",
   act,
+  ride,
+  dance,
+  posed,
   noBackpack,
   clip: chosen
 }: {
@@ -133,6 +162,12 @@ export function NewBody({
   pose?: AvatarPose
   gait?: "walk" | "run"
   act?: AvatarAct
+  /** Seated on a boda (rider or passenger); hips at the old model's seat height. */
+  ride?: RidePose
+  /** A dance routine playing to a beat (overrides pose and moving). */
+  dance?: DanceState | null
+  /** An exact pose, read every frame (scripted scenes such as the intro video). */
+  posed?: { current: DanceFrame | null }
   /** Leave the backpack off (scripted scenes: Mum at home). */
   noBackpack?: boolean
   /** Any clip in the file, by name, over the above (the /dev/hero bench). */
@@ -168,12 +203,36 @@ export function NewBody({
     // Each bone's rest pose against the model, inverted: an add-on placed in
     // model space inside the bone then follows it (as OnBone in RealisticAvatar).
     model.updateMatrixWorld(true)
-    const bones = new Map<string, { bone: THREE.Object3D; inverse: THREE.Matrix4 }>()
+    const mounts = new Map<string, { bone: THREE.Object3D; inverse: THREE.Matrix4 }>()
     for (const name of [...Object.values(BONES), "mixamorigLeftArm", "mixamorigRightArm"]) {
       const bone = model.getObjectByName(name)
-      if (bone) bones.set(name, { bone, inverse: bone.matrixWorld.clone().invert() })
+      if (bone) mounts.set(name, { bone, inverse: bone.matrixWorld.clone().invert() })
     }
-    return { model, materials, hair, trousers, bones }
+    // For the hand-made poses: every bone by name, plus the head's tip.
+    const bones = new Map<string, THREE.Object3D>()
+    model.traverse((object) => {
+      if ((object as THREE.Bone).isBone) bones.set(object.name, object)
+    })
+    const head = bones.get(SKELETON.head)
+    if (head) {
+      const tip = new THREE.Object3D()
+      tip.name = HEAD_TIP
+      tip.position.copy(head.worldToLocal(head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.2, 0))))
+      head.add(tip)
+      bones.set(HEAD_TIP, tip)
+    }
+    const hips = bones.get(SKELETON.hips)
+    const ankleY = (["L", "R"] as const).map((side) => bones.get(SKELETON.ankle(side))?.getWorldPosition(new THREE.Vector3()).y ?? Infinity)
+    const pose: PoseRig = {
+      root: model,
+      bones,
+      skeleton: SKELETON,
+      legEndY: Math.min(...ankleY),
+      bodyBind: hips?.position.clone() ?? null,
+      hipsBind: hips?.quaternion.clone() ?? null,
+      riderArms: RIDER_ARMS
+    }
+    return { model, materials, hair, trousers, mounts, pose }
   }, [scene])
   useEffect(() => () => rig.materials.forEach((list) => list.forEach((m) => m.dispose())), [rig])
 
@@ -202,7 +261,8 @@ export function NewBody({
   useEffect(() => () => void mixer.stopAllAction(), [mixer])
   useFrame((_, delta) => mixer.update(delta))
 
-  const clip = chosen ?? (act ? ACT_CLIPS[act] : pose === "dance" ? CLIPS.dance : moving ? CLIPS[gait] : CLIPS.idle)
+  const clip =
+    chosen ?? (act ? ACT_CLIPS[act] : ride || dance || posed ? CLIPS.idle : pose === "dance" ? CLIPS.dance : moving ? CLIPS[gait] : CLIPS.idle)
   useEffect(() => {
     const found = THREE.AnimationClip.findByName(animations, clip)
     if (!found) return
@@ -216,11 +276,37 @@ export function NewBody({
     }
   }, [mixer, animations, clip, act])
 
+  // The hand-made poses, after the mixer has applied this frame's idle clip
+  // (registered after it, so they run after it): a dance routine's (or a
+  // scripted scene's) frame, or seated on a boda.
+  const spin = useRef<THREE.Group>(null)
+  const danced = useRef(false)
+  useFrame(() => {
+    const frame = posed?.current ?? (dance && !act && !ride ? danceFrame(dance.routine, beatsAt(dance, performance.now())) : null)
+    if (frame) {
+      applyDanceFrame(rig.pose, frame)
+      spin.current?.position.set(frame.shiftX, 0, 0)
+      spin.current?.rotation.set(0, frame.yaw, 0)
+      danced.current = true
+      return
+    }
+    if (danced.current) {
+      // Stopped dancing: hand the bones the dance moved back to the clips.
+      resetDanceBones(rig.pose)
+      spin.current?.position.set(0, 0, 0)
+      spin.current?.rotation.set(0, 0, 0)
+      danced.current = false
+    }
+    if (ride && !act) applyRidePose(rig.pose, ride)
+  })
+  // Seated: the hips at the old model's seat height (in this body's units).
+  const seatDrop = ride && rig.pose.bodyBind ? OLD_HIPS_Y / fit.scale - rig.pose.bodyBind.y : 0
+
   const numberTexture = useNumberTexture(outfit === "jersey")
   // Everything the add-ons depend on (they're merged into one mesh per material).
-  const version = JSON.stringify([loadout, !!noBackpack])
+  const version = JSON.stringify([loadout, !!noBackpack, !!ride])
   const on = (bone: string, children: ReactNode) => {
-    const target = rig.bones.get(bone)
+    const target = rig.mounts.get(bone)
     if (!target) return null
     return createPortal(
       <group matrix={target.inverse} matrixAutoUpdate={false}>
@@ -234,7 +320,12 @@ export function NewBody({
 
   return (
     <group scale={fit.scale}>
-      <primitive object={rig.model} />
+      {/* The add-ons below ride on the bones, so they follow these too. */}
+      <group position={[0, seatDrop, 0]}>
+        <group ref={spin}>
+          <primitive object={rig.model} />
+        </group>
+      </group>
       {on(
         BONES.head,
         <>
@@ -254,7 +345,8 @@ export function NewBody({
       {on(
         BONES.spine,
         <>
-          {!noBackpack && (
+          {/* Seated on a boda, a backpack would push into whoever sits behind. */}
+          {!ride && !noBackpack && (
             <Moved from={OLD.back} to={fit.back}>
               <Backpack color={resolved.backpack} straps={false} />
             </Moved>
