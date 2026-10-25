@@ -26,7 +26,8 @@ DATA = LocationService.get_user_data()
 # MakeHuman's age slider: 0.1875 is 11 years old, 0.5 is 25. Its faces read
 # older than the slider says, so 0.31 (17 on paper) looks about 19-20.
 CHARACTERS = {
-    # Young Ugandan man, about 19, slim and fit, shaved head.
+    # Young Ugandan man, about 19, slim and fit. Both hair styles are in the
+    # file (short, afro); the game shows the player's, or none (bald).
     "hero": {
         "macro": {"gender": 1.0, "age": 0.31, "muscle": 0.55, "weight": 0.4, "proportions": 0.6, "height": 0.55, "cupsize": 0.5, "firmness": 0.5},
         "skin": "young_african_male",
@@ -35,13 +36,13 @@ CHARACTERS = {
             ("Eyes", "eyes/low-poly/low-poly.mhclo"),
             ("Eyebrows", "eyebrows/eyebrow001/eyebrow001.mhclo"),
             ("Eyelashes", "eyelashes/eyelashes01/eyelashes01.mhclo"),
+            ("Hair", "hair/short02/short02.mhclo"),
+            ("Hair", "hair/afro01/afro01.mhclo"),
             ("Clothes", "clothes/male_casualsuit06/male_casualsuit06.mhclo"),
             ("Clothes", "clothes/shoes04/shoes04.mhclo"),
         ],
-        "top": (0.94, 0.95, 0.96),  # white shirt
-        "bottom": (0.153, 0.212, 0.302),  # navy trousers, #27364d
     },
-    # Young Ugandan woman, about 19, slim, short natural hair.
+    # Young Ugandan woman, about 19, slim; hair as for the man.
     "heroine": {
         "macro": {"gender": 0.0, "age": 0.31, "muscle": 0.5, "weight": 0.45, "proportions": 0.6, "height": 0.45, "cupsize": 0.45, "firmness": 0.6},
         "skin": "young_african_female",
@@ -50,33 +51,27 @@ CHARACTERS = {
             ("Eyes", "eyes/low-poly/low-poly.mhclo"),
             ("Eyebrows", "eyebrows/eyebrow002/eyebrow002.mhclo"),
             ("Eyelashes", "eyelashes/eyelashes01/eyelashes01.mhclo"),
+            ("Hair", "hair/short02/short02.mhclo"),
             ("Hair", "hair/afro01/afro01.mhclo"),
             ("Clothes", "clothes/female_casualsuit01/female_casualsuit01.mhclo"),
             ("Clothes", "clothes/shoes05/shoes05.mhclo"),
         ],
-        "top": (0.93, 0.66, 0.12),  # mustard top
-        "bottom": (0.18, 0.24, 0.36),  # dark jeans
     },
 }
 CHAR = CHARACTERS[WHO]
 MACRO = {**CHAR["macro"], "race": {"african": 1.0, "asian": 0.0, "caucasian": 0.0}}
 SKIN = os.path.join(DATA, f"skins/{CHAR['skin']}/{CHAR['skin']}.mhmat")
 ASSETS = CHAR["assets"]
-TOP, BOTTOM = np.array(CHAR["top"]), np.array(CHAR["bottom"])
 # Share of triangles kept in the game version, per mesh (by name).
-KEEP = {"_generic": 0.22, "casualsuit": 0.45, "shoes": 0.3, "afro": 0.5}
+KEEP = {"_generic": 0.22, "casualsuit": 0.45, "shoes": 0.3, "afro": 0.5, "short02": 0.5}
 
 
-def legs_mask(cloth, w, h):
-    """Which texels of the outfit's texture are the trousers: the faces of
-    every piece of the mesh that reaches down to the ankles, drawn in UV
-    space (a few texels wider, so the seams don't bleed the top's colour)."""
+def legs_faces(cloth):
+    """The trousers: the faces of every piece of the outfit's mesh that
+    reaches down to the ankles (the top and its sleeves stop at the hips)."""
     bm = bmesh.new()
     bm.from_mesh(cloth.data)
-    uv = bm.loops.layers.uv.active
-    mask = np.zeros((h, w), bool)
-    ys, xs = np.mgrid[0:h, 0:w] + 0.5
-    seen = set()
+    legs, seen = set(), set()
     for face in bm.faces:
         if face in seen:
             continue
@@ -87,42 +82,55 @@ def legs_mask(cloth, w, h):
                 part.add(f)
                 stack.extend(g for e in f.edges for g in e.link_faces)
         seen |= part
-        if min(v.co.z for f in part for v in f.verts) > 0.4:
-            continue
-        for f in part:
-            pts = [(l[uv].uv.x * w, l[uv].uv.y * h) for l in f.loops]
-            for (ax, ay), (bx, by), (cx, cy) in ((pts[0], pts[i], pts[i + 1]) for i in range(1, len(pts) - 1)):
-                x0, x1 = int(max(min(ax, bx, cx), 0)), int(min(max(ax, bx, cx) + 1, w))
-                y0, y1 = int(max(min(ay, by, cy), 0)), int(min(max(ay, by, cy) + 1, h))
-                X, Y = xs[y0:y1, x0:x1], ys[y0:y1, x0:x1]
-                d1 = (X - bx) * (ay - by) - (ax - bx) * (Y - by)
-                d2 = (X - cx) * (by - cy) - (bx - cx) * (Y - cy)
-                d3 = (X - ax) * (cy - ay) - (cx - ax) * (Y - ay)
-                neg, pos = (d1 < 0) | (d2 < 0) | (d3 < 0), (d1 > 0) | (d2 > 0) | (d3 > 0)
-                mask[y0:y1, x0:x1] |= ~(neg & pos)
+        if min(v.co.z for f in part for v in f.verts) < 0.4:
+            legs |= {f.index for f in part}
     bm.free()
+    return legs
+
+
+def legs_mask(cloth, faces, w, h):
+    """Which texels of the outfit's texture the trousers use: their faces
+    drawn in UV space (a few texels wider, so the seams don't bleed)."""
+    uv = cloth.data.uv_layers.active.data
+    mask = np.zeros((h, w), bool)
+    ys, xs = np.mgrid[0:h, 0:w] + 0.5
+    for poly in (cloth.data.polygons[i] for i in faces):
+        pts = [(uv[i].uv.x * w, uv[i].uv.y * h) for i in poly.loop_indices]
+        for (ax, ay), (bx, by), (cx, cy) in ((pts[0], pts[i], pts[i + 1]) for i in range(1, len(pts) - 1)):
+            x0, x1 = int(max(min(ax, bx, cx), 0)), int(min(max(ax, bx, cx) + 1, w))
+            y0, y1 = int(max(min(ay, by, cy), 0)), int(min(max(ay, by, cy) + 1, h))
+            X, Y = xs[y0:y1, x0:x1], ys[y0:y1, x0:x1]
+            d1 = (X - bx) * (ay - by) - (ax - bx) * (Y - by)
+            d2 = (X - cx) * (by - cy) - (bx - cx) * (Y - cy)
+            d3 = (X - ax) * (cy - ay) - (cx - ax) * (Y - ay)
+            neg, pos = (d1 < 0) | (d2 < 0) | (d3 < 0), (d1 > 0) | (d2 > 0) | (d3 > 0)
+            mask[y0:y1, x0:x1] |= ~(neg & pos)
     for _ in range(3):
         mask = mask | np.roll(mask, 1, 0) | np.roll(mask, -1, 0) | np.roll(mask, 1, 1) | np.roll(mask, -1, 1)
     return mask
 
 
-def paint(image, legs=None):
-    """Flatten a photo texture towards a painted look: less grain. On the
-    clothes (given which texels are the trousers), the trousers and the top
-    each become one plain colour (logos go), keeping only the folds' shading."""
+# The game tints the textures with each player's colours (multiplying them),
+# so they're made light grey with only their shading left, averaging this.
+GREY = 0.92
+
+
+def paint(image, parts=None, floor=0.5):
+    """Turn a photo texture into a light grey shading map for tinting, with
+    less grain. `parts`: masks of texels to even out separately (the top and
+    the trousers), where logos, trims and stitching (far from the part's usual
+    colour) take its average shade, so only the folds remain. `floor`: the
+    darkest the shading goes (skin keeps more: lips, eyes)."""
     w, h = image.size
     px = np.array(image.pixels[:], dtype=np.float32).reshape(h, w, 4)
     rgb = px[..., :3]
-    if legs is not None:
-        shade = rgb.mean(axis=2)
-        for part in (legs, ~legs):
-            # Logos, trims and stitching (far from the part's usual colour)
-            # take its average shade, so only the folds remain.
-            odd = part & (np.abs(rgb - np.median(rgb[part], axis=0)).sum(axis=2) > 0.2)
-            shade[odd] = shade[part & ~odd].mean()
-        bottom = BOTTOM * (shade / shade[legs].mean()).clip(0.6, 1.3)[..., None]
-        top = TOP * (shade / shade[~legs].mean()).clip(0.7, 1.08)[..., None]
-        rgb = np.where(legs[..., None], bottom, top)
+    shade = rgb @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    grey = np.ones_like(shade)
+    for part in parts or [np.ones((h, w), bool)]:
+        odd = part & (np.abs(rgb - np.median(rgb[part], axis=0)).sum(axis=2) > 0.2) if parts else np.zeros_like(part)
+        shade[odd] = shade[part & ~odd].mean()
+        grey[part] = (GREY * shade[part] / shade[part].mean()).clip(floor, 1.0)
+    rgb = np.repeat(grey[..., None], 3, axis=2)
     # Box blur (3 passes of a 5-tap average) to melt the photo grain.
     for _ in range(3):
         rgb = sum(np.roll(rgb, d, axis=a) for a in (0, 1) for d in (-2, -1, 0, 1, 2)) / 10
@@ -152,11 +160,32 @@ if GAME:
     for node in [n for n in cloth.active_material.node_tree.nodes if n.type == "NORMAL_MAP"]:
         # The outfit's bump map carries its logo; plain cloth needs none.
         cloth.active_material.node_tree.nodes.remove(node)
-    for image in [i for i in bpy.data.images if i.source == "FILE" and i.size[0]]:
-        if "casualsuit" in image.name and "diffuse" in image.name:
-            paint(image, legs_mask(cloth, *image.size))
+    # The top and the trousers become two materials, tinted apart.
+    legs = legs_faces(cloth)
+    top = cloth.active_material
+    top.name = f"{WHO}.top"
+    bottom = top.copy()
+    bottom.name = f"{WHO}.bottom"
+    # Denim is duller than a cotton top; this also keeps the two materials
+    # different, or gltf-transform would merge them (and their colours).
+    next(n for n in bottom.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Roughness"].default_value = 0.85
+    cloth.data.materials.append(bottom)
+    for poly in cloth.data.polygons:
+        poly.material_index = 1 if poly.index in legs else 0
+    for image in [i for i in bpy.data.images if i.source == "FILE" and i.size[0] and "normal" not in i.name]:
+        if "casualsuit" in image.name:
+            mask = legs_mask(cloth, legs, *image.size)
+            paint(image, [mask, ~mask])
         elif "skin" in image.name or "male" in image.name:
-            paint(image)
+            paint(image, floor=0.35)
+        elif any(part in image.name for part in ("shoes", "afro", "short02")):
+            paint(image, floor=0.2)
+    # Named for what the game tints.
+    for obj in bpy.data.objects:
+        # Both hair styles are in the file; the game shows the player's.
+        for role, part in (("body", CHAR["proxy"]), ("shoes", "shoes"), ("hair-afro", "afro01"), ("hair-short", "short02")):
+            if obj.type == "MESH" and part in obj.name and obj.active_material:
+                obj.active_material.name = f"{WHO}.{role}"
 
 # MakeHuman gives every material an alpha channel, which exports as blended
 # (see-through): the far arm showed through the head. Skin, clothes, shoes
