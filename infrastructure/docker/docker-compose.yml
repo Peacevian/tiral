@@ -6,6 +6,7 @@ services:
       args:
         NEXT_PUBLIC_GAME_URL: wss://playtiral.com
         NEXT_PUBLIC_RACES_API_URL: https://playtiral.com
+        NEXT_PUBLIC_NEW_BODIES: "1"
     env_file:
       - /opt/tiral/web.env
     network_mode: host
