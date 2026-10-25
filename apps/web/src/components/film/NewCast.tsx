@@ -1,25 +1,24 @@
 "use client"
 
-import { Suspense, useEffect, useMemo, useRef } from "react"
+import { Suspense, useMemo, useRef } from "react"
 import { useFrame } from "@react-three/fiber"
-import { useAnimations, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
-import { clone } from "three/examples/jsm/utils/SkeletonUtils.js"
 import { lngLatToMercator } from "@tiral/map"
+import type { AvatarLoadout } from "@tiral/avatars"
 import { useMapOrigin } from "@/components/ThreeLayer"
 import { RealisticAvatar } from "@/components/RealisticAvatar"
-import type { Body } from "@tiral/avatars"
-import { BODY_MODELS } from "@/components/NewBody"
+import { NewBody } from "@/components/NewBody"
 import { HERO } from "./hero"
 
 // The code-made characters (scripts/characters) on the 3D map, next to the
 // current avatar, to compare before swapping them into the game. Development
 // only (/dev/hero).
 
-export const NEW_CAST = [
-  { id: "hero", body: "male" },
-  { id: "heroine", body: "female" }
-] as const
+/** The new man and woman as the trailer's hero (she in his colours, in amber). */
+export const NEW_CAST: AvatarLoadout[] = [
+  { ...HERO, body: "male" },
+  { ...HERO, body: "female", shirt: "#f59e0b" }
+]
 
 /** The Mixamo clips in the files (scripts/characters/anims, named in lower case). */
 export const CAST_CLIPS = [
@@ -48,8 +47,20 @@ const SPACING = 1.6
 const LOOP_RADIUS = 7
 const SPEED = { walking: 1.4, running: 3.6, fast_run: 5.5 } as const
 
-/** `facing`: the compass bearing (degrees) they face while standing in a row. */
-export function NewCast({ anchor, facing, clip, roam }: { anchor: { lat: number; lng: number }; facing: number; clip: CastClip; roam: boolean }) {
+/** `facing`: the compass bearing (degrees) they face while standing in a row. `cast`: the new pair's loadouts. */
+export function NewCast({
+  anchor,
+  facing,
+  clip,
+  roam,
+  cast = NEW_CAST
+}: {
+  anchor: { lat: number; lng: number }
+  facing: number
+  clip: CastClip
+  roam: boolean
+  cast?: AvatarLoadout[]
+}) {
   const origin = useMapOrigin()
   const group = useRef<THREE.Group>(null)
   const mercator = useMemo(() => lngLatToMercator(anchor), [anchor])
@@ -67,13 +78,13 @@ export function NewCast({ anchor, facing, clip, roam }: { anchor: { lat: number;
       <hemisphereLight args={["#FFF1DC", "#6B5A48", 1.5]} position={[0, 0, 1]} />
       <directionalLight position={[-40, -60, 80]} intensity={2.4} color="#FFE2B8" />
       {/* The current avatar, then the new man and the new woman. */}
-      <Mover index={0} facing={facing} roam={roam} gait={gait}>
+      <Mover index={0} count={cast.length + 1} facing={facing} roam={roam} gait={gait}>
         <RealisticAvatar loadout={HERO} moving={roam || gait in SPEED} gait={gait === "walking" ? "walk" : "run"} />
       </Mover>
-      {NEW_CAST.map((person, i) => (
-        <Mover key={person.id} index={i + 1} facing={facing} roam={roam} gait={gait}>
+      {cast.map((loadout, i) => (
+        <Mover key={i} index={i + 1} count={cast.length + 1} facing={facing} roam={roam} gait={gait}>
           <Suspense fallback={null}>
-            <Person body={person.body} clip={gait} />
+            <NewBody loadout={loadout} moving={false} clip={gait} />
           </Suspense>
         </Mover>
       ))}
@@ -82,17 +93,32 @@ export function NewCast({ anchor, facing, clip, roam }: { anchor: { lat: number;
 }
 
 /** Places one person: in a row, or following the others round the loop. */
-function Mover({ index, facing, roam, gait, children }: { index: number; facing: number; roam: boolean; gait: CastClip; children: React.ReactNode }) {
+function Mover({
+  index,
+  count,
+  facing,
+  roam,
+  gait,
+  children
+}: {
+  index: number
+  count: number
+  facing: number
+  roam: boolean
+  gait: CastClip
+  children: React.ReactNode
+}) {
   const ref = useRef<THREE.Group>(null)
   const angle = useRef(0)
   useFrame((_, dt) => {
     const g = ref.current
     if (!g) return
-    // Stood up below, a model at rotation.z = θ faces compass bearing θ - 180°.
-    const heading = (facing * Math.PI) / 180 + Math.PI
+    // Stood up below, a model at rotation.z = θ faces compass bearing θ.
+    const heading = (facing * Math.PI) / 180
     if (!roam) {
-      // In a row across their line of sight.
-      g.position.set((index - 1) * SPACING * Math.cos(heading), (index - 1) * SPACING * Math.sin(heading), 0)
+      // In a row across their line of sight, centred on the anchor.
+      const along = ((count - 1) / 2 - index) * SPACING
+      g.position.set(along * Math.cos(heading), along * Math.sin(heading), 0)
       g.rotation.z = heading
       return
     }
@@ -101,7 +127,7 @@ function Mover({ index, facing, roam, gait, children }: { index: number; facing:
     const a = angle.current - index * (2.2 / LOOP_RADIUS)
     g.position.set(Math.cos(a) * LOOP_RADIUS, Math.sin(a) * LOOP_RADIUS, 0)
     // Heading along the circle.
-    g.rotation.z = a
+    g.rotation.z = a + Math.PI
   })
   return (
     <group ref={ref}>
@@ -111,26 +137,4 @@ function Mover({ index, facing, roam, gait, children }: { index: number; facing:
       </group>
     </group>
   )
-}
-
-/** A new body playing any of its clips (NewBody itself plays only the game's). */
-function Person({ body, clip }: { body: Body; clip: CastClip }) {
-  const { scene, animations } = useGLTF(BODY_MODELS[body])
-  const model = useMemo(() => {
-    const copy = clone(scene)
-    copy.traverse((object) => {
-      if ((object as THREE.Mesh).isMesh) object.frustumCulled = false
-    })
-    return copy
-  }, [scene])
-  const { actions } = useAnimations(animations, model)
-  useEffect(() => {
-    const action = actions[clip]
-    if (!action) return
-    action.reset().fadeIn(0.25).play()
-    return () => {
-      action.fadeOut(0.25)
-    }
-  }, [actions, clip])
-  return <primitive object={model} />
 }

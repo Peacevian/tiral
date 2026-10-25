@@ -18,11 +18,11 @@ file name whenever it changes (it is cached for a year).
 
 | File | Model | Author | License | Source |
 |---|---|---|---|---|
-| `young-man-v2.glb`, `young-woman-v2.glb` | Made by `scripts/characters/make_hero.py` | MakeHuman / MPFB assets | CC0 1.0 (system assets) | https://static.makehumancommunity.org/assets/assetdownload.html |
+| `young-man-v4.glb`, `young-woman-v4.glb` | Made by `scripts/characters/make_hero.py` | MakeHuman / MPFB assets | CC0 1.0 (system assets) | https://static.makehumancommunity.org/assets/assetdownload.html |
 | (their animations) | Mixamo clips | Adobe | Mixamo terms: free in games, not to be shared as standalone files | https://www.mixamo.com |
 
 The new realistic characters (`apps/web/src/components/NewBody.tsx`): bodies,
 clothes and hair from MakeHuman's CC0 assets, rigged with Mixamo's skeleton,
-textures flattened and meshes thinned to ~8.5k triangles; then
+textures turned to light grey shading (the game tints them with each player's colours) and meshes thinned to ~8.5k triangles; then
 `scripts/characters/retarget.py` bakes 15 Mixamo clips onto each, and
 gltf-transform `optimize --compress meshopt --texture-compress webp --texture-size 512`.
