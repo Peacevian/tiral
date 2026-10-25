@@ -58,6 +58,11 @@ export const SHOE_COLORS = [
   "#f59e0b"
 ] as const
 
+// The figure itself: the young man or the young woman (the realistic
+// characters). Older loadouts have none and get the man.
+export const BODIES = ["male", "female"] as const
+export type Body = (typeof BODIES)[number]
+
 export const GLASSES_STYLES = ["none", "round", "square"] as const
 export type GlassesStyle = (typeof GLASSES_STYLES)[number]
 
@@ -135,6 +140,7 @@ export function loadoutRarity(loadout: AvatarLoadout): Rarity {
 }
 
 export type AvatarLoadout = {
+  body?: Body
   skin: string
   shirt: string
   pants: string
@@ -150,6 +156,7 @@ export type AvatarLoadout = {
 }
 
 export const DEFAULT_LOADOUT: AvatarLoadout = {
+  body: "male",
   skin: "#f2bd8c",
   shirt: "#f59e0b",
   pants: "#27364d",
@@ -168,6 +175,7 @@ export function resolveLoadout(loadout: AvatarLoadout): Required<AvatarLoadout> 
   return {
     ...DEFAULT_LOADOUT,
     ...loadout,
+    body: loadout.body ?? DEFAULT_LOADOUT.body ?? "male",
     shoes: loadout.shoes ?? DEFAULT_LOADOUT.shoes ?? "#26211c",
     glasses: loadout.glasses ?? DEFAULT_LOADOUT.glasses ?? "none",
     hair: loadout.hair ?? DEFAULT_LOADOUT.hair ?? "short",
@@ -210,6 +218,7 @@ export function isValidLoadout(value: unknown): value is AvatarLoadout {
   return (
     shoesValid &&
     glassesValid &&
+    optionalIn("body", BODIES) &&
     optionalIn("hair", HAIR_STYLES) &&
     optionalIn("hairColor", HAIR_COLORS) &&
     optionalIn("outfit", OUTFITS) &&

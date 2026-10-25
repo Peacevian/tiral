@@ -1,8 +1,11 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { newBodiesOn } from "@/lib/newBodies"
 import { colorName, skinToneName } from "@/lib/colorName"
 import {
   BACKPACK_COLORS,
+  BODIES,
   GLASSES_STYLES,
   HAIR_COLORS,
   HAIR_STYLES,
@@ -24,6 +27,8 @@ type RaritySlot = Parameters<typeof itemRarity>[0]
 
 const OPTION_LABELS: Record<string, string> = {
   bodavest: "Boda vest",
+  female: "Woman",
+  male: "Man",
   cranes: "Cranes kit",
   headwrap: "Head wrap",
   none: "None"
@@ -42,7 +47,8 @@ function Options<T extends string>({
   hint
 }: {
   label: string
-  slot: RaritySlot
+  /** For the rarity glow; the body has none. */
+  slot?: RaritySlot
   options: readonly T[]
   selected: T
   onSelect(option: T): void
@@ -56,14 +62,14 @@ function Options<T extends string>({
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
-          const rarity = itemRarity(slot, option)
+          const rarity = slot ? itemRarity(slot, option) : "common"
           return (
             <button
               key={option}
               type="button"
               onClick={() => onSelect(option)}
               aria-pressed={selected === option}
-              title={`${optionLabel(option)} · ${rarity}`}
+              title={slot ? `${optionLabel(option)} · ${rarity}` : optionLabel(option)}
               className={`flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-bold transition ${
                 selected === option
                   ? "border-flame bg-flame-soft text-flame-deep"
@@ -141,8 +147,15 @@ export function ProfileCustomizer({
   onChange(next: AvatarLoadout): void
 }) {
   const resolved = resolveLoadout(loadout)
+  // Man or woman only with the new realistic bodies (after mount: the switch
+  // lives in this browser).
+  const [bodies, setBodies] = useState(false)
+  useEffect(() => setBodies(newBodiesOn()), [])
   return (
     <div className="flex flex-col gap-4">
+      {bodies && (
+        <Options label="Body" options={BODIES} selected={resolved.body} onSelect={(body) => onChange({ ...loadout, body })} />
+      )}
       <Swatches
         label="Skin"
         colors={SKIN_TONES}

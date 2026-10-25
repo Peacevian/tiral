@@ -63,6 +63,14 @@ describe("isValidLoadout", () => {
     expect(isValidLoadout({ ...DEFAULT_LOADOUT, glasses: "monocle" })).toBe(false)
     expect(isValidLoadout({ ...DEFAULT_LOADOUT, shoes: "#b91c1c", glasses: "round" })).toBe(true)
   })
+
+  it("accepts either body and rejects others", () => {
+    expect(isValidLoadout({ ...DEFAULT_LOADOUT, body: "female" })).toBe(true)
+    expect(isValidLoadout({ ...DEFAULT_LOADOUT, body: "robot" })).toBe(false)
+    const { body: _body, ...legacy } = DEFAULT_LOADOUT
+    expect(isValidLoadout(legacy)).toBe(true)
+    expect(resolveLoadout(legacy).body).toBe("male")
+  })
 })
 
 describe("resolveLoadout", () => {

@@ -6,6 +6,7 @@ import { useAnimations, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js"
 import { MergeStatic } from "@/components/MergeStatic"
+import { newBodiesOn } from "@/lib/newBodies"
 import { beatsAt, danceFrame, type DanceFrame, type DanceState, type Limb, type Vec } from "@/lib/dance/moves"
 import {
   resolveLoadout,
@@ -15,6 +16,7 @@ import {
   type HatStyle,
   type Outfit
 } from "@tiral/avatars"
+import { NewBody } from "./NewBody"
 
 // Rigged human: "Casual Character" by Quaternius (CC0), see public/models/CREDITS.md.
 // Rest (bind) pose is a T-pose about 1.85 tall, feet at y=0, facing +Z.
@@ -772,7 +774,9 @@ function HumanAvatar({
   gait,
   act,
   ride,
-  dance
+  dance,
+  posed,
+  noBackpack
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -781,6 +785,8 @@ function HumanAvatar({
   act?: AvatarAct
   ride?: RidePose
   dance?: DanceState | null
+  posed?: { current: DanceFrame | null }
+  noBackpack?: boolean
 }) {
   const { scene, animations } = useGLTF(MODEL_URL)
   const rig = useMemo(() => instantiate(scene), [scene])
@@ -857,7 +863,7 @@ function HumanAvatar({
   useFrame(({ clock }) => {
     const group = spinRef.current
     if (!group) return
-    if (dance && !act && !ride) return
+    if ((dance && !act && !ride) || posed?.current) return
     if (pose === "dance" && !act) {
       const t = clock.elapsedTime
       group.position.y = Math.abs(Math.sin(t * 5)) * 0.08
@@ -878,7 +884,7 @@ function HumanAvatar({
   // Dancing: the routine's pose for this moment, also after the mixer.
   const dancedRef = useRef(false)
   useFrame(() => {
-    const frame = dance && !act && !ride ? danceFrame(dance.routine, beatsAt(dance, performance.now())) : null
+    const frame = posed?.current ?? (dance && !act && !ride ? danceFrame(dance.routine, beatsAt(dance, performance.now())) : null)
     if (frame) {
       applyDanceFrame(rig, frame)
       spinRef.current?.position.set(frame.shiftX, 0, 0)
@@ -919,7 +925,7 @@ function HumanAvatar({
 
       <OnBone rig={rig} version={partsKey} bone="Chest">
         {/* Seated on a boda, a backpack would push into whoever sits behind. */}
-        {!ride && <Backpack color={resolved.backpack} />}
+        {!ride && !noBackpack && <Backpack color={resolved.backpack} />}
         {outfit === "jersey" && numberTexture && (
           <mesh position={[0, 1.3, 0.195]}>
             <planeGeometry args={[0.13, 0.13]} />
@@ -999,7 +1005,9 @@ export function RealisticAvatar({
   gait = "walk",
   act,
   ride,
-  dance
+  dance,
+  posed,
+  noBackpack
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -1015,10 +1023,24 @@ export function RealisticAvatar({
   dance?: DanceState | null
   /** Kept for callers; the rigged model is light enough to use everywhere. */
   detail?: "full" | "lite"
+  /** An exact pose, read every frame (scripted scenes such as the intro video). */
+  posed?: { current: DanceFrame | null }
+  /** Leave the backpack off (scripted scenes: Mum at home). */
+  noBackpack?: boolean
 }) {
+  // The new realistic bodies, when switched on. Riding, dance routines and
+  // scripted poses still need the old model's hand-made poses.
+  const plain = !ride && !dance && !posed
+  if (plain && newBodiesOn()) {
+    return (
+      <Suspense fallback={null}>
+        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} />
+      </Suspense>
+    )
+  }
   return (
     <Suspense fallback={null}>
-      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} />
+      <HumanAvatar loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} />
     </Suspense>
   )
 }
