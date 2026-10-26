@@ -47,12 +47,12 @@ type Avatar3DProps = {
 }
 
 // Model units (≈ metres in the avatar rig) → mercator units. Avatars are drawn
-// larger than life so they read on the map. Zoomed in, 1 unit ≈ 12 m (a runner
-// is ~22 m tall, stride inside a Kampala road); zoomed out they grow so they
+// larger than life so they read on the map. Zoomed in, 1 unit ≈ 9 m (a runner
+// is ~16 m tall, stride inside a Kampala road); zoomed out they grow so they
 // never drop below MIN_AVATAR_PX tall on screen.
-const AVATAR_SCALE = 0.0000003
+const AVATAR_SCALE = 0.00000022
 const AVATAR_HEIGHT = 1.85
-const MIN_AVATAR_PX = 34
+const MIN_AVATAR_PX = 26
 
 /** Mercator units per model unit at the current map zoom. */
 function avatarScale(worldSize: number) {
