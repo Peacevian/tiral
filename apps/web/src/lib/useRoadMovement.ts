@@ -43,6 +43,15 @@ const RECONCILE_STILL_METERS = 3
 const GLIDE_MAX_METERS = 20
 const GLIDE_MS = 250
 /**
+ * Running, a correction this small along the same road is blended in over
+ * about CATCH_UP_SECONDS (most of it in that time) instead of a jump: after a
+ * stalled frame the phone lags the server, and snapping looked like a leap.
+ */
+const CATCH_UP_MAX_METERS = 60
+const CATCH_UP_SECONDS = 0.2
+/** Longest frame step, as the server's tick (longer stalls are lost time on both). */
+const MAX_STEP_SECONDS = 0.25
+/**
  * While walking, the exact position lives in refs and is drawn every frame by
  * whoever reads `live` (the runner's 3D avatar). React state (HUD text, camera,
  * distances) only follows at this rate, not 60–120 times a second.
@@ -92,6 +101,8 @@ export function useRoadMovement(
   const lastJunctionRef = useRef<PassedJunction | null>(null)
   // A small correction from the server, played out over GLIDE_MS while standing.
   const glideRef = useRef<{ from: number; to: RoadPosition; startedAt: number } | null>(null)
+  // Running: metres along the road still to add (or take back) to meet the server.
+  const catchUpRef = useRef<{ edgeId: string; remaining: number } | null>(null)
   const onInputRef = useRef(onInput)
   onInputRef.current = onInput
   const lockedRef = useRef(locked)
@@ -184,7 +195,7 @@ export function useRoadMovement(
     let previousTime = performance.now()
 
     const tick = (time: number) => {
-      const deltaSeconds = Math.min((time - previousTime) / 1000, 0.1)
+      const deltaSeconds = Math.min((time - previousTime) / 1000, MAX_STEP_SECONDS)
       previousTime = time
       const current = positionRef.current
 
@@ -220,11 +231,22 @@ export function useRoadMovement(
         onInputRef.current?.({ type: "turn", direction: picked.direction })
       }
 
+      // Stopped: a running catch-up is stale (standing corrections glide instead).
+      if (!movingRef.current) catchUpRef.current = null
       if (movingRef.current && current) {
         const edge = graph.edges[current.edgeId]
         if (edge) {
           const speed = WALK_SPEED_METERS_PER_SECOND * (speedRef?.current ?? 1)
           let distance = current.distanceAlongEdge + speed * deltaSeconds * current.direction
+          const catchUp = catchUpRef.current
+          if (catchUp && catchUp.edgeId === current.edgeId) {
+            const step = catchUp.remaining * (1 - Math.exp(-deltaSeconds / CATCH_UP_SECONDS))
+            distance += step
+            catchUp.remaining -= step
+            if (Math.abs(catchUp.remaining) < 0.05) catchUpRef.current = null
+          } else if (catchUp) {
+            catchUpRef.current = null
+          }
           const reachedEnd = distance > edge.lengthMeters
           const reachedStart = distance < 0
 
@@ -374,6 +396,7 @@ export function useRoadMovement(
     setQueuedTurn(null)
     lastJunctionRef.current = null
     glideRef.current = null
+    catchUpRef.current = null
     setTurnIntent(null)
     setFeedback("Turned around on the road")
     const current = positionRef.current
@@ -407,7 +430,13 @@ export function useRoadMovement(
         glideRef.current = { from: current.distanceAlongEdge, to: server, startedAt: performance.now() }
         return
       }
+      // Running on the same road: blend the difference in over the next frames.
+      if (moving && movingRef.current && sameEdge && current && gap <= CATCH_UP_MAX_METERS) {
+        catchUpRef.current = { edgeId: current.edgeId, remaining: server.distanceAlongEdge - current.distanceAlongEdge }
+        return
+      }
       glideRef.current = null
+      catchUpRef.current = null
       commit(server)
     },
     [graph, commit]
