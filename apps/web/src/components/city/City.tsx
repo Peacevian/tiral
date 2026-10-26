@@ -181,7 +181,6 @@ function useMapGround(map: maplibregl.Map | null, drawn: number[][][][]) {
     const apply = () => {
       try {
         if (!map.getLayer("background")) return
-        if (map.getLayer("tiral-buildings-3d") && map.getLayoutProperty("tiral-buildings-3d", "visibility") !== "none") map.setLayoutProperty("tiral-buildings-3d", "visibility", "none")
         if (map.getLayer(GROUND_LAYER)) return
         if (!map.hasImage(GROUND_LAYER)) map.addImage(GROUND_LAYER, groundImage())
         if (!map.getSource(GROUND_LAYER)) map.addSource(GROUND_LAYER, { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: square(KAMPALA) } } })
@@ -202,7 +201,6 @@ function useMapGround(map: maplibregl.Map | null, drawn: number[][][][]) {
       try {
         if (map.getLayer(GROUND_LAYER)) map.removeLayer(GROUND_LAYER)
         if (map.getSource(GROUND_LAYER)) map.removeSource(GROUND_LAYER)
-        if (map.getLayer("tiral-buildings-3d")) map.setLayoutProperty("tiral-buildings-3d", "visibility", "visible")
         if (map.getLayer("building-3d")) map.setPaintProperty("building-3d", "fill-extrusion-height", buildingsHeight(isLiteDevice(), OWN_BUILDING_AREAS))
       } catch {
         // The map itself is gone.

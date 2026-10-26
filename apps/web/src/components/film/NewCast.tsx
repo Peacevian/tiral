@@ -20,22 +20,15 @@ export const NEW_CAST: AvatarLoadout[] = [
   { ...HERO, body: "female", shirt: "#f59e0b" }
 ]
 
-/** The Mixamo clips in the files (scripts/characters/anims, named in lower case). */
+/** The Mixamo clips in the files: the ones the game plays (scripts/characters/retarget.py GAME_CLIPS). */
 export const CAST_CLIPS = [
   "breathing_idle",
   "walking",
   "running",
-  "fast_run",
-  "jump",
   "waving",
-  "talking",
   "texting_while_standing",
-  "sitting_idle",
-  "sitting_talking",
-  "sad_idle",
   "defeated",
   "victory",
-  "hip_hop_dancing",
   "hit_reaction"
 ] as const
 export type CastClip = (typeof CAST_CLIPS)[number]
@@ -45,7 +38,7 @@ const EARTH = 2 * Math.PI * 6378137
 const SPACING = 1.6
 /** Size of the loop they walk in "walk around" mode, and their speeds (m/s). */
 const LOOP_RADIUS = 7
-const SPEED = { walking: 1.4, running: 3.6, fast_run: 5.5 } as const
+const SPEED = { walking: 1.4, running: 3.6 } as const
 
 /** `facing`: the compass bearing (degrees) they face while standing in a row. `cast`: the new pair's loadouts. */
 export function NewCast({

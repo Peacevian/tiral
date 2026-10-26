@@ -31,7 +31,8 @@ import { NewBody } from "./NewBody"
 // Rest (bind) pose is a T-pose about 1.85 tall, feet at y=0, facing +Z.
 // Versioned name: served with a one-year immutable cache (next.config.ts).
 const MODEL_URL = "/models/runner-v2.glb"
-useGLTF.preload(MODEL_URL)
+// Only when it's the one drawn (the new bodies replace it when switched on).
+if (!newBodiesOn()) useGLTF.preload(MODEL_URL)
 
 /** Scripted beats for storytelling scenes (the landing hero). */
 export const ACT_CLIPS = {
