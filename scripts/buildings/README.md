@@ -1,5 +1,9 @@
 # Kampala buildings with real heights
 
+> The single file below is no longer served: the game draws all of Kampala as
+> its own 3D city from `make_tiles.py`'s tiles (`apps/web/src/components/city`),
+> which replaced this map layer (removed 26 Oct 2026).
+
 Makes `apps/web/public/data/kampala-buildings-v1.json`: every OpenStreetMap
 building in the play areas (central Kampala, and Lugogo for Kyadondo) with a
 height from **Google Open Buildings 2.5D Temporal** (2023, 4 m effective

@@ -33,7 +33,10 @@ const MIN_ZOOM = 9
 // Minimal vector style (OpenFreeMap Positron, slimmed in lib/mapStyle.ts):
 // same OpenStreetMap road data underneath (gameplay needs accurate streets)
 // without the dense POI label clutter. Free, no API key. Attribution required.
-const MAP_ATTRIBUTION = "© OpenMapTiles © OpenStreetMap contributors"
+// The 3D city's building heights (scripts/buildings, components/city) come
+// from Google Open Buildings.
+const MAP_ATTRIBUTION =
+  "© OpenMapTiles © OpenStreetMap contributors | Building heights © Google Open Buildings (CC BY 4.0), Copernicus Sentinel-2"
 
 function MapView(
   { center = DEFAULT_CENTER, zoom = 15, pitch = 48, bearing = -18, styleUrl, onMapReady }: MapViewProps,

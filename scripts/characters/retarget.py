@@ -3,8 +3,9 @@
 # poses (Mixamo's T-pose, MakeHuman's A-pose). Each of our bones is first
 # swung to point the way Mixamo's does at rest; then each bone's turn away
 # from rest is copied in world space, frame by frame, and baked as keys.
-#   Blender -b -P scripts/characters/retarget.py -- out/hero-game.blend anims/ out/ [preview] [video]
-# Clips longer than 10 seconds are cut to their first 10.
+#   Blender -b -P scripts/characters/retarget.py -- out/hero-game.blend anims/ out/ [preview] [video] [game]
+# Clips longer than 10 seconds are cut to their first 10. "game": the file
+# keeps only the clips the game plays (GAME_CLIPS); without it, all of them.
 import math
 import os
 import sys
@@ -17,6 +18,9 @@ BLEND, ANIMS, OUT = (os.path.abspath(a) for a in ARGS[:3])
 PREVIEW = "preview" in ARGS
 VIDEO = "video" in ARGS  # a short clip of each animation, every other frame
 MAX_FRAMES = 300  # 10 s at 30 fps
+# What the game plays (apps/web/src/components/NewBody.tsx).
+GAME_CLIPS = {"breathing_idle", "walking", "running", "victory", "texting_while_standing", "hit_reaction", "defeated", "waving"}
+GAME = "game" in ARGS
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)
 scene = bpy.context.scene
@@ -44,8 +48,12 @@ def direction(arm, name):
 
 def retarget(fbx):
     before = set(bpy.data.objects)
+    actions_before = set(bpy.data.actions)
     bpy.ops.import_scene.fbx(filepath=fbx)
     imported = [o for o in bpy.data.objects if o not in before]
+    # Mixamo's own clip comes in with the FBX; it goes after (it would be
+    # exported too: it drives bones of the same names).
+    source_actions = [a for a in bpy.data.actions if a not in actions_before]
     source = next(o for o in imported if o.type == "ARMATURE")
     clip = os.path.splitext(os.path.basename(fbx))[0].lower().replace(" ", "_")
     start, end = (int(f) for f in source.animation_data.action.frame_range)
@@ -86,6 +94,8 @@ def retarget(fbx):
                 pb.keyframe_insert("location", frame=frame - start)
     for o in imported:
         bpy.data.objects.remove(o, do_unlink=True)
+    for a in source_actions:
+        bpy.data.actions.remove(a)
     action.use_fake_user = True
     print("CLIP", clip, end - start + 1, "frames")
     return action, end - start
@@ -120,9 +130,13 @@ if VIDEO:
             scene.render.filepath = os.path.join(folder, f"{f // 2:04d}.png")
             bpy.ops.render.render(write_still=True)
 
-# Every clip on the character, as one file for the game.
+# The clips on the character, as one file for the game.
 for obj in [o for o in scene.objects if o.type in ("CAMERA", "LIGHT")]:
     bpy.data.objects.remove(obj, do_unlink=True)
+for action in list(bpy.data.actions):
+    if GAME and action.name not in GAME_CLIPS:
+        bpy.data.actions.remove(action)
+print("EXPORT", sorted(a.name for a in bpy.data.actions))
 NAME = os.path.splitext(os.path.basename(BLEND))[0]
 bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f"{NAME}-anims.glb"), export_format="GLB", export_skins=True, export_animations=True, export_animation_mode="ACTIONS")
 print("DONE")

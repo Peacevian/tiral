@@ -8,7 +8,6 @@ import { clone } from "three/examples/jsm/utils/SkeletonUtils.js"
 import { resolveLoadout, type AvatarLoadout, type Body, type HairStyle } from "@tiral/avatars"
 import { MergeStatic } from "@/components/MergeStatic"
 import { beatsAt, danceFrame, type DanceFrame, type DanceState } from "@/lib/dance/moves"
-import { newBodiesOn } from "@/lib/newBodies"
 import {
   BODA_VEST_COLOR,
   CRANES_YELLOW,
@@ -54,7 +53,7 @@ type Fit = {
 
 const FITS: Record<Body, Fit> = {
   male: {
-    url: "/models/young-man-v4.glb",
+    url: "/models/young-man-v5.glb",
     scale: 1.075,
     head: { at: [0, 1.505, 0.05], scale: 0.44 },
     back: { at: [0, 1.21, -0.095], scale: 0.85 },
@@ -64,7 +63,7 @@ const FITS: Record<Body, Fit> = {
     shoulder: { at: [0.172, 1.262, 0.017], scale: 0.86 }
   },
   female: {
-    url: "/models/young-woman-v4.glb",
+    url: "/models/young-woman-v5.glb",
     scale: 1.14,
     head: { at: [0, 1.338, 0.03], scale: 0.405 },
     back: { at: [0, 1.04, -0.075], scale: 0.75 },
@@ -404,4 +403,4 @@ function Moved({ from, to, children }: { from: Vec3; to: Spot; children: ReactNo
   )
 }
 
-if (newBodiesOn()) for (const url of Object.values(BODY_MODELS)) useGLTF.preload(url)
+// Not preloaded: each body downloads (~0.5 MB) only once someone on screen is one.
