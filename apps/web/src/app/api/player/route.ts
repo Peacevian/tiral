@@ -4,6 +4,7 @@ import {
   findUserById,
   getCoinBalance,
   getCareer,
+  findPrivyAccount,
   hasTikTokLink,
   ladderCounts,
   listCoinLedger,
@@ -13,6 +14,7 @@ import {
   touchLastSeen
 } from "@tiral/db"
 import { clearSessionCookie, readSessionCookie, verifySession } from "@/lib/session"
+import { storedIdentity } from "@/lib/identity"
 import { isRemoteAvatar, refreshTikTokAvatar } from "@/lib/avatars"
 
 // The app polls this every minute and after every payout, from every open tab.
@@ -44,8 +46,9 @@ export async function GET(request: NextRequest) {
     }
     // Independent reads run side by side; money is sequential because life
     // (rent, shocks) may move coins before the balance is read.
-    const [tiktokLinked, needs, ladder, career, money] = await Promise.all([
+    const [tiktokLinked, privy, needs, ladder, career, money] = await Promise.all([
       hasTikTokLink(userId),
+      findPrivyAccount(userId),
       loadNeeds(userId),
       ladderCounts(userId),
       getCareer(userId),
@@ -70,7 +73,17 @@ export async function GET(request: NextRequest) {
       void touchLastSeen(user.id).catch(() => {})
     }
     return NextResponse.json({
-      user: { id: user.id, displayName: user.displayName, avatarUrl: user.avatarUrl, tiktokLinked, loadout: user.avatarLoadout },
+      user: {
+        id: user.id,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+        tiktokLinked,
+        signedIn: privy !== null,
+        walletAddress: privy?.walletAddress ?? null,
+        identity: storedIdentity(privy).status,
+        identityExpiresAt: storedIdentity(privy).expiresAt,
+        loadout: user.avatarLoadout
+      },
       balance,
       entries: entries.map((entry) => ({
         id: entry.id,

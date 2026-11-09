@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import {
+  findPrivyAccount,
   findUserById,
   getProfileStats,
   getRecentRaces,
@@ -10,6 +11,7 @@ import {
 } from "@tiral/db"
 import { isValidLoadout } from "@tiral/avatars"
 import { readSessionCookie, verifySession } from "@/lib/session"
+import { storedIdentity } from "@/lib/identity"
 
 async function requireUserId(request: NextRequest): Promise<string | null> {
   const token = readSessionCookie(request.headers.get("cookie"))
@@ -27,8 +29,9 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ user: null })
   }
-  const [tiktokLinked, stats, recentRaces] = await Promise.all([
+  const [tiktokLinked, privy, stats, recentRaces] = await Promise.all([
     hasTikTokLink(userId),
+    findPrivyAccount(userId),
     getProfileStats(userId),
     getRecentRaces(userId)
   ])
@@ -39,7 +42,11 @@ export async function GET(request: NextRequest) {
       avatarUrl: user.avatarUrl,
       loadout: user.avatarLoadout,
       house: user.houseLoadout,
-      tiktokLinked
+      tiktokLinked,
+      signedIn: privy !== null,
+      walletAddress: privy?.walletAddress ?? null,
+      identity: storedIdentity(privy).status,
+      identityExpiresAt: storedIdentity(privy).expiresAt
     },
     stats,
     recentRaces: recentRaces.map((race) => ({
@@ -70,7 +77,7 @@ export async function PATCH(request: NextRequest) {
     const updated = await updateGuestDisplayName(userId, body.displayName)
     if (!updated) {
       return NextResponse.json(
-        { error: "Name must be 2–24 characters, and TikTok-linked names cannot be changed here" },
+        { error: "Name must be 2–24 characters. A TikTok name stays until you sign in." },
         { status: 400 }
       )
     }

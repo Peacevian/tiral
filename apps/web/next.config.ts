@@ -3,6 +3,7 @@ import path from "path"
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  serverExternalPackages: ["@privy-io/server-auth"],
   outputFileTracingRoot: path.join(import.meta.dirname, "../../"),
   transpilePackages: [
     "three",

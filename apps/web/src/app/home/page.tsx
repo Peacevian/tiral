@@ -36,6 +36,7 @@ type ProfileUser = {
   loadout: AvatarLoadout
   house: HouseLoadout
   tiktokLinked: boolean
+  signedIn?: boolean
 }
 
 type ProfileStats = {
@@ -213,7 +214,7 @@ export default function HomePage() {
         setNotice(body.error ?? "Could not save — try again.")
         return
       }
-      setUser({ ...body.user, tiktokLinked: user.tiktokLinked })
+      setUser({ ...body.user, tiktokLinked: user.tiktokLinked, signedIn: user.signedIn })
       setDraftName(body.user.displayName)
       setDraftLoadout(body.user.loadout)
       setDraftHouse(body.user.house ?? DEFAULT_HOUSE)
@@ -399,7 +400,7 @@ export default function HomePage() {
                   {user.displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  {user.tiktokLinked ? (
+                  {user.tiktokLinked && !user.signedIn ? (
                     <>
                       <div className="truncate font-bold">{user.displayName}</div>
                       <div className="text-[11px] text-sheet-mute">Synced from TikTok</div>

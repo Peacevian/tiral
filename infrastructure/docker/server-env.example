@@ -7,6 +7,9 @@
 # TIKTOK_CLIENT_KEY=
 # TIKTOK_CLIENT_SECRET=
 # TIKTOK_REDIRECT_URI=https://tiral.geinz.lol/api/auth/tiktok/callback
+# PRIVY_APP_SECRET=                       (web.env only; the game server does not need it)
+# NEXT_PUBLIC_PRIVY_APP_ID is not read from this file. Pass it as a build arg
+# (NEXT_PUBLIC_PRIVY_APP_ID) when building the web image. It is public.
 # PORT=3100                      (nginx proxies the web app on 3100)
 # PUBLIC_BASE_URL=https://tiral.geinz.lol   (webhook signatures are checked against this URL)
 # BILLBOARD_UPLOAD_DIR=/data/uploads        (the compose volume; anywhere else is lost on rebuild)

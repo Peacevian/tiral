@@ -49,9 +49,26 @@ export const tiktokAccounts = pgTable("tiktok_accounts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
 })
 
+// Email login through Privy. One embedded wallet address is the same key on
+// every EVM chain (Celo and Base). TikTok rows stay until that login is removed.
+export const privyAccounts = pgTable("privy_accounts", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  privyUserId: text("privy_user_id").notNull().unique(),
+  walletAddress: text("wallet_address").notNull().unique(),
+  // GoodDollar face check on Celo. The root is the whitelisted wallet itself.
+  // One root belongs to one Tiral account. Null until that check succeeds.
+  identityRoot: text("identity_root").unique(),
+  identityExpiresAt: timestamp("identity_expires_at", { withTimezone: true }),
+  identityCheckedAt: timestamp("identity_checked_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+})
+
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type TiktokAccount = typeof tiktokAccounts.$inferSelect
+export type PrivyAccount = typeof privyAccounts.$inferSelect
 
 export const races = pgTable("races", {
   id: uuid("id").primaryKey().defaultRandom(),

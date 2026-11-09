@@ -76,7 +76,7 @@ export function LiveScreen() {
   const { connected, live, liveEvent, startLive, leaveRoom } = useColyseusContext()
   const [error, setError] = useState<string | null>(null)
   const started = useRef(false)
-  const allowed = player?.career?.tier !== undefined && player.career.tier !== "street" && player.user.tiktokLinked
+  const allowed = player?.career?.tier !== undefined && player.career.tier !== "street" && player.user.signedIn
   useLeaveRoomOnExit(live !== null)
 
   // Open the market and stock as soon as we know you're allowed in.
@@ -94,7 +94,7 @@ export function LiveScreen() {
     <main className="h-dvh w-full overflow-y-auto overscroll-contain bg-sheet px-3 pb-[calc(var(--shell-bottom)+1.5rem)] pt-[calc(var(--shell-top)+1rem)] text-sheet-ink">
       <div className="mx-auto w-full max-w-md">
         {!player ? null : !allowed ? (
-          <Closed tiktok={player.user.tiktokLinked} />
+          <Closed signedIn={player.user.signedIn} />
         ) : !live ? (
           error ? (
             <Card className="mt-2 text-center text-sm text-sheet-mute">{error}</Card>
@@ -113,15 +113,15 @@ export function LiveScreen() {
   )
 }
 
-function Closed({ tiktok }: { tiktok: boolean }) {
+function Closed({ signedIn }: { signedIn: boolean }) {
   return (
     <Card className="mt-2">
       <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-flame-deep">Small business</div>
       <h1 className="mt-1 text-xl font-black">📱 LivTok mitumba</h1>
       <p className="mt-2 text-sm text-sheet-mute">
-        {tiktok
+        {signedIn
           ? "Move up to Small business first: run 5 rolex shifts and save 500,000, then move up from Earn BNG in the Race sidebar."
-          : "LivTok sellers need TikTok connected (account menu, top right), then move up to Small business from Earn BNG."}
+          : "Sign in first (account menu, top right), then move up to Small business from Earn BNG."}
       </p>
       <div className="mt-4 flex">
         <BackToBase />

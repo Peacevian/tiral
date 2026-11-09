@@ -15,6 +15,7 @@ import { useMyLoadout } from "@/lib/useMyLoadout"
 import { useRaceCamera } from "@/lib/useRaceCamera"
 import { DEFAULT_LOADOUT } from "@tiral/avatars"
 import { SignInGate } from "@/components/SignInGate"
+import { privyEnabled, requestPrivyLogin } from "@/lib/privy"
 import { Hub } from "@/components/hub/Hub"
 import { FirstRunIntro, useFirstRun } from "@/components/hub/FirstRunIntro"
 import { AdaptivePanel } from "@/components/ui/AdaptivePanel"
@@ -614,7 +615,13 @@ export default function Home() {
                     }}
                   />
                 ) : authReady ? (
-                  <SignInGate busy={authBusy === "guest"} error={authFailure} authError={authError} onGuest={playAsGuest} />
+                  <SignInGate
+                    busy={authBusy === "guest"}
+                    error={authFailure}
+                    authError={authError}
+                    onGuest={playAsGuest}
+                    onSignIn={privyEnabled ? requestPrivyLogin : null}
+                  />
                 ) : null}
               </div>
             </div>
@@ -773,15 +780,21 @@ export default function Home() {
           )}
           <RaceEarningsSummary earnings={earnings} soloRace={playerCount < 2} />
           {prizeResult && <PrizeResultLines result={prizeResult} sessionId={sessionId} />}
-          {earnings && player && !player.user.tiktokLinked && (
-            <a
-              href="/api/auth/tiktok"
-              className="mt-3 block rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-xs leading-snug text-sheet-ink"
-            >
-              <span className="font-bold text-sheet-ink">Connect TikTok</span> so you never lose these coins. Guest
-              accounts live on this device only. →
-            </a>
-          )}
+          {earnings && player && !player.user.signedIn &&
+            (privyEnabled ? (
+              <button
+                type="button"
+                onClick={requestPrivyLogin}
+                className="mt-3 block w-full rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-left text-xs leading-snug text-sheet-ink"
+              >
+                <span className="font-bold text-sheet-ink">Sign in</span> so you never lose these coins. Guest accounts
+                live on this device only. →
+              </button>
+            ) : (
+              <p className="mt-3 rounded-xl border border-sheet-line bg-sheet-card px-3 py-2 text-xs leading-snug text-sheet-mute">
+                These coins stay on this device until sign-in is turned on.
+              </p>
+            ))}
           <button
             type="button"
             onClick={sendPlayAgain}

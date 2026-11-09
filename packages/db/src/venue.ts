@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm"
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf, insertEntry, lockUser } from "./ledger.js"
-import { tiktokAccounts, users } from "./schema.js"
+import { privyAccounts, users } from "./schema.js"
 
 // Hangouts (docs/kyadondo.md): the ride there and orders at the counters are
 // paid through the ledger (venue_ride, venue_order), once per refId.
@@ -20,10 +20,10 @@ export async function payVenue(
   })
 }
 
-/** Followers for treating people (TikTok-connected players only, like LivTok). */
+/** Followers for treating people (signed-in players only, like LivTok). */
 export async function addFollowers(userId: string, count: number, db: Database = getDatabase()): Promise<void> {
   if (count <= 0) return
-  const [linked] = await db.select({ userId: tiktokAccounts.userId }).from(tiktokAccounts).where(eq(tiktokAccounts.userId, userId)).limit(1)
+  const [linked] = await db.select({ userId: privyAccounts.userId }).from(privyAccounts).where(eq(privyAccounts.userId, userId)).limit(1)
   if (!linked) return
   await db.update(users).set({ followers: sql`${users.followers} + ${Math.round(count)}` }).where(eq(users.id, userId))
 }

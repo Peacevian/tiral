@@ -6,6 +6,7 @@ import { useEffect } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
 import { BIKE_MODELS, BIKE_PAINTS, MUDFLAP_SLOGANS, RENTAL_BIKE_LOOK, SEAT_COVERS, type BikeLook } from "@tiral/game-core"
 import { DEFAULT_LOADOUT } from "@tiral/avatars"
+import { HERO } from "@/components/film/hero"
 import { BikeRider } from "@/components/bike/BikeRider"
 
 const VIEWS = {
@@ -27,6 +28,7 @@ function CameraAt({ view }: { view: keyof typeof VIEWS }) {
 }
 
 // Development-only bench for tuning the bike model and riding poses.
+// ?hero=1&view=three&passenger=0: the trailer hero, without the controls.
 export default function BikeBench() {
   if (process.env.NODE_ENV === "production") notFound()
   const [look, setLook] = useState<BikeLook>(RENTAL_BIKE_LOOK)
@@ -34,10 +36,18 @@ export default function BikeBench() {
   const [rider, setRider] = useState(true)
   const [speed, setSpeed] = useState(0)
   const [view, setView] = useState<keyof typeof VIEWS>("side")
+  const [hero, setHero] = useState(false)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setHero(params.get("hero") === "1")
+    if (params.get("passenger") === "0") setPassenger(false)
+    if (params.get("view")) setView(params.get("view") as keyof typeof VIEWS)
+  }, [])
+  const riderLook = hero ? HERO : DEFAULT_LOADOUT
   const set = (patch: Partial<BikeLook>) => setLook((current) => ({ ...current, ...patch }))
   return (
     <main className="flex h-dvh w-screen bg-slate-900 text-white">
-      <div className="flex w-64 shrink-0 flex-col gap-2 overflow-y-auto p-3 text-xs">
+      <div className={`${hero ? "hidden" : "flex"} w-64 shrink-0 flex-col gap-2 overflow-y-auto p-3 text-xs`}>
         <select value={look.model} onChange={(e) => set({ model: e.target.value as BikeLook["model"] })} className="rounded bg-slate-800 p-1">
           {BIKE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
@@ -73,9 +83,9 @@ export default function BikeBench() {
             <meshStandardMaterial color="#334155" />
           </mesh>
           {rider ? (
-            <BikeRider look={look} rider={DEFAULT_LOADOUT} passenger={passenger} passengerSeed="bench" speed={speed} />
+            <BikeRider look={look} rider={riderLook} passenger={passenger} passengerSeed="bench" speed={speed} />
           ) : (
-            <BikeRider look={look} rider={DEFAULT_LOADOUT} speed={speed} />
+            <BikeRider look={look} rider={riderLook} speed={speed} />
           )}
           <CameraAt view={view} />
         </Canvas>

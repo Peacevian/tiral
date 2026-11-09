@@ -8,15 +8,15 @@
 //   map style, fonts and tiles             cache first (tile URLs carry the
 //                                          planet version), size-capped
 //   /api/roads                             cached copy now, refresh behind
-//   pages (HTML)                           network first; cached copy after
-//                                          4 s or when offline
+//   pages (HTML)                           network first; cached copy only
+//                                          when the network itself fails
 // Everything else (game data, the game connection, payments) goes straight
 // to the network.
 //
 // Kill switch: to remove it from every phone, replace this file with one that
 // calls self.registration.unregister() and clears caches, and deploy.
 
-const VERSION = "v1"
+const VERSION = "v2"
 const STATIC = `tiral-static-${VERSION}`
 const PAGES = `tiral-pages-${VERSION}`
 const MAP = `tiral-map-${VERSION}`
@@ -24,7 +24,6 @@ const DATA = `tiral-data-${VERSION}`
 const KEEP = [STATIC, PAGES, MAP, DATA]
 
 const LIMITS = { [STATIC]: 400, [PAGES]: 30, [MAP]: 600, [DATA]: 10 }
-const PAGE_TIMEOUT_MS = 4000
 const MAP_HOST = "tiles.openfreemap.org"
 
 self.addEventListener("install", () => {
@@ -102,27 +101,20 @@ async function staleWhileRevalidate(event, request, cacheName) {
 
 async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName)
-  const network = fetch(request).then(async (response) => {
+  try {
+    const response = await fetch(request)
     if (cacheable(response)) {
       await cache.put(request, response.clone())
       void trim(cacheName)
     }
     return response
-  })
-  // If the timeout wins, a later network failure must not go unhandled.
-  network.catch(() => {})
-  // On a weak signal, show the last copy of the page rather than a blank
-  // screen; the network answer still refreshes the cache for next time.
-  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), PAGE_TIMEOUT_MS))
-  try {
-    const fast = await Promise.race([network, timeout])
-    if (fast) return fast
   } catch {
-    // offline: fall through to the cache
+    // Offline only. A saved page from the previous deploy points at scripts
+    // that no longer exist, which blanks the site.
+    const hit = await cache.match(request)
+    if (hit) return hit
+    return Response.error()
   }
-  const hit = await cache.match(request)
-  if (hit) return hit
-  return network
 }
 
 function cacheable(response) {

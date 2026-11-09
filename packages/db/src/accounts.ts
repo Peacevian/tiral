@@ -3,7 +3,7 @@ import { findTierById } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf } from "./ledger.js"
 import { getTier } from "./livtok.js"
-import { hasTikTokLink } from "./users.js"
+import { findPrivyOwner, hasPrivyAccount, hasTikTokLink } from "./users.js"
 import { bikes, coinLedger, raceResults, tiktokAccounts, users } from "./schema.js"
 
 // Guest → TikTok: a TikTok account belongs to one Tiral account. A guest that
@@ -95,6 +95,25 @@ export async function planTikTokConnect(input: { startedBy: string | null; openI
   // A TikTok player signing in with another TikTok: there's no guest to keep.
   const guestUserId = startedBy && !(await hasTikTokLink(startedBy, db)) ? startedBy : null
   const ownerUserId = await findTikTokOwner(input.openId, db)
+  if (!guestUserId || !ownerUserId || ownerUserId === guestUserId) return { kind: "link", guestUserId }
+  const [guest, owner] = await Promise.all([accountSummary(guestUserId, db), accountSummary(ownerUserId, db)])
+  if (!guest.played) return { kind: "link", guestUserId: null }
+  if (!owner.played) return { kind: "move", guestUserId }
+  return { kind: "ask", guest, owner }
+}
+
+/**
+ * What to do when someone finishes Privy sign-in. Same rules as TikTok: a new
+ * login attaches to the account that started it, and a login that already has
+ * a played account never takes that progress without a choice.
+ */
+export async function planPrivyConnect(
+  input: { startedBy: string | null; privyUserId: string },
+  db: Database = getDatabase()
+): Promise<ConnectPlan> {
+  const startedBy = input.startedBy
+  const guestUserId = startedBy && !(await hasPrivyAccount(startedBy, db)) ? startedBy : null
+  const ownerUserId = await findPrivyOwner(input.privyUserId, db)
   if (!guestUserId || !ownerUserId || ownerUserId === guestUserId) return { kind: "link", guestUserId }
   const [guest, owner] = await Promise.all([accountSummary(guestUserId, db), accountSummary(ownerUserId, db)])
   if (!guest.played) return { kind: "link", guestUserId: null }

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import type { AvatarLoadout } from "@tiral/avatars"
 import type { LadderCounts, TierId } from "@tiral/game-core"
+import { requestPrivyLogout, SESSION_REFRESH_EVENT } from "@/lib/privy"
 import { COINS_CHANGED_EVENT, type WalletEntry } from "@/lib/useCoins"
 
 export type LifeEvent = {
@@ -34,6 +35,12 @@ export type PlayerUser = {
   displayName: string
   avatarUrl: string | null
   tiktokLinked: boolean
+  /** Email login with a wallet. This is what keeps the account. */
+  signedIn: boolean
+  walletAddress: string | null
+  /** GoodDollar face check on the wallet. Guests stay "none". */
+  identity: "none" | "verified" | "expired"
+  identityExpiresAt: string | null
   /** The runner's look (for the 3D avatar). */
   loadout?: AvatarLoadout
 }
@@ -125,6 +132,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     void refresh()
     const onChange = () => void refresh()
     window.addEventListener(COINS_CHANGED_EVENT, onChange)
+    window.addEventListener(SESSION_REFRESH_EVENT, onChange)
     const onVisible = () => {
       if (document.visibilityState === "visible") void refresh()
     }
@@ -134,6 +142,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }, POLL_MS)
     return () => {
       window.removeEventListener(COINS_CHANGED_EVENT, onChange)
+      window.removeEventListener(SESSION_REFRESH_EVENT, onChange)
       document.removeEventListener("visibilitychange", onVisible)
       clearInterval(id)
     }
@@ -179,6 +188,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } catch {
       // cookie may already be gone
     } finally {
+      requestPrivyLogout()
       setPlayer(null)
       setBusy(null)
     }

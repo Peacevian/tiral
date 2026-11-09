@@ -111,18 +111,20 @@ export async function verifyOAuthState(state: string): Promise<OAuthState | null
 export type AccountSide = { name: string; balance: number; tier: string }
 export type SwitchClaims = { guestUserId: string; ownerUserId: string; guest: AccountSide; owner: AccountSide }
 
-export async function mintSwitchToken(claims: SwitchClaims): Promise<string> {
-  return new SignJWT({ ...claims, purpose: "tiktok-switch" })
+export type SwitchPurpose = "tiktok-switch" | "privy-switch"
+
+export async function mintSwitchToken(claims: SwitchClaims, purpose: SwitchPurpose = "tiktok-switch"): Promise<string> {
+  return new SignJWT({ ...claims, purpose })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("10m")
     .sign(getSecret())
 }
 
-export async function verifySwitchToken(token: string): Promise<SwitchClaims | null> {
+export async function verifySwitchToken(token: string, purpose: SwitchPurpose = "tiktok-switch"): Promise<SwitchClaims | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret())
-    if (payload.purpose !== "tiktok-switch" || typeof payload.guestUserId !== "string" || typeof payload.ownerUserId !== "string") return null
+    if (payload.purpose !== purpose || typeof payload.guestUserId !== "string" || typeof payload.ownerUserId !== "string") return null
     const side = (value: unknown): AccountSide => {
       const v = (value ?? {}) as Record<string, unknown>
       return { name: String(v.name ?? "Player"), balance: Number(v.balance ?? 0), tier: String(v.tier ?? "") }
