@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { privyEnabled, requestPrivyLogin } from "@/lib/privy"
 import {
   HOSTED_COUNTDOWN_CHOICES,
   HOSTED_MAX_LEAD_MS,
@@ -263,7 +264,7 @@ function HostPrizeRace({ onClose, onCreate }: { onClose(): void; onCreate(input:
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const linked = player?.user.tiktokLinked === true
+  const linked = player?.user.signedIn === true
   const start = new Date(startsAt)
   const problem = prizeProblem({ pot, shares, message, startsAt: start, countdownSeconds: countdown }, new Date())
   const split = useMemo(() => splitPrize(Math.max(0, pot || 0), shares, shares.length), [pot, shares])
@@ -290,10 +291,12 @@ function HostPrizeRace({ onClose, onCreate }: { onClose(): void; onCreate(input:
       </div>
       {!linked ? (
         <div className="mt-3 rounded-xl border border-sheet-line bg-sheet-card p-3 text-sm text-sheet-ink">
-          Only players with a connected TikTok account can host prize races (guest coins live on one device).
-          <a href="/api/auth/tiktok" className="mt-2 block font-bold text-flame-deep">
-            Connect TikTok →
-          </a>
+          Sign in to host a prize race. Guest coins live on one device.
+          {privyEnabled && (
+            <button type="button" onClick={requestPrivyLogin} className="mt-2 block font-bold text-flame-deep">
+              Sign in →
+            </button>
+          )}
         </div>
       ) : (
         <form

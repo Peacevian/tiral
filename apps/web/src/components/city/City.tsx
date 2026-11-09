@@ -404,8 +404,11 @@ export function City({ map }: { map: maplibregl.Map | null }) {
       // Too far out to see: leave it to the map.
       g.visible = zoom >= CITY_MIN_ZOOM
       g.position.set(mercator.x - origin.current.x, mercator.y - origin.current.y, 0)
-      // Metres to mercator units (x, y and height alike, as for the runners).
-      g.scale.setScalar(scale)
+      // Metres to mercator units (x, y and height alike, as for the runners),
+      // the buildings rising out of the ground as you zoom in (as the map's
+      // own 3D blocks do, over 0.6 of a zoom level).
+      const rise = Math.min(1, Math.max(0.02, (zoom - CITY_MIN_ZOOM) / 0.6))
+      g.scale.set(scale, scale, scale * rise)
     }
     // Which tiles are wanted, a couple of times a second (or when the zoom jumps).
     const now = performance.now()

@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@colyseus/sdk": "^0.18.0",
+    "@goodsdks/citizen-sdk": "^1.2.7",
+    "@privy-io/react-auth": "^3.51.2",
+    "@privy-io/server-auth": "^1.32.5",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
     "@tiral/avatars": "workspace:*",
@@ -26,7 +29,8 @@
     "qrcode-generator": "1.4.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.170.0"
+    "three": "^0.170.0",
+    "viem": "^2.57.16"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

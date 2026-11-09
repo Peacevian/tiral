@@ -44,9 +44,9 @@ describe("hustle ladder", () => {
     expect(gigLockedText("carwash", counts({ porter: 5 }))).toBeNull()
   })
 
-  it("marks LivTok as needing TikTok", () => {
+  it("marks LivTok as needing a signed-in account", () => {
     const live = ladderSteps(NO_LADDER_PROGRESS).find((step) => step.gig === "live")!
-    expect(live.needsTikTok).toBe(true)
+    expect(live.needsSignIn).toBe(true)
     expect(live.comingSoon).toBe(false)
   })
 })

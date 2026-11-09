@@ -88,7 +88,9 @@ function MapDriver({ map }: { map: maplibregl.Map | null }) {
       if (any && !moving && !withMap && drewStill) return
       drewEmpty = !any
       drewStill = any && !moving
-      advance(performance.now() / 1000, false, state)
+      // Recording a film (marketing/, development only), time steps a frame at a time.
+      const filmTime = process.env.NODE_ENV === "development" ? (window as unknown as { __filmTime?: number }).__filmTime : undefined
+      advance(filmTime ?? performance.now() / 1000, false, state)
     }
     const onMapRender = () => {
       lastMapDraw = performance.now()

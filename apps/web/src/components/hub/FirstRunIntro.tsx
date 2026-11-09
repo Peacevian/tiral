@@ -64,7 +64,7 @@ export function FirstRunIntro({ onDone }: { onDone(): void }) {
   const [name, setName] = useState(player?.user.displayName ?? "")
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const canRename = player ? !player.user.tiktokLinked : false
+  const canRename = player ? player.user.signedIn || !player.user.tiktokLinked : false
   const startRent = HOUSING_TIERS[0].rent
 
   const saveName = async () => {

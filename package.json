@@ -5,9 +5,15 @@
   "engines": {
     "node": ">=20"
   },
+  "pnpm": {
+    "overrides": {
+      "@solana/kit": "8.6.0"
+    }
+  },
   "scripts": {
     "dev": "pnpm --parallel --filter @tiral/web --filter @tiral/game-server dev",
     "dev:web": "pnpm --filter @tiral/web dev",
+    "dev:body": "pnpm --filter @tiral/one-body dev",
     "dev:server": "pnpm --filter @tiral/game-server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

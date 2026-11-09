@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
+import { PrivyGate } from "@/components/auth/PrivyGate"
 import { ColyseusProvider } from "@/components/ColyseusProvider"
 import { PlayerProvider } from "@/lib/player"
 import { AppNav } from "@/components/shell/AppNav"
@@ -49,12 +50,14 @@ export default function RootLayout({
         <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />
       </head>
       <body className="w-screen min-h-screen overflow-x-hidden">
-        <PlayerProvider>
-          <ColyseusProvider>
-            {children}
-            <AppNav />
-          </ColyseusProvider>
-        </PlayerProvider>
+        <PrivyGate>
+          <PlayerProvider>
+            <ColyseusProvider>
+              {children}
+              <AppNav />
+            </ColyseusProvider>
+          </PlayerProvider>
+        </PrivyGate>
         <ServiceWorker />
       </body>
     </html>

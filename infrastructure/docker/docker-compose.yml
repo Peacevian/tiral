@@ -7,11 +7,18 @@ services:
         NEXT_PUBLIC_GAME_URL: wss://playtiral.com
         NEXT_PUBLIC_RACES_API_URL: https://playtiral.com
         NEXT_PUBLIC_NEW_BODIES: "1"
+        NEXT_PUBLIC_PRIVY_APP_ID: ${NEXT_PUBLIC_PRIVY_APP_ID:-}
     env_file:
       - /opt/tiral/web.env
     network_mode: host
     volumes:
       - uploads-data:/data/uploads
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   game:
@@ -21,6 +28,12 @@ services:
     env_file:
       - /opt/tiral/game.env
     network_mode: host
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
 volumes:

@@ -10,7 +10,7 @@ import {
 } from "@tiral/game-core"
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf, findNote, insertEntry, lockUser, type Tx } from "./ledger.js"
-import { hostedRaceSignups, hostedRaces, lifeEvents, tiktokAccounts, users, type HostedRaceRow } from "./schema.js"
+import { hostedRaceSignups, hostedRaces, lifeEvents, privyAccounts, users, type HostedRaceRow } from "./schema.js"
 
 // Prize races. Money rules (cut, shares, who can win) live in
 // @tiral/game-core/prizes; this module moves the coins:
@@ -76,7 +76,7 @@ export type CreateHostedRaceResult =
   | { ok: true; race: HostedRaceView }
   | { ok: false; reason: "guest" | "insufficient" | PrizeProblem; balance?: number }
 
-/** Schedule a prize race and hold the pot from the host's wallet. Only TikTok-linked players can host. */
+/** Schedule a prize race and hold the pot from the host's wallet. Only signed-in players can host. */
 export async function createHostedRace(
   input: { hostUserId: string; pot: number; shares: number[]; message?: string | null; startsAt: Date; countdownSeconds: number },
   db: Database = getDatabase()
@@ -87,9 +87,9 @@ export async function createHostedRace(
   return db.transaction(async (tx) => {
     await lockUser(tx, input.hostUserId)
     const [linked] = await tx
-      .select({ userId: tiktokAccounts.userId })
-      .from(tiktokAccounts)
-      .where(eq(tiktokAccounts.userId, input.hostUserId))
+      .select({ userId: privyAccounts.userId })
+      .from(privyAccounts)
+      .where(eq(privyAccounts.userId, input.hostUserId))
       .limit(1)
     if (!linked) return { ok: false, reason: "guest" }
     const balance = await balanceOf(tx, input.hostUserId)

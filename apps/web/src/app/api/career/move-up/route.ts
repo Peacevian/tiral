@@ -6,7 +6,7 @@ import { readSessionCookie, verifySession } from "@/lib/session"
 const WHY: Record<string, string> = {
   already: "You've already moved up.",
   experience: "Run 5 rolex shifts first.",
-  tiktok: "Connect TikTok first: LivTok sellers need a real account.",
+  signin: "Sign in first: LivTok sellers need a saved account.",
   capital: "You need 500,000 BNG saved."
 }
 

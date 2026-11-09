@@ -46,22 +46,22 @@ const GO_TEXT: Record<LadderGig, string> = {
 }
 
 /** The ladder for the signed-in player (everything closed but the porter while loading). */
-export function useLadder(): { steps: LadderStep[]; next: LadderStep | null; tiktokLinked: boolean; balance: number; tier: TierId; lives: number } {
+export function useLadder(): { steps: LadderStep[]; next: LadderStep | null; signedIn: boolean; balance: number; tier: TierId; lives: number } {
   const { player } = usePlayer()
   const steps = ladderSteps(player?.ladder ?? NO_LADDER_PROGRESS)
   return {
     steps,
     next: steps.find((step) => !step.unlocked) ?? null,
-    tiktokLinked: player?.user.tiktokLinked === true,
+    signedIn: player?.user.signedIn === true,
     balance: player?.balance ?? 0,
     tier: player?.career?.tier ?? "street",
     lives: player?.career?.lives ?? 0
   }
 }
 
-/** Ready to move up to Small business: LivTok's experience, TikTok, and the savings. */
-function canMoveUp(input: { tier: TierId; liveStep: LadderStep | undefined; tiktokLinked: boolean; balance: number }) {
-  return input.tier === "street" && input.liveStep?.unlocked === true && input.tiktokLinked && input.balance >= findTierById("small").capital
+/** Ready to move up to Small business: LivTok's experience, a saved login, and the savings. */
+function canMoveUp(input: { tier: TierId; liveStep: LadderStep | undefined; signedIn: boolean; balance: number }) {
+  return input.tier === "street" && input.liveStep?.unlocked === true && input.signedIn && input.balance >= findTierById("small").capital
 }
 
 /**
@@ -132,7 +132,7 @@ function Progress({ step }: { step: LadderStep }) {
 }
 
 export function HustleLadder() {
-  const { steps, next, tiktokLinked, balance, tier, lives } = useLadder()
+  const { steps, next, signedIn, balance, tier, lives } = useLadder()
   // Kept up here: once you move up, LivTok's row turns into "Go live" and would take the dialog with it.
   const [movingUp, setMovingUp] = useState(false)
   const [movingToTown, setMovingToTown] = useState(false)
@@ -168,7 +168,7 @@ export function HustleLadder() {
           if (step.gig === "live" && step.unlocked) {
             return (
               <li key={step.gig} className="rounded-lg border border-flame/40 bg-flame-soft px-2 py-2">
-                <MoveUpRow liveStep={liveStep} tiktokLinked={tiktokLinked} balance={balance} tier={tier} onMoveUp={() => setMovingUp(true)} />
+                <MoveUpRow liveStep={liveStep} signedIn={signedIn} balance={balance} tier={tier} onMoveUp={() => setMovingUp(true)} />
               </li>
             )
           }
@@ -187,7 +187,7 @@ export function HustleLadder() {
                 </span>
                 <span className="block truncate text-xs text-sheet-mute">
                   {info.pay}
-                  {step.needsTikTok && !tiktokLinked && " · needs TikTok connected"}
+                  {step.needsSignIn && !signedIn && " · needs you signed in"}
                 </span>
                 {isNext && <Progress step={step} />}
               </span>
@@ -228,19 +228,19 @@ export function HustleLadder() {
 /** LivTok's row once you've done your rolex shifts: what's left to move up, or the Move up button. */
 function MoveUpRow({
   liveStep,
-  tiktokLinked,
+  signedIn,
   balance,
   tier,
   onMoveUp
 }: {
   liveStep: LadderStep | undefined
-  tiktokLinked: boolean
+  signedIn: boolean
   balance: number
   tier: TierId
   onMoveUp(): void
 }) {
   const small = findTierById("small")
-  const ready = canMoveUp({ tier, liveStep, tiktokLinked, balance })
+  const ready = canMoveUp({ tier, liveStep, signedIn, balance })
   return (
     <div className="flex items-start gap-3">
       <span aria-hidden className="w-6 pt-0.5 text-center text-lg">
@@ -251,8 +251,8 @@ function MoveUpRow({
         <div className="text-xs text-sheet-mute">Move up to Small business to sell clothes on live.</div>
         <ul className="mt-1 text-xs">
           <li className="text-leaf">✓ 5 rolex shifts done</li>
-          <li className={tiktokLinked ? "text-leaf" : "font-bold text-flame-deep"}>
-            {tiktokLinked ? "✓ TikTok connected" : "✗ Connect TikTok (account menu, top right)"}
+          <li className={signedIn ? "text-leaf" : "font-bold text-flame-deep"}>
+            {signedIn ? "✓ Signed in" : "✗ Sign in (account menu, top right)"}
           </li>
           <li className={balance >= small.capital ? "text-leaf" : "font-bold text-flame-deep"}>
             {balance >= small.capital ? "✓" : "✗"} {formatCoins(Math.min(balance, small.capital))} / {formatCoins(small.capital)} saved

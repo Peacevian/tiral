@@ -141,6 +141,20 @@
       "when": 1792743212048,
       "tag": "0019_home_plot",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794010000000,
+      "tag": "0020_privy_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794020000000,
+      "tag": "0021_gooddollar_identity",
+      "breakpoints": true
     }
   ]
 }

@@ -14,9 +14,12 @@ ARG NEXT_PUBLIC_GAME_URL=wss://playtiral.com
 ARG NEXT_PUBLIC_RACES_API_URL=https://playtiral.com/races
 # 1: everyone sees the new realistic bodies (apps/web/src/lib/newBodies.ts).
 ARG NEXT_PUBLIC_NEW_BODIES=0
+# Public app id only. Empty keeps guest play working. The secret is a runtime env, not a build arg.
+ARG NEXT_PUBLIC_PRIVY_APP_ID=
 ENV NEXT_PUBLIC_GAME_URL=$NEXT_PUBLIC_GAME_URL
 ENV NEXT_PUBLIC_RACES_API_URL=$NEXT_PUBLIC_RACES_API_URL
 ENV NEXT_PUBLIC_NEW_BODIES=$NEXT_PUBLIC_NEW_BODIES
+ENV NEXT_PUBLIC_PRIVY_APP_ID=$NEXT_PUBLIC_PRIVY_APP_ID
 
 RUN pnpm --filter @tiral/web build
 

@@ -23,7 +23,7 @@ import {
   type LiveGrade,
   type PriceLevel
 } from "@tiral/game-core"
-import { buyBale, getLivtok, getTier, hasTikTokLink, settleLive, type LivtokStock } from "@tiral/db"
+import { buyBale, getLivtok, getTier, hasPrivyAccount, settleLive, type LivtokStock } from "@tiral/db"
 import { verifyJoinToken, type JoinIdentity } from "../auth.js"
 import { withRetry } from "../retry.js"
 import { BodySync, MessageThrottle, NEEDS_FLUSH_MS, REFRESH_NEEDS_MS, freshBody, guarded, spendEnergy, tiredReason, type Runner } from "./runner.js"
@@ -100,9 +100,9 @@ export class LiveRoom extends Room {
   static async onAuth(token: unknown) {
     const identity = await verifyJoinToken(token)
     if (identity.guest) throw new ServerError(401, "Sign in to sell on LivTok")
-    const [tier, linked] = await Promise.all([withRetry("Tier check", () => getTier(identity.userId)), hasTikTokLink(identity.userId)])
+    const [tier, linked] = await Promise.all([withRetry("Tier check", () => getTier(identity.userId)), hasPrivyAccount(identity.userId)])
     if (tier === "street") throw new ServerError(403, "Move up to Small business to sell on LivTok.")
-    if (!linked) throw new ServerError(403, "Connect TikTok to sell on LivTok.")
+    if (!linked) throw new ServerError(403, "Sign in to sell on LivTok.")
     return identity
   }
 

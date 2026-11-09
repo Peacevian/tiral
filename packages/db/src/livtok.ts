@@ -13,7 +13,7 @@ import {
 import { getDatabase, type Database } from "./client.js"
 import { balanceOf, findNote, insertEntry, lockUser, type Tx } from "./ledger.js"
 import { ladderCounts } from "./ladder.js"
-import { coinLedger, lifeEvents, livtokStock, tiktokAccounts, users } from "./schema.js"
+import { coinLedger, lifeEvents, livtokStock, privyAccounts, users } from "./schema.js"
 
 // Career tiers and LivTok, the first small business (docs/career-roadmap.md
 // Phase 3a). Your tier is the coin ledger's "tier_up" entries (the capital put
@@ -63,25 +63,25 @@ async function addStock(tx: Tx, userId: string, bale: string, counts: Partial<Gr
 
 export type MoveUpResult =
   | { ok: true; tier: TierId; balance: number }
-  | { ok: false; reason: "already" | "experience" | "tiktok" | "capital"; balance: number }
+  | { ok: false; reason: "already" | "experience" | "signin" | "capital"; balance: number }
 
 /**
- * Move up to Small business: needs 5 rolex shifts (the ladder), TikTok
- * connected and 500,000 saved; 150,000 of it becomes your first bale (opened
+ * Move up to Small business: needs 5 rolex shifts (the ladder), a signed-in
+ * account and 500,000 saved; 150,000 of it becomes your first bale (opened
  * here, `counts` rolled by the caller), and you start with some followers.
  */
 export async function moveUpToSmallBusiness(userId: string, counts: GradeCounts, db: Database = getDatabase()): Promise<MoveUpResult> {
   const small = findTierById("small")
   const [ladder, linked] = await Promise.all([
     ladderCounts(userId, db),
-    db.select({ userId: tiktokAccounts.userId }).from(tiktokAccounts).where(eq(tiktokAccounts.userId, userId)).limit(1)
+    db.select({ userId: privyAccounts.userId }).from(privyAccounts).where(eq(privyAccounts.userId, userId)).limit(1)
   ])
   return db.transaction(async (tx) => {
     await lockUser(tx, userId)
     const balance = await balanceOf(tx, userId)
     if ((await getTier(userId, tx)) !== "street") return { ok: false, reason: "already", balance }
     if (!isGigUnlocked("live", ladder)) return { ok: false, reason: "experience", balance }
-    if (linked.length === 0) return { ok: false, reason: "tiktok", balance }
+    if (linked.length === 0) return { ok: false, reason: "signin", balance }
     if (balance < small.capital) return { ok: false, reason: "capital", balance }
     const inserted = await insertEntry(tx, {
       userId,
@@ -143,7 +143,7 @@ export type LiveSettlement = {
 
 /**
  * After a live: pay the paid orders (once per live), take those pieces out of
- * stock, and move followers (TikTok-connected sellers only).
+ * stock, and move followers (signed-in sellers only).
  */
 export async function settleLive(input: LiveSettlement, db: Database = getDatabase()): Promise<{ balance: number; followers: number }> {
   return db.transaction(async (tx) => {
@@ -163,7 +163,7 @@ export async function settleLive(input: LiveSettlement, db: Database = getDataba
         byBale.set(piece.bale, counts)
       }
       for (const [bale, counts] of byBale) await addStock(tx, input.userId, bale, counts)
-      const [linked] = await tx.select({ userId: tiktokAccounts.userId }).from(tiktokAccounts).where(eq(tiktokAccounts.userId, input.userId)).limit(1)
+      const [linked] = await tx.select({ userId: privyAccounts.userId }).from(privyAccounts).where(eq(privyAccounts.userId, input.userId)).limit(1)
       if (linked && input.followerDelta !== 0) {
         await tx
           .update(users)

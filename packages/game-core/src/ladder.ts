@@ -1,6 +1,6 @@
 // The hustle ladder: everyone starts as a Kikuubo porter and works up to the
 // better-paying gigs. Each step asks for experience (jobs done); the real-life
-// needs (bike rent, stock money, a TikTok account) are checked where they're
+// needs (bike rent, stock money, a signed-in account) are checked where they're
 // paid for. Racing is never gated. See docs/economy-progress.md §17.
 
 /** Only work done from here counts (the ladder started everyone from scratch). */
@@ -39,8 +39,8 @@ export const LADDER: ReadonlyArray<{
   /** "wash cars", for "Do 3 more porter loads to wash cars." */
   action: string
   requirement: Requirement | null
-  /** Needs a connected TikTok account too. */
-  tiktok?: boolean
+  /** Needs a signed-in account too. */
+  signIn?: boolean
   /** Not built yet: shown on the ladder as coming soon (none right now). */
   comingSoon?: boolean
 }> = [
@@ -69,10 +69,10 @@ export const LADDER: ReadonlyArray<{
   {
     gig: "live",
     unlockedBy: "Owino traders",
-    unlockText: "You can run a business now. Save 500,000, connect TikTok, and move up to sell clothes on LivTok.",
+    unlockText: "You can run a business now. Save 500,000, sign in, and move up to sell clothes on LivTok.",
     action: "sell clothes on LivTok",
     requirement: { count: (c) => c.rolexShifts, need: 5, label: "rolex shifts", one: "rolex shift" },
-    tiktok: true
+    signIn: true
   }
 ]
 
@@ -80,7 +80,7 @@ export type LadderStep = {
   gig: LadderGig
   unlocked: boolean
   comingSoon: boolean
-  needsTikTok: boolean
+  needsSignIn: boolean
   /** Progress towards unlocking (null for the first step). */
   progress: { have: number; need: number; label: string } | null
 }
@@ -94,7 +94,7 @@ export function ladderSteps(counts: LadderCounts): LadderStep[] {
       gig: step.gig,
       unlocked: done,
       comingSoon: step.comingSoon === true,
-      needsTikTok: step.tiktok === true,
+      needsSignIn: step.signIn === true,
       progress: step.requirement ? { have, need: step.requirement.need, label: step.requirement.label } : null
     }
   })

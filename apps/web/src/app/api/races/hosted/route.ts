@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       const error =
         result.reason === "guest"
-          ? "Connect TikTok to host a prize race"
+          ? "Sign in to host a prize race"
           : result.reason === "insufficient"
             ? "Not enough BNG for that pot"
             : PRIZE_PROBLEM_TEXT[result.reason as PrizeProblem]

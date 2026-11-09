@@ -8,6 +8,7 @@ import { BUILDING_DESIGNS, ROOF_COLOURS, WALL_COLOURS, allPlots, buildingMinutes
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const ThreeLayer = dynamic(() => import("@/components/ThreeLayer").then((m) => m.ThreeLayer), { ssr: false })
 const City = dynamic(() => import("@/components/city/City").then((m) => m.City), { ssr: false })
+const FilmActors = dynamic(() => import("@/components/film/FilmActors").then((m) => m.FilmActors), { ssr: false })
 
 // Tiral's city on the map, to look at and measure (window.__cityStats).
 // Development only. ?view=street: down at shop level; ?view=lugogo: Kyadondo's
@@ -42,10 +43,13 @@ export default function CityBench() {
       {view && <MapView center={{ lat: view.lat, lng: view.lng }} zoom={view.zoom} pitch={view.pitch} bearing={view.bearing} onMapReady={(ready) => {
         setMap(ready)
         ;(window as unknown as { __devMap?: maplibregl.Map }).__devMap = ready
+        // The intro video's recorder (marketing/intro) places markers too.
+        void import("maplibre-gl").then((m) => Object.assign(window, { __maplibre: m.default.Marker }))
       }} />}
       {map && (
         <ThreeLayer map={map}>
           <City map={map} />
+          <FilmActors />
         </ThreeLayer>
       )}
       <Diagnostics />
