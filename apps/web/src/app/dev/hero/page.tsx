@@ -18,6 +18,7 @@ import {
   type AvatarLoadout
 } from "@tiral/avatars"
 import { CAST_CLIPS, NEW_CAST, type CastClip } from "@/components/film/NewCast"
+import { crowdLook } from "@/components/city/StreetCrowd"
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const ThreeLayer = dynamic(() => import("@/components/ThreeLayer").then((m) => m.ThreeLayer), { ssr: false })
@@ -30,7 +31,8 @@ const Studio = dynamic(() => import("@/components/film/Studio").then((m) => m.St
 // Each button plays that animation; "Walk around" sends them round a loop;
 // "Shuffle" dresses the new pair in random picks from the game's (colours,
 // hair, hats, glasses and outfits; hats and glasses one time in three).
-// "Hats", "Hair", "Outfits": a man and a woman in each one, in a row.
+// "Hats", "Hair", "Outfits", "Glasses": a man and a woman in each one, in a row.
+// "Crowd": twelve passers-by as the street crowd dresses them.
 // ?studio=1: the same in a plain room, close up, without the city.
 // Development only.
 
@@ -71,9 +73,16 @@ export default function HeroBench() {
         <button type="button" onClick={() => setCast(cast.map(shuffled))} className="rounded bg-white px-2 py-1 text-xs font-bold">
           Shuffle
         </button>
-        {(["hat", "hair", "outfit"] as const).map((slot) => (
+        <button
+          type="button"
+          onClick={() => setCast(Array.from({ length: 12 }, () => crowdLook(Math.random()).loadout))}
+          className="rounded bg-white px-2 py-1 text-xs font-bold"
+        >
+          Crowd
+        </button>
+        {(["hat", "hair", "outfit", "glasses"] as const).map((slot) => (
           <button key={slot} type="button" onClick={() => setCast(lineup(slot))} className="rounded bg-white px-2 py-1 text-xs font-bold">
-            {slot === "hat" ? "Hats" : slot === "hair" ? "Hair" : "Outfits"}
+            {{ hat: "Hats", hair: "Hair", outfit: "Outfits", glasses: "Glasses" }[slot]}
           </button>
         ))}
         {CAST_CLIPS.map((name) => (
@@ -106,8 +115,8 @@ function shuffled(loadout: AvatarLoadout): AvatarLoadout {
 }
 
 /** The new pair in every option of one slot (hats over short hair). */
-function lineup(slot: "hat" | "hair" | "outfit"): AvatarLoadout[] {
-  const options: readonly string[] = slot === "hat" ? HAT_STYLES : slot === "hair" ? HAIR_STYLES : OUTFITS
+function lineup(slot: "hat" | "hair" | "outfit" | "glasses"): AvatarLoadout[] {
+  const options: readonly string[] = { hat: HAT_STYLES, hair: HAIR_STYLES, outfit: OUTFITS, glasses: GLASSES_STYLES }[slot]
   return options.flatMap((option) =>
     NEW_CAST.map((loadout) => ({ ...loadout, hair: "short" as const, hairColor: "#2b2118", hatColor: "#b91c1c", [slot]: option }))
   )
