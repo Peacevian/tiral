@@ -43,6 +43,54 @@ export type CrowdPerson = {
   wander: number
   /** 0–1: who they are (the drawing turns it into a body and clothes). */
   look: number
+  /** Standing about or sitting in a group at the roadside (they don't walk). */
+  still?: Stillness | null
+}
+
+/**
+ * A group off the road: chatting in a ring, sitting on a bench, or waiting in
+ * a row facing the road (a taxi stage). `member` is this person's place in it.
+ */
+export type Stillness = { kind: "chat" | "sit" | "wait"; member: number; size: number }
+
+/**
+ * Of every GROUP_BLOCK slots in the pool, the first GROUP_SIZE are a group
+ * standing about; the rest walk. A pool cut short mid-block gives a smaller
+ * group (or one person waiting alone).
+ */
+export const GROUP_BLOCK = 8
+export const GROUP_SIZE = 3
+/** How far beyond the road's edge a group stands, on the verge or pavement. */
+const VERGE_METERS = 1.1
+
+/** The group a slot belongs to (its first slot, and this one's place), or null for a walker. */
+export function groupSlot(slot: number): { leader: number; member: number } | null {
+  const member = slot % GROUP_BLOCK
+  return member < GROUP_SIZE ? { leader: slot - member, member } : null
+}
+
+/**
+ * A group at the roadside near `focus`: `size` people sharing one spot, each
+ * their own person (look, pace for later). Null when there's no road to use.
+ */
+export function spawnCrowdGroup(
+  graph: RoadGraph,
+  options: readonly string[],
+  leaderSlot: number,
+  salt: number,
+  size: number,
+  focus?: LatLng
+): CrowdPerson[] | null {
+  const spot = spawnCrowdPerson(graph, options, leaderSlot, salt, focus)
+  if (!spot) return null
+  const roll = unit(salt, leaderSlot + 41)
+  const kind: Stillness["kind"] = roll < 0.5 ? "chat" : roll < 0.8 ? "sit" : "wait"
+  return Array.from({ length: size }, (_, member) => ({
+    ...spot,
+    look: unit(salt, leaderSlot * 7 + member + 31),
+    phase: unit(salt, leaderSlot * 7 + member + 37) * Math.PI * 2,
+    still: { kind, member, size }
+  }))
 }
 
 /** Half a road's width by its class, in metres (rough Kampala widths, edge to edge). */
@@ -204,7 +252,7 @@ const PERSONAL_SPACE = 4
 export function separateCrowd(graph: RoadGraph, people: readonly (CrowdPerson | null)[]): void {
   for (let i = 0; i < people.length; i++) {
     const person = people[i]
-    if (!person) continue
+    if (!person || person.still) continue
     const edge = graph.edges[person.edgeId]
     if (!edge) continue
     let nearest = Infinity
@@ -212,7 +260,7 @@ export function separateCrowd(graph: RoadGraph, people: readonly (CrowdPerson | 
     for (let j = 0; j < people.length; j++) {
       if (i === j) continue
       const other = people[j]
-      if (!other || other.edgeId !== person.edgeId || other.direction !== person.direction) continue
+      if (!other || other.still || other.edgeId !== person.edgeId || other.direction !== person.direction) continue
       // A tiny index bias breaks an exact tie, so one of them is "ahead".
       const mine = person.distance + i * 0.02
       const theirs = other.distance + j * 0.02
@@ -234,6 +282,7 @@ export function separateCrowd(graph: RoadGraph, people: readonly (CrowdPerson | 
  * (defaults to the person's own pace). At a dead end they turn around.
  */
 export function stepCrowdPerson(graph: RoadGraph, person: CrowdPerson, dt: number, speed = person.speed): void {
+  if (person.still) return
   const edge = graph.edges[person.edgeId]
   if (!edge || edge.lengthMeters <= 0) return
   // A long frame must not throw them through a block.
@@ -271,7 +320,10 @@ export function stepCrowdPerson(graph: RoadGraph, person: CrowdPerson, dt: numbe
   person.direction = entered.direction
 }
 
-/** Where they stand: at the roadside of the street they're on, and the way they face. */
+/**
+ * Where they stand: at the roadside of the street they're on (a group: the
+ * spot they share, just off the road), and the way the road runs there.
+ */
 export function crowdPlace(graph: RoadGraph, person: CrowdPerson): { lat: number; lng: number; heading: number } | null {
   const position: RoadPosition = {
     edgeId: person.edgeId,
@@ -282,7 +334,8 @@ export function crowdPlace(graph: RoadGraph, person: CrowdPerson): { lat: number
   if (!onRoad) return null
   const heading = getRoadHeading(graph, position)
   const bearing = heading + person.side * (Math.PI / 2)
-  const offset = roadsideOffset(graph.edges[person.edgeId]?.highway ?? "", person.lane)
+  const highway = graph.edges[person.edgeId]?.highway ?? ""
+  const offset = person.still ? roadsideOffset(highway, 0) + 0.6 + VERGE_METERS : roadsideOffset(highway, person.lane)
   const east = Math.sin(bearing) * offset
   const north = Math.cos(bearing) * offset
   return {

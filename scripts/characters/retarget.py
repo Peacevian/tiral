@@ -18,8 +18,12 @@ BLEND, ANIMS, OUT = (os.path.abspath(a) for a in ARGS[:3])
 PREVIEW = "preview" in ARGS
 VIDEO = "video" in ARGS  # a short clip of each animation, every other frame
 MAX_FRAMES = 300  # 10 s at 30 fps
-# What the game plays (apps/web/src/components/NewBody.tsx).
-GAME_CLIPS = {"breathing_idle", "walking", "running", "victory", "texting_while_standing", "hit_reaction", "defeated", "waving"}
+# What the game plays (apps/web/src/components/NewBody.tsx, and the street
+# crowd standing about and sitting: components/city/StreetCrowd.tsx).
+GAME_CLIPS = {
+    "breathing_idle", "walking", "running", "victory", "texting_while_standing", "hit_reaction", "defeated", "waving",
+    "sitting_idle", "sitting_talking", "sad_idle",
+}
 GAME = "game" in ARGS
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)

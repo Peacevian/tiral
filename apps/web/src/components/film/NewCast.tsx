@@ -20,7 +20,7 @@ export const NEW_CAST: AvatarLoadout[] = [
   { ...HERO, body: "female", shirt: "#f59e0b" }
 ]
 
-/** The Mixamo clips in the files: the ones the game plays (scripts/characters/retarget.py GAME_CLIPS). */
+/** The Mixamo clips in the files: the ones the game plays, the crowd's included (scripts/characters/retarget.py GAME_CLIPS). */
 export const CAST_CLIPS = [
   "breathing_idle",
   "walking",
@@ -29,7 +29,10 @@ export const CAST_CLIPS = [
   "texting_while_standing",
   "defeated",
   "victory",
-  "hit_reaction"
+  "hit_reaction",
+  "sitting_idle",
+  "sitting_talking",
+  "sad_idle"
 ] as const
 export type CastClip = (typeof CAST_CLIPS)[number]
 

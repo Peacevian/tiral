@@ -396,15 +396,19 @@ export function graphToGeoJSON(graph: RoadGraph): GeoJSONFeatureCollection {
 export {
   CROWD_POOL,
   CROWD_DROP_METERS,
+  GROUP_SIZE,
   busyStreet,
   crowdCount,
   crowdPlace,
   edgesNear,
+  groupSlot,
   kampalaHour,
   separateCrowd,
+  spawnCrowdGroup,
   spawnCrowdPerson,
   stepCrowdPerson,
-  type CrowdPerson
+  type CrowdPerson,
+  type Stillness
 } from "./crowd"
 
 export function junctionsToGeoJSON(graph: RoadGraph): GeoJSONFeatureCollection {
