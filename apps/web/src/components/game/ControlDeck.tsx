@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import type { RoadDirection, RoadGraph, RoadPosition } from "@tiral/road-graph"
 import type { JunctionOption } from "@/lib/useRoadMovement"
 import { ControlBar, type SprintControl } from "./ControlBar"
@@ -80,26 +80,45 @@ export function ControlDeck({
   const statusText = loadingRoads
     ? "Loading walkable roads…"
     : (roadError ?? edge?.name ?? edge?.highway ?? "Snapped to road")
-  // The status card folds away (a reopen tab stays); the control bar never does.
-  const [deckOpen, setDeckOpen] = useState(true)
-  // Before the race there's only Set my start; the bar comes with the gun.
+  // Before the race the start actions stay open. Once the gun goes, the status
+  // card folds so the street stays visible. A tap opens it again.
   const showBar = !showStarts
+  const [pinned, setPinned] = useState<boolean | null>(null)
+  const barRef = useRef(showBar)
+  if (barRef.current !== showBar) {
+    barRef.current = showBar
+    setPinned(null)
+  }
+  const deckOpen = pinned ?? !showBar
+  const deckRef = useRef<HTMLDivElement>(null)
+  // Lift the map credits above this deck. Measured before the camera flies.
+  useLayoutEffect(() => {
+    const node = deckRef.current
+    const game = node?.closest(".tiral-game")
+    if (!node || !(game instanceof HTMLElement)) return
+    const write = () => game.style.setProperty("--tiral-controls", `${node.offsetHeight}px`)
+    write()
+    const observer = new ResizeObserver(write)
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+      game.style.setProperty("--tiral-controls", "0px")
+    }
+  }, [])
 
   const pickedTurn = turnIntent ?? queuedTurn
   const turnStreet = turnIntent ? (junction?.find((option) => option.direction === turnIntent)?.name ?? null) : null
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div ref={deckRef} className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
       {deckOpen ? (
         <div className="pointer-events-auto w-full rounded-2xl border border-sheet-line bg-sheet-card/95 shadow-2xl md:backdrop-blur-md">
           <button
             type="button"
-            onClick={() => setDeckOpen(false)}
+            onClick={() => setPinned(false)}
             aria-label="Collapse controls"
-            // 28 px tall to keep the deck short; the invisible ::before adds
-            // 8 px of touch area above.
-            className="relative flex min-h-[28px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-sheet-mute before:absolute before:inset-x-0 before:-top-2 before:bottom-0 before:content-['']"
+            className="relative flex min-h-[44px] w-full items-center justify-center text-[11px] font-bold tracking-[0.25em] text-sheet-mute"
           >
             ▾
           </button>
@@ -184,11 +203,11 @@ export function ControlDeck({
         <div className="flex justify-center">
           <button
             type="button"
-            onClick={() => setDeckOpen(true)}
-            aria-label="Show status"
-            className="pointer-events-auto rounded-full border border-sheet-line bg-sheet-card/95 px-5 py-1.5 text-[11px] font-bold tracking-[0.2em] text-sheet-mute shadow-xl md:backdrop-blur-md"
+            onClick={() => setPinned(true)}
+            aria-label={`Show status. ${statusText}`}
+            className="pointer-events-auto inline-flex min-h-[44px] max-w-full items-center rounded-full border border-sheet-line bg-sheet-card/95 px-4 text-[11px] font-bold text-sheet-mute shadow-xl md:backdrop-blur-md"
           >
-            ▴ STATUS
+            <span className="truncate">{statusText}</span>
           </button>
         </div>
       )}

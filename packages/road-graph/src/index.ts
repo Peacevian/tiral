@@ -61,10 +61,20 @@ export type ClassifiedRoad = {
   angle: number
 }
 
+// A foot=no scrap this short, with both ends already on a walkable street, is a
+// gap in the road (Jinja Road has one) rather than a road the runner should
+// be kept off.
+const GAP_BRIDGE_METERS = 40
+
 const WALKABLE_HIGHWAYS = new Set([
+  "trunk",
+  "trunk_link",
   "primary",
+  "primary_link",
   "secondary",
+  "secondary_link",
   "tertiary",
+  "tertiary_link",
   "residential",
   "unclassified",
   "living_street",
@@ -87,9 +97,21 @@ type GeoJSONFeatureCollection = {
   }>
 }
 
+function wayLengthMeters(way: OverpassWay, osmNodes: Map<number, LatLng>) {
+  let length = 0
+  for (let index = 1; index < way.nodes.length; index++) {
+    const from = osmNodes.get(way.nodes[index - 1]!)
+    const to = osmNodes.get(way.nodes[index]!)
+    if (!from || !to) return null
+    length += haversineDistanceMeters(from, to)
+  }
+  return length
+}
+
 export function buildRoadGraph(data: OverpassResponse): RoadGraph {
   const osmNodes = new Map<number, LatLng>()
   const ways: OverpassWay[] = []
+  const footNoWays: OverpassWay[] = []
 
   for (const element of data.elements) {
     if (element.type === "node" && "lat" in element) {
@@ -102,12 +124,22 @@ export function buildRoadGraph(data: OverpassResponse): RoadGraph {
         highway &&
         WALKABLE_HIGHWAYS.has(highway) &&
         access !== "private" &&
-        access !== "no" &&
-        foot !== "no"
+        access !== "no"
       ) {
-        ways.push(element)
+        if (foot === "no") footNoWays.push(element)
+        else ways.push(element)
       }
     }
+  }
+
+  const openNodes = new Set(ways.flatMap((way) => way.nodes))
+  for (const way of footNoWays) {
+    const start = way.nodes[0]
+    const end = way.nodes[way.nodes.length - 1]
+    if (start === undefined || end === undefined) continue
+    if (!openNodes.has(start) || !openNodes.has(end)) continue
+    const length = wayLengthMeters(way, osmNodes)
+    if (length !== null && length <= GAP_BRIDGE_METERS) ways.push(way)
   }
 
   const graph: RoadGraph = { nodes: {}, edges: {} }
@@ -360,6 +392,20 @@ export function graphToGeoJSON(graph: RoadGraph): GeoJSONFeatureCollection {
     }))
   }
 }
+
+export {
+  CROWD_POOL,
+  CROWD_DROP_METERS,
+  busyStreet,
+  crowdCount,
+  crowdPlace,
+  edgesNear,
+  kampalaHour,
+  separateCrowd,
+  spawnCrowdPerson,
+  stepCrowdPerson,
+  type CrowdPerson
+} from "./crowd"
 
 export function junctionsToGeoJSON(graph: RoadGraph): GeoJSONFeatureCollection {
   return {

@@ -64,6 +64,7 @@ export function TopBar({
     : countdown !== null && phase !== "racing"
       ? `Starts in ${formatCountdown(countdown)}`
       : hudText ?? (phase === "racing" ? "Racing" : phase === "lobby" ? "Lobby" : phase)
+  const racingFacts = phase === "racing" && hudText !== null && !reconnecting
 
   return (
     <div className="absolute inset-x-0 top-0 z-20 pt-[max(0.5rem,env(safe-area-inset-top))] px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
@@ -82,17 +83,30 @@ export function TopBar({
             />
           </span>
           <div className="min-w-0">
-            <div className="truncate text-xs font-black leading-tight text-sheet-ink">
-              <span className="select-text">{roomCode ?? "Tiral"}</span>
-              <span className="ml-1 font-bold text-sheet-mute">
-                · {racerCount} racer{racerCount === 1 ? "" : "s"}
-                {locked && phase !== "racing" ? " · 🔒" : ""}
-              </span>
-            </div>
-            <div className="truncate font-mono text-[11px] leading-tight text-sheet-blue">
-              {bountyName ? <span className="mr-1.5 text-leaf">◉ {bountyName}</span> : null}
-              {statusLine}
-            </div>
+            {racingFacts ? (
+              <>
+                <div className="truncate text-[17px] font-black leading-tight text-sheet-ink">{hudText}</div>
+                <div className="truncate text-[11px] leading-tight text-sheet-mute">
+                  {bountyName ? <span className="font-bold text-leaf">◉ {bountyName}</span> : null}
+                  {bountyName ? " · " : null}
+                  <span className="select-text">{roomCode ?? "Tiral"}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="truncate text-xs font-black leading-tight text-sheet-ink">
+                  <span className="select-text">{roomCode ?? "Tiral"}</span>
+                  <span className="ml-1 font-bold text-sheet-mute">
+                    · {racerCount} racer{racerCount === 1 ? "" : "s"}
+                    {locked && phase !== "racing" ? " · 🔒" : ""}
+                  </span>
+                </div>
+                <div className="truncate font-mono text-[11px] leading-tight text-sheet-blue">
+                  {bountyName ? <span className="mr-1.5 text-leaf">◉ {bountyName}</span> : null}
+                  {statusLine}
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

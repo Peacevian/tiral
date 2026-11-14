@@ -88,10 +88,12 @@ function MapView(
         attributionControl: false
       })
       created = map
-      // No zoom/compass buttons: they sat under the sprint button and right
-      // thumb stick on phones (pinch to zoom, ◎ to recenter). The credit sits
-      // bottom-left as a small ⓘ.
+      // No zoom/compass buttons: they sat under the sprint button and the
+      // turn pad (pinch to zoom, ◎ to recenter). Credits are a compact ⓘ.
+      // MapLibre's compact mode still opens the full line until the map is
+      // dragged, which lands on the thumbs, so close it immediately.
       map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: MAP_ATTRIBUTION }), "bottom-left")
+      map.getContainer().querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show")
       map.on("load", () => {
         mapRef.current = map
         onMapReady?.(map)
@@ -104,7 +106,7 @@ function MapView(
     }
   }, [])
 
-  return <div ref={containerRef} className="absolute inset-0" />
+  return <div ref={containerRef} className="tiral-map absolute inset-0" />
 }
 
 export default forwardRef(MapView)

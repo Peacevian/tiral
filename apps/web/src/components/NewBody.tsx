@@ -154,7 +154,8 @@ export function NewBody({
   dance,
   posed,
   noBackpack,
-  clip: chosen
+  clip: chosen,
+  phase = 0
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -171,6 +172,8 @@ export function NewBody({
   noBackpack?: boolean
   /** Any clip in the file, by name, over the above (the /dev/hero bench). */
   clip?: string
+  /** Seconds into the clip, so a crowd does not step in unison. */
+  phase?: number
 }) {
   const resolved = resolveLoadout(loadout)
   const fit = FITS[resolved.body]
@@ -269,11 +272,13 @@ export function NewBody({
     const once = !!act && ONE_SHOT_ACTS.has(act)
     action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity)
     action.clampWhenFinished = once
-    action.reset().fadeIn(0.25).play()
+    action.reset()
+    action.time = phase % Math.max(found.duration, 0.001)
+    action.fadeIn(0.25).play()
     return () => {
       action.fadeOut(0.25)
     }
-  }, [mixer, animations, clip, act])
+  }, [mixer, animations, clip, act, phase])
 
   // The hand-made poses, after the mixer has applied this frame's idle clip
   // (registered after it, so they run after it): a dance routine's (or a

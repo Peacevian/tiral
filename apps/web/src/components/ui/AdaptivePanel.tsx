@@ -19,12 +19,22 @@ function cssVarPx(name: string): number {
   return px
 }
 
+/** Keep at least this much map above a phone sheet. */
+const MAP_STRIP = 160
+/** Handle plus the primary action, when a full peek would cover the map. */
+const SHORT_PEEK = 120
+
 function snapHeight(snap: PanelSnap, peekPx: number): number {
   const top = cssVarPx("--shell-top")
   const bottom = cssVarPx("--shell-bottom")
-  const available = window.innerHeight - top - bottom - 8
-  if (snap === "peek") return Math.min(peekPx, available)
-  if (snap === "half") return Math.min(Math.max(peekPx, window.innerHeight * 0.55), available)
+  const available = Math.max(SHORT_PEEK, window.innerHeight - top - bottom - 8)
+  // A short phone, or a phone turned sideways, cannot fit the resting peek
+  // and still show the map. Cap the peek at the primary action and let the
+  // rest scroll. Half and full still open over the map when the player asks.
+  const peek =
+    available - MAP_STRIP < peekPx ? Math.min(SHORT_PEEK, available) : Math.min(peekPx, available)
+  if (snap === "peek") return peek
+  if (snap === "half") return Math.min(Math.max(peek, window.innerHeight * 0.55), available)
   return available
 }
 

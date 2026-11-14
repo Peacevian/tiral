@@ -8,7 +8,9 @@ import { buildRoadGraph, type OverpassResponse, type RoadGraph } from "@tiral/ro
 let graph: Promise<RoadGraph> | null = null
 
 export function loadRoadGraph(): Promise<RoadGraph> {
-  graph ??= fetch("/api/roads")
+  // `v` changes when the baked roads change. The response is cached for a day,
+  // so without it a phone keeps the old network and still stops on a fixed gap.
+  graph ??= fetch("/api/roads?v=2")
     .then(async (response) => {
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null

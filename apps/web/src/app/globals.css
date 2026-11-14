@@ -69,6 +69,23 @@ body.has-shell {
   }
 }
 
+/* Map credits sit above the race controls. ControlDeck sets --tiral-controls
+   to the deck height; otherwise the ⓘ stays in the corner. The full credit
+   line stays closed until the ⓘ is tapped, so it never covers Sprint or the pad. */
+.tiral-game {
+  --tiral-controls: 0px;
+}
+.tiral-map .maplibregl-ctrl-bottom-left {
+  bottom: var(--tiral-controls, 0px);
+  left: max(0px, env(safe-area-inset-left));
+}
+.tiral-map .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner {
+  display: none;
+}
+.tiral-map .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  max-width: min(72vw, 18rem);
+}
+
 /* Start-pin drop-zone pulse (plain DOM markers can't use Tailwind keyframes) */
 @keyframes tiral-pin-pulse {
   0%,

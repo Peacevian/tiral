@@ -599,7 +599,8 @@ export function RealisticAvatar({
   ride,
   dance,
   posed,
-  noBackpack
+  noBackpack,
+  phase
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -619,12 +620,14 @@ export function RealisticAvatar({
   posed?: { current: DanceFrame | null }
   /** Leave the backpack off (scripted scenes: Mum at home). */
   noBackpack?: boolean
+  /** Seconds into the walk, so crowd members do not step in unison. */
+  phase?: number
 }) {
   // The new realistic bodies, when switched on.
   if (newBodiesOn()) {
     return (
       <Suspense fallback={null}>
-        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} />
+        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} phase={phase} />
       </Suspense>
     )
   }
