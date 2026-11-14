@@ -9,7 +9,7 @@ import { formatCoins } from "@/lib/useCoins"
 import { FoodGrid, FoodResultLine, useFoodPurchase } from "@/components/NeedsPanel"
 import { ActionButton, untilText } from "@/components/ui"
 import { PrizeRaces } from "@/components/hub/PrizeRaces"
-import { HustleLadder, nextUnlockText, useLadder } from "@/components/hub/HustleLadder"
+import { GIG_INFO, HustleLadder, useLadder } from "@/components/hub/HustleLadder"
 
 export type HubActions = {
   races: RaceListing[]
@@ -27,7 +27,7 @@ export type HubActions = {
   highlightQuickRace?: boolean
 }
 
-/** Energy at or below this shows the food row in "Needs attention". */
+/** Energy at or below this shows the food tile in Today. */
 const LOW_ENERGY = 35
 
 function SectionTitle({ id, children, aside }: { id: string; children: ReactNode; aside?: ReactNode }) {
@@ -42,14 +42,22 @@ function SectionTitle({ id, children, aside }: { id: string; children: ReactNode
 }
 
 /** Races anyone can join right now; the list updates by itself (the play page polls). */
-function OpenRaces({ races, joining, onJoin }: HubActions) {
+function OpenRaces({ races, joining, onJoin, chip = false }: HubActions & { chip?: boolean }) {
   const joinable = races.filter(
     (race) =>
       // Prize races have their own section.
       !race.prize && !race.locked && (race.phase === "lobby" || race.phase === "countdown") && race.playerCount < race.maxClients
   )
+  if (chip && joinable.length === 0) {
+    return (
+      <p className="flex min-h-11 items-center gap-2 rounded-2xl border border-sheet-line bg-sheet-card px-2.5 text-xs font-bold text-sheet-mute">
+        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-leaf" />
+        Nobody waiting to race
+      </p>
+    )
+  }
   return (
-    <section aria-labelledby="open-races-title">
+    <section aria-labelledby="open-races-title" className={chip ? "col-span-2" : undefined}>
       <SectionTitle
         id="open-races-title"
         aside={
@@ -90,40 +98,85 @@ function OpenRaces({ races, joining, onJoin }: HubActions) {
   )
 }
 
-/** One quiet row: an icon, a line, a detail, and where it leads. */
-function AttentionRow({
+type Tone = "blue" | "flame" | "leaf"
+
+function Bubble({ icon, tone }: { icon: string; tone: Tone }) {
+  const bg = tone === "flame" ? "bg-flame-soft" : tone === "leaf" ? "bg-leaf-soft" : "bg-sheet-soft"
+  return (
+    <span aria-hidden className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-[22px] leading-none ${bg}`}>
+      {icon}
+    </span>
+  )
+}
+
+function PlayTile({
   icon,
-  title,
-  detail,
+  tone,
+  label,
+  disabled,
+  pressed,
+  onClick
+}: {
+  icon: string
+  tone: Tone
+  label: string
+  disabled?: boolean
+  pressed?: boolean
+  onClick(): void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-expanded={pressed}
+      onClick={onClick}
+      className="flex min-h-24 flex-col items-center justify-center gap-1.5 rounded-2xl border border-sheet-line bg-sheet-card px-1.5 py-2.5 text-center text-[12px] font-black leading-tight text-sheet-ink transition hover:bg-sheet-soft disabled:opacity-40"
+    >
+      <Bubble icon={icon} tone={tone} />
+      {label}
+    </button>
+  )
+}
+
+function DayTile({
+  icon,
+  tone,
+  name,
+  meta,
   warn,
   href,
   onClick,
-  expanded
+  expanded,
+  wide
 }: {
   icon: string
-  title: string
-  detail: string
-  /** Say the detail in the warning colour (money short). */
+  tone: Tone
+  name: string
+  meta: string
   warn?: boolean
   href?: string
   onClick?(): void
   expanded?: boolean
+  wide?: boolean
 }) {
+  const className = `flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl border border-sheet-line bg-sheet-card px-1.5 py-2.5 text-center transition hover:bg-sheet-soft ${wide ? "col-span-3 min-h-[4.5rem] flex-row justify-start gap-3 px-3.5 text-left" : ""}`
+  const metaClass = `block w-full truncate text-[11px] font-bold ${warn ? "text-flame-deep" : "text-sheet-mute"}`
   const body = (
     <>
-      <span aria-hidden className="w-6 shrink-0 text-center text-lg">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-sheet-ink">{title}</span>
-        <span className={`block truncate text-xs ${warn ? "font-bold text-flame-deep" : "text-sheet-mute"}`}>{detail}</span>
-      </span>
-      <span aria-hidden className={`text-lg text-sheet-mute transition ${expanded ? "rotate-90" : ""}`}>
-        ›
-      </span>
+      <Bubble icon={icon} tone={tone} />
+      {wide ? (
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-black text-sheet-ink">{name}</span>
+          <span className={metaClass}>{meta}</span>
+        </span>
+      ) : (
+        <>
+          <span className="block w-full truncate text-[13px] font-black text-sheet-ink">{name}</span>
+          <span className={metaClass}>{meta}</span>
+        </>
+      )}
     </>
   )
-  const className = "flex min-h-[56px] w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-sheet-soft"
   return href ? (
     <Link href={href} className={className}>
       {body}
@@ -135,11 +188,18 @@ function AttentionRow({
   )
 }
 
-/** Rent, requests, low energy and earning: one compact list that leads elsewhere. */
-function NeedsAttention() {
+/** "in 1d 17h" → "1d", so a tile stays one line. */
+function shortWait(iso: string): string {
+  return untilText(iso)
+    .replace(/^in /, "")
+    .replace(/(\d+h) \d+m/, "$1")
+    .replace(/(\d+d) \d+h/, "$1")
+}
+
+/** Rent, requests, the next gig and where to go: an icon board, not a list. */
+function Today({ open, onToggle }: { open: "food" | "earn" | null; onToggle(which: "food" | "earn"): void }) {
   const { player } = usePlayer()
   const food = useFoodPurchase()
-  const [open, setOpen] = useState<"food" | "earn" | null>(null)
   const ladder = useLadder()
   if (!player) return null
   const life = player.life
@@ -147,55 +207,62 @@ function NeedsAttention() {
   const dueSoon = life ? Date.parse(life.rentDueAt) - Date.now() < 24 * 3600_000 : false
   const requests = life?.events.filter((event) => event.status === "pending") ?? []
   const energy = Math.round(player.needs.energy)
-  const toggle = (which: "food" | "earn") => setOpen((current) => (current === which ? null : which))
+  const step = ladder.next
+  const gig = step ? GIG_INFO[step.gig] : null
+  const gigMeta =
+    step?.progress && !step.comingSoon
+      ? `${step.progress.have} / ${step.progress.need} ${step.progress.label}`
+      : step?.comingSoon
+        ? "Coming soon"
+        : "All open"
 
   return (
-    <section aria-labelledby="attention-title">
-      <SectionTitle id="attention-title">Needs attention</SectionTitle>
-      <div className="divide-y divide-sheet-line overflow-hidden rounded-xl border border-sheet-line bg-sheet-card">
+    <section aria-labelledby="today-title">
+      <h2 id="today-title" className="mb-2 text-sm font-black text-sheet-ink">
+        Today
+      </h2>
+      <div className="grid grid-cols-3 gap-2">
         {life && !life.ownHome && (short > 0 || dueSoon) && (
-          <AttentionRow
+          <DayTile
             icon="🏠"
-            title={`Rent due ${untilText(life.rentDueAt)}`}
-            detail={short > 0 ? `${formatCoins(short)} BNG short of ${formatCoins(life.tier.rent)}` : `${formatCoins(life.tier.rent)} BNG, and you have it`}
+            tone="flame"
+            name="Rent"
+            meta={short > 0 ? `${formatCoins(short)} short` : "Covered"}
             warn={short > 0}
             href="/inbox"
           />
         )}
         {requests.slice(0, 2).map((event) => (
-          <AttentionRow
+          <DayTile
             key={event.id}
             icon="💬"
-            title={`${event.from} is asking for ${formatCoins(event.amount)} BNG`}
-            detail={event.expiresAt ? `Answer ${untilText(event.expiresAt)}` : "Waiting for your answer"}
+            tone="blue"
+            name={event.from}
+            meta={event.expiresAt ? `${formatCoins(event.amount)} · ${shortWait(event.expiresAt)}` : formatCoins(event.amount)}
             href="/inbox"
           />
         ))}
-        {life && life.stress >= STRESSED_THRESHOLD && (
-          <AttentionRow icon="😤" title="You're stressed" detail="Energy refills slower until it eases" href="/inbox" />
-        )}
+        {life && life.stress >= STRESSED_THRESHOLD && <DayTile icon="😤" tone="flame" name="Stressed" meta="Energy slower" href="/inbox" />}
         {energy <= LOW_ENERGY && (
-          <>
-            <AttentionRow
-              icon="⚡"
-              title={`Low energy: ${energy}%`}
-              detail="Eat something before you race"
-              onClick={() => toggle("food")}
-              expanded={open === "food"}
-            />
-            {open === "food" && (
-              <div className="px-3 pb-3 pt-1">
-                <FoodGrid tone="light" limit={3} onBuy={(foodId) => void food.buy(foodId)} />
-                <FoodResultLine tone="light" result={food.result} />
-              </div>
-            )}
-          </>
+          <DayTile icon="⚡" tone="flame" name="Energy" meta={`${energy}%`} warn onClick={() => onToggle("food")} expanded={open === "food"} />
         )}
-        <AttentionRow icon="💼" title="Earn BNG" detail={nextUnlockText(ladder.next, ladder.balance, ladder.tier)} onClick={() => toggle("earn")} expanded={open === "earn"} />
-        {open === "earn" && <HustleLadder />}
-        <AttentionRow icon="🏉" title="Go out: Kyadondo" detail="Music, pork and drinks with everyone who's out" href="/out?place=kyadondo" />
-        <AttentionRow icon="🏗️" title="Land: claim a plot" detail="Empty plots in town and Lugogo, yours to build on" href="/land" />
+        <DayTile
+          icon={gig?.icon ?? "💼"}
+          tone="leaf"
+          name={gig?.name ?? "Hustles"}
+          meta={gigMeta}
+          onClick={() => onToggle("earn")}
+          expanded={open === "earn"}
+        />
+        <DayTile icon="🏉" tone="blue" name="Kyadondo" meta="Go out" href="/out?place=kyadondo" />
+        <DayTile icon="🏗️" tone="leaf" name="Claim a plot" meta="Town and Lugogo" href="/land" wide />
       </div>
+      {open === "food" && (
+        <div className="mt-2 rounded-2xl border border-sheet-line bg-sheet-card px-3 py-2">
+          <FoodGrid tone="light" limit={3} onBuy={(foodId) => void food.buy(foodId)} />
+          <FoodResultLine tone="light" result={food.result} />
+        </div>
+      )}
     </section>
   )
 }
@@ -240,53 +307,55 @@ function RaceFriends({ joining, onCreate, onJoinCode, onClose }: { joining: bool
   )
 }
 
-// Between races: one main action (race now), the ways to race with people
-// (friends, prize races, open races), then a short list of what needs attention.
+// Between races: a big Race now, three play tiles, then today's board.
 export function Hub(actions: HubActions) {
   const [friends, setFriends] = useState(false)
   const [hosting, setHosting] = useState(false)
+  const [open, setOpen] = useState<"food" | "earn" | null>(null)
   const { joining, error } = actions
+  const toggle = (which: "food" | "earn") => setOpen((current) => (current === which ? null : which))
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* What shows at the phone sheet's resting height. */}
-      <div className="flex flex-col gap-2">
-        <ActionButton
-          variant="flame"
-          size="lg"
-          disabled={joining}
-          onClick={actions.onQuickRace}
-          className={`w-full ${actions.highlightQuickRace ? "ring-4 ring-flame/30" : ""}`}
-        >
-          {joining ? "Finding a race…" : "▶ Race now"}
-        </ActionButton>
-        <p className="text-center text-xs text-sheet-mute">Matched with whoever&apos;s online. Usually under 30 seconds.</p>
-        <div className="grid grid-cols-2 gap-2">
-          <ActionButton variant="sheet" disabled={joining} onClick={() => setFriends((value) => !value)} aria-expanded={friends}>
-            👥 Race friends
-          </ActionButton>
-          <ActionButton variant="sheet" disabled={joining} onClick={() => setHosting(true)}>
-            🏆 Host a prize
-          </ActionButton>
-        </div>
-        {friends && <RaceFriends joining={joining} onCreate={actions.onCreate} onJoinCode={actions.onJoinCode} onClose={() => setFriends(false)} />}
-        {error && (
-          <p role="alert" className="rounded-lg bg-flame-soft px-3 py-2 text-xs font-bold text-flame-deep">
-            {error}
-          </p>
-        )}
-        {actions.notice && (
-          <p role="status" className="rounded-lg bg-sheet-soft px-3 py-2 text-xs font-bold text-sheet-ink">
-            {actions.notice}
-          </p>
-        )}
+      <button
+        type="button"
+        disabled={joining}
+        onClick={actions.onQuickRace}
+        className={`flex min-h-[4.5rem] w-full items-center gap-3 rounded-2xl bg-flame px-3.5 text-left text-white transition hover:brightness-95 disabled:opacity-50 ${actions.highlightQuickRace ? "ring-4 ring-flame/30" : ""}`}
+      >
+        <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-lg font-black text-flame">
+          ▶
+        </span>
+        <span className="min-w-0">
+          <span className="block text-base font-black leading-tight">{joining ? "Finding a race…" : "Race now"}</span>
+          <span className="block truncate text-xs font-bold text-white/80">Matched in under 30 seconds</span>
+        </span>
+      </button>
+      <div className="grid grid-cols-3 gap-2">
+        <PlayTile icon="👥" tone="blue" label="Race friends" disabled={joining} pressed={friends} onClick={() => setFriends((value) => !value)} />
+        <PlayTile icon="🏆" tone="flame" label="Host a prize" disabled={joining} onClick={() => setHosting(true)} />
+        <PlayTile icon="💼" tone="leaf" label="Earn BNG" pressed={open === "earn"} onClick={() => toggle("earn")} />
+      </div>
+      {friends && <RaceFriends joining={joining} onCreate={actions.onCreate} onJoinCode={actions.onJoinCode} onClose={() => setFriends(false)} />}
+      {error && (
+        <p role="alert" className="rounded-lg bg-flame-soft px-3 py-2 text-xs font-bold text-flame-deep">
+          {error}
+        </p>
+      )}
+      {actions.notice && (
+        <p role="status" className="rounded-lg bg-sheet-soft px-3 py-2 text-xs font-bold text-sheet-ink">
+          {actions.notice}
+        </p>
+      )}
+      {open === "earn" && <HustleLadder />}
+
+      <div className="grid grid-cols-2 gap-2">
+        <PrizeRaces openRaces={actions.races} joining={joining} onJoinCode={actions.onJoinCode} hosting={hosting} onHostingChange={setHosting} chip />
+        <OpenRaces {...actions} chip />
       </div>
 
-      <PrizeRaces openRaces={actions.races} joining={joining} onJoinCode={actions.onJoinCode} hosting={hosting} onHostingChange={setHosting} />
-
-      <OpenRaces {...actions} />
-
-      <NeedsAttention />
+      <Today open={open} onToggle={toggle} />
     </div>
   )
 }

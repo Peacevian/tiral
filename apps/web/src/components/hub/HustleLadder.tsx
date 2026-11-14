@@ -26,7 +26,7 @@ import { Modal } from "@/components/ui/Modal"
 // with how far you are, and the rest (greyed) with what they pay, so there's
 // always something to work towards.
 
-const GIG_INFO: Record<LadderGig, { icon: string; name: string; pay: string }> = {
+export const GIG_INFO: Record<LadderGig, { icon: string; name: string; pay: string }> = {
   // Per hour of steady work, so every step up reads as a raise (§18.1).
   porter: { icon: "🧺", name: "Kikuubo porter", pay: "about 110,000 an hour" },
   carwash: { icon: "🚗", name: "Car wash", pay: "about 220,000 an hour" },

@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { RoadDirection } from "@tiral/road-graph"
 
 // The running controls, fixed in the corners: sprint (hold) bottom-left, and
-// the arrow pad bottom-right. Every action is one tap on its own button: ↑
-// starts running and tapped again stops, ← / → pick the next turn (it stays
-// lit until the junction; tap it again to undo), ↓ turns around. The runner
-// keeps going between taps, so the thumb can rest. The pad flashes, and the
-// phone buzzes, when a picked turn is taken.
+// the arrow pad bottom-right. A short tap on Run starts or stops. Holding Run
+// sprints, so one thumb can do both. ← / → pick the next turn (it stays lit
+// until the junction; tap it again to undo), ↓ turns around. The runner keeps
+// going between taps. The pad flashes, and the phone buzzes, when a picked
+// turn is taken.
 
 export type SprintControl = { active: boolean; disabled: boolean; empty: boolean; onChange(on: boolean): void }
 
@@ -40,6 +40,31 @@ export function ControlBar({
 }) {
   // Flash (and buzz, where phones allow it: not iPhones) when a picked turn is taken.
   const [flash, setFlash] = useState(false)
+  const movingRef = useRef(moving)
+  movingRef.current = moving
+  const holdTimer = useRef<number | null>(null)
+  const heldSprint = useRef(false)
+  const pointerId = useRef<number | null>(null)
+  const clearHold = () => {
+    if (holdTimer.current !== null) {
+      window.clearTimeout(holdTimer.current)
+      holdTimer.current = null
+    }
+  }
+  // A short tap starts or stops. Holding the same button sprints, so one thumb
+  // can do both. Releasing the hold drops back to a run.
+  const finishRunPointer = (id: number) => {
+    if (pointerId.current !== id) return
+    pointerId.current = null
+    const wasHold = heldSprint.current
+    clearHold()
+    if (wasHold) {
+      heldSprint.current = false
+      sprint?.onChange(false)
+      return
+    }
+    onToggleRun()
+  }
   useEffect(() => {
     if (!turnLandedAt) return
     setFlash(true)
@@ -47,6 +72,7 @@ export function ControlBar({
     const id = setTimeout(() => setFlash(false), 450)
     return () => clearTimeout(id)
   }, [turnLandedAt])
+  useEffect(() => clearHold, [])
 
   const turnKey = (direction: "left" | "right") => {
     const lit = pickedTurn === direction
@@ -94,16 +120,41 @@ export function ControlBar({
       <div
         role="group"
         aria-label="Running controls"
-        className={`pointer-events-auto grid grid-cols-3 grid-rows-3 gap-1 rounded-[28px] p-1 transition ${flash ? "bg-leaf/40 ring-4 ring-leaf/40" : ""}`}
+        className={`pointer-events-auto grid grid-cols-3 grid-rows-3 gap-2 rounded-[28px] p-1 transition ${flash ? "bg-leaf/40 ring-4 ring-leaf/40" : ""}`}
       >
         <span />
         <button
           type="button"
           disabled={disabled}
-          aria-pressed={moving}
-          aria-label={moving ? "Stop" : "Run"}
-          onClick={onToggleRun}
-          className={`${KEY} flex-col ${moving ? LIT : IDLE}`}
+          aria-pressed={moving || Boolean(sprint?.active)}
+          aria-label={
+            sprint
+              ? moving
+                ? "Stop. Hold to sprint"
+                : "Run. Hold to sprint"
+              : moving
+                ? "Stop"
+                : "Run"
+          }
+          onPointerDown={(event) => {
+            if (disabled || pointerId.current !== null) return
+            pointerId.current = event.pointerId
+            event.currentTarget.setPointerCapture(event.pointerId)
+            heldSprint.current = false
+            if (sprint && !sprint.disabled) {
+              holdTimer.current = window.setTimeout(() => {
+                holdTimer.current = null
+                heldSprint.current = true
+                if (!movingRef.current) onToggleRun()
+                sprint.onChange(true)
+              }, 200)
+            }
+          }}
+          onPointerUp={(event) => finishRunPointer(event.pointerId)}
+          onPointerCancel={(event) => finishRunPointer(event.pointerId)}
+          onLostPointerCapture={(event) => finishRunPointer(event.pointerId)}
+          onContextMenu={(event) => event.preventDefault()}
+          className={`${KEY} flex-col touch-none ${moving || sprint?.active ? LIT : IDLE}`}
         >
           {moving ? "■" : "↑"}
           <span className="text-[10px] font-black uppercase leading-none">{moving ? "Stop" : "Run"}</span>

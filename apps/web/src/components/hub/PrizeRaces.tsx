@@ -61,7 +61,8 @@ export function PrizeRaces({
   joining,
   onJoinCode,
   hosting,
-  onHostingChange
+  onHostingChange,
+  chip = false
 }: {
   openRaces: RaceListing[]
   joining: boolean
@@ -69,6 +70,8 @@ export function PrizeRaces({
   /** The "Host a prize race" form is open (its button lives at the top of the hub). */
   hosting: boolean
   onHostingChange(open: boolean): void
+  /** Empty state is a short chip so it can sit beside the open-races chip. */
+  chip?: boolean
 }) {
   const { player } = usePlayer()
   const prizes = usePrizeRaces()
@@ -77,8 +80,43 @@ export function PrizeRaces({
   const openCodes = new Set(openRaces.filter((race) => race.prize && !race.locked).map((race) => race.roomCode))
   const upcoming = prizes.races.filter((race) => race.status === "scheduled").length
 
+  const hostModal = hosting && (
+    <HostPrizeRace
+      onClose={() => onHostingChange(false)}
+      onCreate={async (input) => {
+        const result = await prizes.create(input)
+        if (result.race) {
+          onHostingChange(false)
+          setNotice(`Your race is up: code ${result.race.roomCode}.`)
+          setSharing(raceShareCard({ roomCode: result.race.roomCode, pot: result.race.pot, host: result.race.host.name }))
+        }
+        return result.error
+      }}
+    />
+  )
+
+  if (chip && prizes.races.length === 0) {
+    return (
+      <div>
+        <p className="flex min-h-11 items-center gap-2 rounded-2xl border border-sheet-line bg-sheet-card px-2.5 text-xs font-bold text-sheet-mute">
+          <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-flame-soft text-[13px]">
+            🏆
+          </span>
+          {prizes.loading ? "Loading…" : "No prize races yet"}
+        </p>
+        {notice && (
+          <p role="status" className="mt-2 text-xs font-bold text-sheet-ink">
+            {notice}
+          </p>
+        )}
+        {sharing && <ShareSheet card={sharing} onClose={() => setSharing(null)} />}
+        {hostModal}
+      </div>
+    )
+  }
+
   return (
-    <section aria-labelledby="prize-races-title">
+    <section aria-labelledby="prize-races-title" className={chip ? "col-span-2" : undefined}>
       <div className="mb-2 flex items-baseline justify-between">
         <h2 id="prize-races-title" className="text-[11px] font-bold uppercase tracking-[0.12em] text-sheet-mute">
           Prize races
@@ -112,21 +150,7 @@ export function PrizeRaces({
         </p>
       )}
       {sharing && <ShareSheet card={sharing} onClose={() => setSharing(null)} />}
-      {hosting && (
-        <HostPrizeRace
-          onClose={() => onHostingChange(false)}
-          onCreate={async (input) => {
-            const result = await prizes.create(input)
-            if (result.race) {
-              onHostingChange(false)
-              setNotice(`Your race is up: code ${result.race.roomCode}.`)
-              // Straight to sharing: that's how people find out about it.
-              setSharing(raceShareCard({ roomCode: result.race.roomCode, pot: result.race.pot, host: result.race.host.name }))
-            }
-            return result.error
-          }}
-        />
-      )}
+      {hostModal}
     </section>
   )
 }

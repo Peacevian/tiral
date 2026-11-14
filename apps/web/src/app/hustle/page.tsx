@@ -46,6 +46,10 @@ const ThreeLayer = dynamic(
   { ssr: false }
 )
 const City = dynamic(() => import("@/components/city/City").then((module) => ({ default: module.City })), { ssr: false })
+const StreetCrowd = dynamic(
+  () => import("@/components/city/StreetCrowd").then((module) => ({ default: module.StreetCrowd })),
+  { ssr: false }
+)
 const Avatar3D = dynamic(
   () => import("@/components/Avatar3D").then((module) => ({ default: module.Avatar3D })),
   { ssr: false }
@@ -299,6 +303,9 @@ function MapHustle() {
         {map && city && !inShift && (
           <ThreeLayer map={map}>
             <City map={map} />
+            <StreetCrowd map={map} />
+            <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
+            <directionalLight position={[4, 8, 10]} intensity={2.2} />
           </ThreeLayer>
         )}
       </div>
@@ -306,6 +313,7 @@ function MapHustle() {
       {map && inShift && (
         <ThreeLayer map={map}>
           {city && <City map={map} />}
+          <StreetCrowd map={map} focus={movement.coordinate} />
           <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
           <directionalLight position={[4, 8, 10]} intensity={2.2} />
           {movement.coordinate && (

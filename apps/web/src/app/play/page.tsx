@@ -77,6 +77,10 @@ const ThreeLayer = dynamic(
   { ssr: false }
 )
 const City = dynamic(() => import("@/components/city/City").then((module) => ({ default: module.City })), { ssr: false })
+const StreetCrowd = dynamic(
+  () => import("@/components/city/StreetCrowd").then((module) => ({ default: module.StreetCrowd })),
+  { ssr: false }
+)
 const Avatar3D = dynamic(
   () => import("@/components/Avatar3D").then((module) => ({ default: module.Avatar3D })),
   { ssr: false }
@@ -101,6 +105,19 @@ export default function Home() {
   // Tiral's own 3D city over the map (strong phones; see components/city).
   const [city, setCity] = useState(false)
   useEffect(() => setCity(cityEnabled()), [])
+  // Street-level only. The lobby map starts at 15, so the city and crowd stay
+  // unloaded until a race or a pinch-in. That keeps the first play screen off
+  // the building tiles and the Three scene.
+  const [closeZoom, setCloseZoom] = useState(false)
+  useEffect(() => {
+    if (!map) return
+    const sync = () => setCloseZoom(map.getZoom() >= 16)
+    sync()
+    map.on("zoom", sync)
+    return () => {
+      map.off("zoom", sync)
+    }
+  }, [map])
   const [graph, setGraph] = useState<RoadGraph | null>(null)
   const [loadingRoads, setLoadingRoads] = useState(true)
   const [roadError, setRoadError] = useState<string | null>(null)
@@ -158,6 +175,7 @@ export default function Home() {
   const [joining, setJoining] = useState(false)
 
   const phase = roomState?.phase ?? "lobby"
+  const showWorld = city && (phase === "racing" || closeZoom)
   // In a hustle shift, not a race: that has its own screen.
   const router = useRouter()
   useEffect(() => {
@@ -528,9 +546,12 @@ export default function Home() {
             onMapReady={onMapReady}
           />
           {/* Tiral's 3D city on the lobby map too (inside the map's box, so it lines up). */}
-          {map && city && (
+          {map && showWorld && (
             <ThreeLayer map={map}>
               <City map={map} />
+              <StreetCrowd map={map} />
+              <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
+              <directionalLight position={[4, 8, 10]} intensity={2.2} />
             </ThreeLayer>
           )}
         </div>
@@ -648,7 +669,8 @@ export default function Home() {
 
       {map && (
         <ThreeLayer map={map}>
-          {city && <City map={map} />}
+          {showWorld && <City map={map} />}
+          {showWorld && <StreetCrowd map={map} focus={movement.coordinate} />}
           {/* Map world is z-up (three defaults to y-up): sky from above, ground below. */}
           <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
           <directionalLight position={[4, 8, 10]} intensity={2.2} />
