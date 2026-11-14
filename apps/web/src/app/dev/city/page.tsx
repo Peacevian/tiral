@@ -8,6 +8,7 @@ import { BUILDING_DESIGNS, ROOF_COLOURS, WALL_COLOURS, allPlots, buildingMinutes
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false })
 const ThreeLayer = dynamic(() => import("@/components/ThreeLayer").then((m) => m.ThreeLayer), { ssr: false })
 const City = dynamic(() => import("@/components/city/City").then((m) => m.City), { ssr: false })
+const StreetCrowd = dynamic(() => import("@/components/city/StreetCrowd").then((m) => m.StreetCrowd), { ssr: false })
 const FilmActors = dynamic(() => import("@/components/film/FilmActors").then((m) => m.FilmActors), { ssr: false })
 
 // Tiral's city on the map, to look at and measure (window.__cityStats).
@@ -49,6 +50,10 @@ export default function CityBench() {
       {map && (
         <ThreeLayer map={map}>
           <City map={map} />
+          {/* The play screen's lights, so people look as they do in a race. */}
+          <hemisphereLight args={["#fff4d6", "#293548", 1.6]} position={[0, 0, 1]} />
+          <directionalLight position={[4, 8, 10]} intensity={2.2} />
+          <StreetCrowd map={map} />
           <FilmActors />
         </ThreeLayer>
       )}

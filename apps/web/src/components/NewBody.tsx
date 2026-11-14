@@ -87,7 +87,8 @@ const HAT_OFFSET: Vec3 = [0, -0.02, -0.005]
 // The new heads' real hair goes under a hat (it would swallow a cap's crown),
 // and the hats are a touch wider than on the old head.
 const HAT_SCALE = (0.5 / OLD_HEAD_SCALE) * 1.05
-const GLASSES_OFFSET: Vec3 = [0, -0.008, 0.015]
+// Glasses sit lower than on the old head: its eyes were high in a big head.
+const GLASSES_OFFSET: Vec3 = [0, -0.04, 0.015]
 
 export const BODY_MODELS: Record<Body, string> = { male: FITS.male.url, female: FITS.female.url }
 
@@ -155,7 +156,8 @@ export function NewBody({
   posed,
   noBackpack,
   clip: chosen,
-  phase = 0
+  phase = 0,
+  timeScale = 1
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -174,6 +176,8 @@ export function NewBody({
   clip?: string
   /** Seconds into the clip, so a crowd does not step in unison. */
   phase?: number
+  /** Animation speed (1 = as made): a strolling crowd walks slower than a runner. */
+  timeScale?: number
 }) {
   const resolved = resolveLoadout(loadout)
   const fit = FITS[resolved.body]
@@ -262,6 +266,10 @@ export function NewBody({
   const mixer = useMemo(() => new THREE.AnimationMixer(rig.model), [rig])
   useEffect(() => () => void mixer.stopAllAction(), [mixer])
   useFrame((_, delta) => mixer.update(delta))
+
+  useEffect(() => {
+    mixer.timeScale = timeScale
+  }, [mixer, timeScale])
 
   const clip =
     chosen ?? (act ? ACT_CLIPS[act] : ride || dance || posed ? CLIPS.idle : pose === "dance" ? CLIPS.dance : moving ? CLIPS[gait] : CLIPS.idle)

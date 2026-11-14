@@ -7,6 +7,7 @@ import {
   crowdPlace,
   edgesNear,
   kampalaHour,
+  roadsideOffset,
   separateCrowd,
   spawnCrowdPerson,
   stepCrowdPerson
@@ -123,11 +124,10 @@ describe("street crowd", () => {
     expect(person.direction).toBe(-1)
   })
 
-  it("stays on the carriageway, clear of the buildings", () => {
+  it("walks near the roadside, inside the road's edge", () => {
     const graph = corner()
     const person = spawnCrowdPerson(graph, ["e1"], 2, 3)!
-    expect(person.offsetMeters).toBeGreaterThan(0.5)
-    expect(person.offsetMeters).toBeLessThan(2)
+    // A residential street is ~6.4 m wide: 1.7–2.6 m off the centre line.
     person.edgeId = "e1"
     person.distance = graph.edges.e1!.lengthMeters / 2
     const place = crowdPlace(graph, person)!
@@ -136,8 +136,15 @@ describe("street crowd", () => {
       lng: (graph.edges.e1!.coordinates[0].lng + graph.edges.e1!.coordinates[1].lng) / 2
     }
     const off = haversineDistanceMeters(onRoad, place)
-    expect(off).toBeGreaterThan(0.5)
-    expect(off).toBeLessThan(2)
+    expect(off).toBeGreaterThan(1.6)
+    expect(off).toBeLessThan(2.7)
+  })
+
+  it("keeps closer in on narrow roads and further out on avenues", () => {
+    expect(roadsideOffset("footway", 0.5)).toBeLessThan(roadsideOffset("residential", 0.5))
+    expect(roadsideOffset("trunk", 0.5)).toBeGreaterThan(4)
+    expect(roadsideOffset("footway", 1)).toBeGreaterThanOrEqual(0.3)
+    expect(roadsideOffset("unknown_class", 0)).toBeLessThan(3)
   })
 
   it("keeps roads in the spawn ring and drops ones farther out", () => {
@@ -145,5 +152,10 @@ describe("street crowd", () => {
     const near = edgesNear(graph, { lat: 0.31, lng: 32.58 })
     expect(near).toContain("e1")
     expect(near).not.toContain("e2")
+  })
+
+  it("takes a wider ring when asked (respawning out of sight)", () => {
+    const graph = corner()
+    expect(edgesNear(graph, { lat: 0.31, lng: 32.58 }, 60, 220)).toContain("e2")
   })
 })

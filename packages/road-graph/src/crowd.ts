@@ -12,8 +12,9 @@ import {
 
 // People drawn on the street around the player. Visual only: the phone
 // invents them, they walk the road graph, and they never join a race or
-// block the runner. They stay near the centre of the road: the narrowest
-// street is 4.5 m wide, so a bigger sideways shift puts them in the buildings.
+// block the runner. They keep to the roadside: how far out depends on the
+// road's class (OpenStreetMap has no widths here), so a wide avenue's walkers
+// are well off its centre line and a lane's stay inside it.
 
 export const CROWD_POOL = 24
 /** Spawn between these distances so nobody pops out of the runner. */
@@ -33,18 +34,41 @@ export type CrowdPerson = {
   side: 1 | -1
   /** Compass heading they keep. Stops a junction sweeping everyone the same way. */
   headingPref: number
-  offsetMeters: number
+  /** 0: right at the road's edge; 1: a little further in (see roadsideOffset). */
+  lane: number
   speed: number
   /** Walk-cycle offset, radians. */
   phase: number
   /** Below 0.34, the next junction is a turn onto another street. */
   wander: number
-  shirt: number
-  skin: number
+  /** 0–1: who they are (the drawing turns it into a body and clothes). */
+  look: number
 }
 
-const SHIRTS = [0xc8102e, 0x1e56a8, 0xf2c14e, 0x2f7d4a, 0x7c3aed, 0xe85f0c, 0x0f172a, 0xec4899, 0x14b8a6, 0xf59e0b]
-const SKINS = [0x8d5524, 0xc68642, 0xe0ac69, 0xf1c27d, 0x6b3e26]
+/** Half a road's width by its class, in metres (rough Kampala widths, edge to edge). */
+const HALF_WIDTH: Record<string, number> = {
+  trunk: 6,
+  trunk_link: 4,
+  primary: 5.5,
+  primary_link: 4,
+  secondary: 4.5,
+  secondary_link: 3.5,
+  tertiary: 4,
+  tertiary_link: 3.2,
+  residential: 3.2,
+  unclassified: 3.2,
+  service: 2.3,
+  pedestrian: 2.5,
+  footway: 1,
+  path: 1,
+  steps: 1
+}
+
+/** How far from the centre line someone walks: inside the edge, by `lane`. */
+export function roadsideOffset(highway: string, lane: number): number {
+  const half = HALF_WIDTH[highway] ?? 3
+  return Math.max(0.3, half - 0.6 - lane * 0.9)
+}
 
 /** Hour in Kampala (UTC+3, no daylight saving). */
 export function kampalaHour(now: Date): number {
@@ -80,8 +104,8 @@ function unit(salt: number, slot: number): number {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296
 }
 
-/** Edge ids whose midpoint lies in the spawn ring around `focus`. */
-export function edgesNear(graph: RoadGraph, focus: LatLng): string[] {
+/** Edge ids whose midpoint lies in a ring around `focus` (by default the spawn ring). */
+export function edgesNear(graph: RoadGraph, focus: LatLng, near = CROWD_SPAWN_NEAR_METERS, far = CROWD_SPAWN_FAR_METERS): string[] {
   const ids: string[] = []
   for (const edge of Object.values(graph.edges)) {
     if (edge.lengthMeters < 4) continue
@@ -90,7 +114,7 @@ export function edgesNear(graph: RoadGraph, focus: LatLng): string[] {
       lng: (edge.coordinates[0].lng + edge.coordinates[1].lng) / 2
     }
     const distance = haversineDistanceMeters(focus, mid)
-    if (distance >= CROWD_SPAWN_NEAR_METERS && distance <= CROWD_SPAWN_FAR_METERS) ids.push(edge.id)
+    if (distance >= near && distance <= far) ids.push(edge.id)
   }
   return ids
 }
@@ -135,12 +159,11 @@ export function spawnCrowdPerson(
     direction,
     headingPref: getRoadHeading(graph, { edgeId: edge.id, distanceAlongEdge: 0, direction }),
     side: direction,
-    offsetMeters: 0.7 + unit(salt, slot + 9) * 1.1,
+    lane: unit(salt, slot + 9),
     speed: 0.7 + unit(salt, slot + 11) * 1,
     phase: unit(salt, slot + 13) * Math.PI * 2,
     wander: unit(salt, slot + 23),
-    shirt: SHIRTS[slot % SHIRTS.length]!,
-    skin: SKINS[Math.floor(unit(salt, slot + 19) * SKINS.length)]!
+    look: unit(salt, slot + 19)
   }
 }
 
@@ -248,7 +271,7 @@ export function stepCrowdPerson(graph: RoadGraph, person: CrowdPerson, dt: numbe
   person.direction = entered.direction
 }
 
-/** Where they stand: on the carriageway, a little off the centre line, and the way they face. */
+/** Where they stand: at the roadside of the street they're on, and the way they face. */
 export function crowdPlace(graph: RoadGraph, person: CrowdPerson): { lat: number; lng: number; heading: number } | null {
   const position: RoadPosition = {
     edgeId: person.edgeId,
@@ -259,8 +282,9 @@ export function crowdPlace(graph: RoadGraph, person: CrowdPerson): { lat: number
   if (!onRoad) return null
   const heading = getRoadHeading(graph, position)
   const bearing = heading + person.side * (Math.PI / 2)
-  const east = Math.sin(bearing) * person.offsetMeters
-  const north = Math.cos(bearing) * person.offsetMeters
+  const offset = roadsideOffset(graph.edges[person.edgeId]?.highway ?? "", person.lane)
+  const east = Math.sin(bearing) * offset
+  const north = Math.cos(bearing) * offset
   return {
     lat: onRoad.lat + north / 110540,
     lng: onRoad.lng + east / (111320 * Math.cos((onRoad.lat * Math.PI) / 180)),
