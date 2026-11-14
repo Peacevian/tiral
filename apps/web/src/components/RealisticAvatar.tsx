@@ -601,7 +601,8 @@ export function RealisticAvatar({
   posed,
   noBackpack,
   phase,
-  timeScale
+  timeScale,
+  clip
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -625,12 +626,14 @@ export function RealisticAvatar({
   phase?: number
   /** Animation speed, new bodies only (a strolling crowd walks slower). */
   timeScale?: number
+  /** Any clip by name, new bodies only (the street crowd standing about or sitting). */
+  clip?: string
 }) {
   // The new realistic bodies, when switched on.
   if (newBodiesOn()) {
     return (
       <Suspense fallback={null}>
-        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} phase={phase} timeScale={timeScale} />
+        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} phase={phase} timeScale={timeScale} clip={clip} />
       </Suspense>
     )
   }

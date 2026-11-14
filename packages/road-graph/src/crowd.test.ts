@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest"
 import { haversineDistanceMeters, type LatLng } from "@tiral/game-core"
-import type { RoadGraph } from "./index"
+import { getRoadCoordinate, type RoadGraph } from "./index"
 import {
   busyStreet,
   crowdCount,
   crowdPlace,
   edgesNear,
+  groupSlot,
   kampalaHour,
   roadsideOffset,
+  spawnCrowdGroup,
   separateCrowd,
   spawnCrowdPerson,
   stepCrowdPerson
@@ -157,5 +159,34 @@ describe("street crowd", () => {
   it("takes a wider ring when asked (respawning out of sight)", () => {
     const graph = corner()
     expect(edgesNear(graph, { lat: 0.31, lng: 32.58 }, 60, 220)).toContain("e2")
+  })
+
+  it("keeps three of every eight slots for a group standing about", () => {
+    expect([0, 1, 2, 3, 7, 8, 10, 11].map((slot) => groupSlot(slot))).toEqual([
+      { leader: 0, member: 0 },
+      { leader: 0, member: 1 },
+      { leader: 0, member: 2 },
+      null,
+      null,
+      { leader: 8, member: 0 },
+      { leader: 8, member: 2 },
+      null
+    ])
+  })
+
+  it("puts a group on one spot off the road, each their own person, and they stay put", () => {
+    const graph = corner()
+    const group = spawnCrowdGroup(graph, ["e1"], 0, 5, 3)!
+    expect(group).toHaveLength(3)
+    expect(new Set(group.map((p) => p.look)).size).toBe(3)
+    expect(new Set(group.map((p) => `${p.edgeId}:${p.distance}:${p.side}`)).size).toBe(1)
+    expect(group.every((p) => p.still?.size === 3)).toBe(true)
+    const before = { ...group[0]! }
+    stepCrowdPerson(graph, group[0]!, 1, 5)
+    expect(group[0]!.distance).toBe(before.distance)
+    // Beyond the road's edge: further out than any walker on that street.
+    const walker = { ...group[0]!, still: null, lane: 0 }
+    const centre = getRoadCoordinate(graph, { edgeId: "e1", distanceAlongEdge: group[0]!.distance, direction: group[0]!.direction })!
+    expect(haversineDistanceMeters(centre, crowdPlace(graph, group[0]!)!)).toBeGreaterThan(haversineDistanceMeters(centre, crowdPlace(graph, walker)!) + 1)
   })
 })

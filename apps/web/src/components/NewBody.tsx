@@ -53,7 +53,7 @@ type Fit = {
 
 const FITS: Record<Body, Fit> = {
   male: {
-    url: "/models/young-man-v5.glb",
+    url: "/models/young-man-v6.glb",
     scale: 1.075,
     head: { at: [0, 1.505, 0.05], scale: 0.44 },
     back: { at: [0, 1.21, -0.095], scale: 0.85 },
@@ -63,7 +63,7 @@ const FITS: Record<Body, Fit> = {
     shoulder: { at: [0.172, 1.262, 0.017], scale: 0.86 }
   },
   female: {
-    url: "/models/young-woman-v5.glb",
+    url: "/models/young-woman-v6.glb",
     scale: 1.14,
     head: { at: [0, 1.338, 0.03], scale: 0.405 },
     back: { at: [0, 1.04, -0.075], scale: 0.75 },
