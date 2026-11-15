@@ -78,11 +78,7 @@ const WALKABLE_HIGHWAYS = new Set([
   "residential",
   "unclassified",
   "living_street",
-  "pedestrian",
-  "service",
-  "footway",
-  "path",
-  "steps"
+  "pedestrian"
 ])
 
 type GeoJSONFeatureCollection = {
