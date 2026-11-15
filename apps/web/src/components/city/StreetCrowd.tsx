@@ -100,15 +100,18 @@ const pick = <T,>(r: number, list: readonly T[]): T => list[Math.floor(r * list.
  * Who someone on a Kampala street is: men and women, mostly darker skin,
  * everyday clothes (a shirt or tee most days; now and then kitenge, a hoodie,
  * a football shirt, a kanzu or gomesi), the odd hat, glasses or backpack.
+ * `light`: for the lighter crowd body, which carries only real short or afro
+ * hair (or none) and a plain shirt: no hats, glasses, backpacks or outfits.
  */
-export function crowdLook(look: number): { loadout: AvatarLoadout; backpack: boolean } {
+export function crowdLook(look: number, light = false): { loadout: AvatarLoadout; backpack: boolean } {
   const woman = roll(look, 1) < 0.5
-  const hair = weighted<HairStyle>(
+  const wanted = weighted<HairStyle>(
     roll(look, 2),
     woman
       ? [["braids", 35], ["afro", 30], ["short", 25], ["locs", 10]]
       : [["short", 35], ["fade", 30], ["bald", 25], ["locs", 10]]
   )
+  const hair: HairStyle = !light || wanted === "short" || wanted === "afro" || wanted === "bald" ? wanted : woman ? "afro" : "short"
   const hat = weighted<HatStyle>(
     roll(look, 3),
     woman
@@ -137,20 +140,26 @@ export function crowdLook(look: number): { loadout: AvatarLoadout; backpack: boo
       hair,
       // Mostly black and dark brown; a few dyed.
       hairColor: roll(look, 10) < 0.9 ? pick(roll(look, 11), HAIR_COLORS.slice(0, 3)) : pick(roll(look, 11), HAIR_COLORS),
-      hat,
+      hat: light ? "none" : hat,
       hatColor: pick(roll(look, 12), HAT_COLORS),
-      glasses,
-      outfit,
+      glasses: light ? "none" : glasses,
+      outfit: light ? "shirt" : outfit,
       backpack: pick(roll(look, 13), BACKPACK_COLORS),
       trail: "none"
     },
-    backpack: roll(look, 14) < 0.15
+    backpack: !light && roll(look, 14) < 0.15
   }
 }
 
-const BUSY = [KAMPALA_ZONE.bountyLocations[0]!, KAMPALA_ZONE.bountyLocations[1]!, KAMPALA_ZONE.bountyLocations[3]!].map(
-  (place) => place.position
-)
+/** City Square, Nakasero Market, the Old Taxi Park and Nakivubo: the crowd is thicker there. */
+const BUSY = [0, 1, 3, 4].map((i) => KAMPALA_ZONE.bountyLocations[i]!.position)
+/**
+ * The first slots are the detailed bodies (hats, glasses, backpacks, outfits);
+ * the rest are the lighter crowd body, which costs about a third as much to
+ * draw. Thinner crowds (night, zoomed out, cheap phones) only fill these.
+ */
+const FULL_SLOTS = 24
+const FULL_SLOTS_LITE = 6
 
 type Spot = { lat: number; lng: number; heading: number } | null
 /** Who stands in a slot: their look, pace and group (changes only when the slot gets a new person). */
@@ -197,16 +206,19 @@ function StreetPerson({
   slot,
   face,
   places,
-  side
+  side,
+  light
 }: {
   slot: number
   face: NonNullable<Face>
   places: MutableRefObject<Spot[]>
   side: MutableRefObject<number[]>
+  /** The lighter crowd body (see FULL_SLOTS). */
+  light: boolean
 }) {
   const origin = useMapOrigin()
   const group = useRef<THREE.Group>(null)
-  const { loadout, backpack } = useMemo(() => crowdLook(face.look), [face.look])
+  const { loadout, backpack } = useMemo(() => crowdLook(face.look, light), [face.look, light])
   // Each body starts its clip at a different step, so a group does not move together.
   const phase = useMemo(() => ((slot * 0.6180339887) % 1) * Math.PI * 2, [slot])
   const still = face.still
@@ -231,9 +243,9 @@ function StreetPerson({
     /* Same stand-up and mirror as the runner, so the walk faces along the road. */
     <group rotation={[Math.PI / 2, 0, 0]} scale={[-1, 1, 1]}>
       {still ? (
-        <RealisticAvatar loadout={loadout} moving={false} phase={phase} noBackpack={!backpack || still.kind === "sit"} clip={groupClip(still.kind, face.look)} />
+        <RealisticAvatar loadout={loadout} moving={false} phase={phase} noBackpack={!backpack || still.kind === "sit"} clip={groupClip(still.kind, face.look)} crowd={light} />
       ) : (
-        <RealisticAvatar loadout={loadout} moving gait="walk" phase={phase} noBackpack={!backpack} timeScale={(face.pace / CLIP_PACE) * STROLL} />
+        <RealisticAvatar loadout={loadout} moving gait="walk" phase={phase} noBackpack={!backpack} timeScale={(face.pace / CLIP_PACE) * STROLL} crowd={light} />
       )}
     </group>
   )
@@ -293,6 +305,8 @@ export function StreetCrowd({ map, focus }: { map: maplibregl.Map | null; focus?
   const focusRef = useRef(focus)
   focusRef.current = focus
   const lite = useMemo(() => isLiteDevice(), [])
+  // How many slots get the detailed body (development: window.__crowdFull, to measure).
+  const [fullSlots, setFullSlots] = useState(lite ? FULL_SLOTS_LITE : FULL_SLOTS)
   const [faces, setFaces] = useState<Face[]>(() => Array.from({ length: CROWD_POOL }, () => null))
   const facesRef = useRef(faces)
   // The crowd fills in around the player only when it first appears.
@@ -310,7 +324,7 @@ export function StreetCrowd({ map, focus }: { map: maplibregl.Map | null; focus?
     }
   }, [])
 
-  useFrame((_, delta) => {
+  useFrame(({ scene }, delta) => {
     const graph = graphRef.current
     if (!graph || !map) return
     const worldSize = origin.current.worldSize
@@ -319,7 +333,12 @@ export function StreetCrowd({ map, focus }: { map: maplibregl.Map | null; focus?
     const centre = focusRef.current ?? mercatorToLngLat({ x: origin.current.x, y: origin.current.y })
     const zoom = map.getZoom()
     const hour = kampalaHour(new Date())
-    const want = crowdCount(zoom, lite, hour, busyStreet(centre, BUSY))
+    // (Development: window.__crowdWant sets the size, to measure what each costs.)
+    const forced = process.env.NODE_ENV === "development" ? (window as unknown as { __crowdWant?: number }).__crowdWant : undefined
+    const want = forced ?? crowdCount(zoom, lite, hour, busyStreet(centre, BUSY))
+    const devFull = process.env.NODE_ENV === "development" ? (window as unknown as { __crowdFull?: number }).__crowdFull : undefined
+    const full = devFull ?? (lite ? FULL_SLOTS_LITE : FULL_SLOTS)
+    if (full !== fullSlots) setFullSlots(full)
     // Gone (zoomed out): fill around the player again when it comes back.
     if (want === 0) filling.current = true
 
@@ -386,14 +405,16 @@ export function StreetCrowd({ map, focus }: { map: maplibregl.Map | null; focus?
       facesRef.current = next
       setFaces(next)
     }
-    if (process.env.NODE_ENV === "development") Object.assign(window, { __crowd: { want, people: people.current, places: places.current, faces: facesRef.current } })
+    if (process.env.NODE_ENV === "development") Object.assign(window, { __crowd: { want, full, scene, people: people.current, places: places.current, faces: facesRef.current } })
     // Below street zoom the pool is empty. Mark it still so the map can rest.
     if (group.current) group.current.userData.static = want === 0
   })
 
   return (
     <group ref={group}>
-      {faces.map((face, slot) => (face ? <StreetPerson key={`${slot}-${face.look}`} slot={slot} face={face} places={places} side={sides} /> : null))}
+      {faces.map((face, slot) =>
+        face ? <StreetPerson key={`${slot}-${face.look}-${fullSlots}`} slot={slot} face={face} places={places} side={sides} light={slot >= fullSlots} /> : null
+      )}
     </group>
   )
 }

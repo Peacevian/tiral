@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { haversineDistanceMeters, type LatLng } from "@tiral/game-core"
 import { getRoadCoordinate, type RoadGraph } from "./index"
 import {
+  CROWD_POOL,
   busyStreet,
   crowdCount,
   crowdPlace,
@@ -56,9 +57,17 @@ describe("street crowd", () => {
 
   it("hides the crowd on the city view and caps cheap phones", () => {
     expect(crowdCount(15.9, false, 20, true)).toBe(0)
-    expect(crowdCount(17, true, 20, true)).toBeLessThanOrEqual(10)
+    expect(crowdCount(17, true, 20, true)).toBeLessThanOrEqual(16)
     expect(crowdCount(17, false, 20, true)).toBeGreaterThan(crowdCount(17, false, 8, false))
-    expect(crowdCount(17, false, 20, true)).toBeLessThanOrEqual(24)
+    expect(crowdCount(17, false, 20, true)).toBeLessThanOrEqual(CROWD_POOL)
+  })
+
+  it("fills the streets: dozens by day, the whole pool at the busiest places in the evening", () => {
+    expect(crowdCount(17.5, false, 11, false)).toBeGreaterThanOrEqual(24)
+    expect(crowdCount(17.5, false, 20, false)).toBe(40)
+    expect(crowdCount(17.5, false, 20, true)).toBe(CROWD_POOL)
+    // Farther out it stays modest: the figures there are tiny.
+    expect(crowdCount(16.5, false, 20, true)).toBeLessThan(24)
   })
 
   it("notices a busy place within 200 m", () => {

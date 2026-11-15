@@ -19,6 +19,7 @@ file name whenever it changes (it is cached for a year).
 | File | Model | Author | License | Source |
 |---|---|---|---|---|
 | `young-man-v6.glb`, `young-woman-v6.glb` | Made by `scripts/characters/make_hero.py` | MakeHuman / MPFB assets | CC0 1.0 (system assets) | https://static.makehumancommunity.org/assets/assetdownload.html |
+| `crowd-man-v2.glb`, `crowd-woman-v2.glb` | The street crowd's lighter bodies, made by `scripts/characters/make_hero.py ... crowd` | MakeHuman / MPFB assets | CC0 1.0 (system assets) | https://static.makehumancommunity.org/assets/assetdownload.html |
 | (their animations) | Mixamo clips | Adobe | Mixamo terms: free in games, not to be shared as standalone files | https://www.mixamo.com |
 
 The new realistic characters (`apps/web/src/components/NewBody.tsx`): bodies,
@@ -26,3 +27,9 @@ clothes and hair from MakeHuman's CC0 assets, rigged with Mixamo's skeleton,
 textures turned to light grey shading (the game tints them with each player's colours) and meshes thinned to ~8.5k triangles; then
 `scripts/characters/retarget.py` bakes the game's 11 Mixamo clips (with the street crowd's sitting and idling) onto each, and
 gltf-transform `optimize --compress meshopt --texture-compress webp --texture-size 512`.
+
+The street crowd's bodies (`apps/web/src/components/CrowdBody.tsx`) are the same
+people built for figures a few pixels tall: ~2.3k triangles, 20 bones (no
+fingers or toes), no face or textures, one mesh and one material whose
+vertex colours name the part (top, trousers, skin, shoes, hair) so the game
+paints each person from a five-colour palette; 7 Mixamo clips.
