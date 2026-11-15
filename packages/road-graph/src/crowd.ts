@@ -16,7 +16,11 @@ import {
 // road's class (OpenStreetMap has no widths here), so a wide avenue's walkers
 // are well off its centre line and a lane's stay inside it.
 
-export const CROWD_POOL = 24
+/**
+ * The most people at once. Past FULL_SLOTS (in the drawing) they are the
+ * crowd's lighter bodies, so the extra thirty-odd cost little.
+ */
+export const CROWD_POOL = 60
 /** Spawn between these distances so nobody pops out of the runner. */
 export const CROWD_SPAWN_NEAR_METERS = 18
 export const CROWD_SPAWN_FAR_METERS = 80
@@ -130,13 +134,13 @@ export function kampalaHour(now: Date): number {
  */
 export function crowdCount(zoom: number, lite: boolean, hour: number, busy: boolean): number {
   if (zoom < 16) return 0
-  const base = zoom >= 17 ? 24 : 12
+  const base = zoom >= 17 ? 40 : 14
   let factor = 0.7
   if (hour >= 17 || hour < 1) factor = 1
   else if (hour < 7) factor = 0.45
   else if (hour >= 14) factor = 0.85
-  if (busy) factor *= 1.35
-  const cap = lite ? 10 : CROWD_POOL
+  if (busy) factor *= 1.5
+  const cap = lite ? 16 : CROWD_POOL
   const floor = lite ? 4 : 6
   return Math.max(floor, Math.min(cap, Math.round(base * factor)))
 }

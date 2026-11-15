@@ -25,6 +25,7 @@ import {
   useNumberTexture
 } from "./avatarParts"
 import { applyDanceFrame, applyRidePose, resetDanceBones, rootSpace, type PoseRig, type RidePose, type Skeleton } from "./avatarPose"
+import { CrowdBody } from "./CrowdBody"
 import { NewBody } from "./NewBody"
 
 // Rigged human: "Casual Character" by Quaternius (CC0), see public/models/CREDITS.md.
@@ -602,7 +603,8 @@ export function RealisticAvatar({
   noBackpack,
   phase,
   timeScale,
-  clip
+  clip,
+  crowd
 }: {
   loadout: AvatarLoadout
   moving: boolean
@@ -628,12 +630,18 @@ export function RealisticAvatar({
   timeScale?: number
   /** Any clip by name, new bodies only (the street crowd standing about or sitting). */
   clip?: string
+  /** The lighter street-crowd body, new bodies only (see CrowdBody): no add-ons, hair short, afro or none. */
+  crowd?: boolean
 }) {
   // The new realistic bodies, when switched on.
   if (newBodiesOn()) {
     return (
       <Suspense fallback={null}>
-        <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} phase={phase} timeScale={timeScale} clip={clip} />
+        {crowd ? (
+          <CrowdBody loadout={loadout} moving={moving} phase={phase} timeScale={timeScale} clip={clip} />
+        ) : (
+          <NewBody loadout={loadout} moving={moving} pose={pose} gait={gait} act={act} ride={ride} dance={dance} posed={posed} noBackpack={noBackpack} phase={phase} timeScale={timeScale} clip={clip} />
+        )}
       </Suspense>
     )
   }

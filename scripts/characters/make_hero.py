@@ -1,9 +1,12 @@
 # Builds a playable character (the hero, a young man, or the heroine, a young
 # woman) as a rigged model with MPFB (MakeHuman for Blender), all from code,
 # and renders previews. Run headless:
-#   /Applications/Blender.app/Contents/MacOS/Blender -b -P scripts/characters/make_hero.py -- out/ [game] [heroine]
+#   /Applications/Blender.app/Contents/MacOS/Blender -b -P scripts/characters/make_hero.py -- out/ [game|crowd] [heroine]
 # "game": the low-poly body and small, flattened textures (the clothes become
 # plain colours), for the browser. Without it: the full-detail MakeHuman look.
+# "crowd": the street crowd's body, for people too small on screen to need
+# more: a fifth of the triangles, tiny textures, no eyes or brows, and the
+# fingers and toes folded into the hands and feet (20 bones, not 52).
 # Needs the MPFB extension and the MakeHuman system assets (CC0).
 import math
 import os
@@ -17,9 +20,10 @@ from bl_ext.blender_org.mpfb.services.locationservice import LocationService
 
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = os.path.abspath(ARGS[0] if ARGS else "out")
-GAME = "game" in ARGS
+CROWD = "crowd" in ARGS
+GAME = "game" in ARGS or CROWD
 WHO = "heroine" if "heroine" in ARGS else "hero"
-NAME = f"{WHO}-game" if GAME else WHO
+NAME = f"{WHO}-crowd" if CROWD else f"{WHO}-game" if GAME else WHO
 os.makedirs(OUT, exist_ok=True)
 DATA = LocationService.get_user_data()
 
@@ -62,8 +66,91 @@ CHAR = CHARACTERS[WHO]
 MACRO = {**CHAR["macro"], "race": {"african": 1.0, "asian": 0.0, "caucasian": 0.0}}
 SKIN = os.path.join(DATA, f"skins/{CHAR['skin']}/{CHAR['skin']}.mhmat")
 ASSETS = CHAR["assets"]
+if CROWD:
+    # Too small on screen for a face: no eyes, brows or lashes.
+    ASSETS = [(kind, path) for kind, path in ASSETS if kind not in ("Eyes", "Eyebrows", "Eyelashes")]
 # Share of triangles kept in the game version, per mesh (by name).
 KEEP = {"_generic": 0.22, "casualsuit": 0.45, "shoes": 0.3, "afro": 0.5, "short02": 0.5}
+if CROWD:
+    KEEP = {"_generic": 0.06, "casualsuit": 0.13, "shoes": 0.1, "afro": 0.2, "short02": 0.17}
+# Textures are light grey shading only; the largest side kept (px).
+TEXTURE = 128 if CROWD else 512
+
+# Bones the crowd body drops (their weights go to the hand or foot).
+FOLD = {}
+for _side in ("Left", "Right"):
+    for _finger in ("Index", "Middle", "Pinky", "Ring", "Thumb"):
+        for _joint in (1, 2, 3):
+            FOLD[f"mixamorig:{_side}Hand{_finger}{_joint}"] = f"mixamorig:{_side}Hand"
+    FOLD[f"mixamorig:{_side}ToeBase"] = f"mixamorig:{_side}Foot"
+
+
+def fold_bones(rig, meshes):
+    """Move each folded bone's weights to the bone it folds into, then delete it."""
+    for obj in meshes:
+        groups = obj.vertex_groups
+        for src, dst in FOLD.items():
+            if src not in groups:
+                continue
+            if dst not in groups:
+                groups.new(name=dst)
+            source, target = groups[src].index, groups[dst]
+            for vertex in obj.data.vertices:
+                weight = next((g.weight for g in vertex.groups if g.group == source), 0.0)
+                if weight > 0:
+                    target.add([vertex.index], weight, "ADD")
+            groups.remove(groups[src])
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    for name in FOLD:
+        bone = rig.data.edit_bones.get(name)
+        if bone:
+            rig.data.edit_bones.remove(bone)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+# Which part of the figure a face is, as the grey it's painted: the game reads
+# it back and paints the part this person's colour (see CrowdBody.tsx).
+REGION_CODES = {"top": 0.2, "bottom": 0.4, "body": 0.6, "shoes": 0.8, "hair": 1.0}
+
+
+def flatten_for_crowd():
+    """Each mesh gets one plain material, and a vertex colour per face corner
+    naming the part it is; then the body, clothes and shoes are joined into one
+    mesh. The result is three meshes (body, short hair, afro) drawn with one
+    shared material, so a person costs one or two draw calls, not eight."""
+    plain = bpy.data.materials.new("crowd")
+    plain.use_nodes = True
+    bsdf = next(n for n in plain.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (1, 1, 1, 1)
+    bsdf.inputs["Roughness"].default_value = 0.85
+    meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+    for obj in meshes:
+        mesh = obj.data
+        names = [m.name if m else "" for m in mesh.materials]
+        for old in list(mesh.color_attributes):
+            mesh.color_attributes.remove(old)
+        colours = mesh.color_attributes.new(name="Region", type="FLOAT_COLOR", domain="CORNER")
+        for poly in mesh.polygons:
+            name = names[poly.material_index] if names else ""
+            code = next((c for part, c in REGION_CODES.items() if f".{part}" in name), REGION_CODES["body"])
+            for loop in poly.loop_indices:
+                colours.data[loop].color = (code, code, code, 1.0)
+        mesh.color_attributes.active_color = colours
+        mesh.color_attributes.render_color_index = list(mesh.color_attributes).index(colours)
+        mesh.materials.clear()
+        mesh.materials.append(plain)
+        for poly in mesh.polygons:
+            poly.material_index = 0
+    joined = [o for o in meshes if any(part in o.name for part in ("casualsuit", "_generic", "shoes"))]
+    cloth = next(o for o in joined if "casualsuit" in o.name)
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in joined:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = cloth
+    bpy.ops.object.join()
+    cloth.name = f"{WHO}.crowd"
+    print("MESHES", sorted(o.name for o in bpy.data.objects if o.type == "MESH"))
 
 
 def legs_faces(cloth):
@@ -154,8 +241,8 @@ if GAME:
     # The proxy carries the skin now; the full-detail body goes.
     bpy.data.objects.remove(body, do_unlink=True)
     for image in [i for i in bpy.data.images if i.source == "FILE"]:
-        if image.size[0] > 512:
-            image.scale(512, 512)
+        if image.size[0] > TEXTURE:
+            image.scale(TEXTURE, TEXTURE)
     cloth = next(o for o in bpy.data.objects if "casualsuit" in o.name)
     for node in [n for n in cloth.active_material.node_tree.nodes if n.type == "NORMAL_MAP"]:
         # The outfit's bump map carries its logo; plain cloth needs none.
@@ -226,6 +313,10 @@ for obj in bpy.data.objects:
         tris += n
         print("MESH", obj.name, n)
 print("TRIANGLES", tris)
+if CROWD:
+    fold_bones(rig, [o for o in bpy.data.objects if o.type == "MESH"])
+    print("BONES", len(rig.data.bones))
+    flatten_for_crowd()
 
 # Previews with the arms relaxed at his sides (the exported file keeps the A-pose).
 for side in ("Left", "Right"):
@@ -246,18 +337,21 @@ bpy.ops.object.camera_add()
 cam = bpy.context.object
 cam.data.lens = 70
 scene.camera = cam
-for view, angle in [("front", 0), ("three-quarter", 35), ("side", 90)]:
+if CROWD:
+    scene.render.resolution_x, scene.render.resolution_y = 256, 384
+for view, angle in [("front", 0)] if CROWD else [("front", 0), ("three-quarter", 35), ("side", 90)]:
     a = math.radians(angle)
     cam.location = (6.0 * math.sin(a), -6.0 * math.cos(a), 1.0)
     cam.rotation_euler = (math.radians(90), 0, a)
     scene.render.filepath = os.path.join(OUT, f"{NAME}-{view}.png")
     bpy.ops.render.render(write_still=True)
-# Face close-up, at the head's height (the heroine is shorter).
-eyes = (rig.matrix_world @ rig.pose.bones["mixamorig:Head"].head).z + 0.08
-cam.location = (0.55, -1.5, eyes)
-cam.rotation_euler = (math.radians(90), 0, math.radians(20))
-scene.render.filepath = os.path.join(OUT, f"{NAME}-face.png")
-bpy.ops.render.render(write_still=True)
+if not CROWD:
+    # Face close-up, at the head's height (the heroine is shorter).
+    eyes = (rig.matrix_world @ rig.pose.bones["mixamorig:Head"].head).z + 0.08
+    cam.location = (0.55, -1.5, eyes)
+    cam.rotation_euler = (math.radians(90), 0, math.radians(20))
+    scene.render.filepath = os.path.join(OUT, f"{NAME}-face.png")
+    bpy.ops.render.render(write_still=True)
 
 for bone in rig.pose.bones:
     bone.rotation_euler = (0, 0, 0)

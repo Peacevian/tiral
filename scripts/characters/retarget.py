@@ -25,6 +25,11 @@ GAME_CLIPS = {
     "sitting_idle", "sitting_talking", "sad_idle",
 }
 GAME = "game" in ARGS
+# A crowd body (make_hero.py crowd: "hero-crowd.blend") only needs what people
+# standing about, sitting and walking do; the rest isn't even retargeted.
+if "crowd" in os.path.basename(BLEND):
+    GAME = True
+    GAME_CLIPS = {"breathing_idle", "walking", "texting_while_standing", "waving", "sitting_idle", "sitting_talking", "sad_idle"}
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)
 scene = bpy.context.scene
@@ -105,7 +110,11 @@ def retarget(fbx):
     return action, end - start
 
 
-clips = [retarget(os.path.join(ANIMS, f)) for f in sorted(os.listdir(ANIMS)) if f.lower().endswith(".fbx")]
+def wanted(fbx):
+    return not GAME or os.path.splitext(fbx)[0].lower().replace(" ", "_") in GAME_CLIPS
+
+
+clips = [retarget(os.path.join(ANIMS, f)) for f in sorted(os.listdir(ANIMS)) if f.lower().endswith(".fbx") and wanted(f)]
 
 if PREVIEW or VIDEO:
     scene.render.engine = "BLENDER_EEVEE"
@@ -142,5 +151,7 @@ for action in list(bpy.data.actions):
         bpy.data.actions.remove(action)
 print("EXPORT", sorted(a.name for a in bpy.data.actions))
 NAME = os.path.splitext(os.path.basename(BLEND))[0]
-bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f"{NAME}-anims.glb"), export_format="GLB", export_skins=True, export_animations=True, export_animation_mode="ACTIONS")
+# The crowd body's parts are told apart by a vertex colour (make_hero.py).
+colours = {"export_vertex_color": "ACTIVE"} if "crowd" in NAME else {}
+bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f"{NAME}-anims.glb"), export_format="GLB", export_skins=True, export_animations=True, export_animation_mode="ACTIONS", **colours)
 print("DONE")
