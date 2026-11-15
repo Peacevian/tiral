@@ -124,19 +124,6 @@ export default function Home() {
   const [graph, setGraph] = useState<RoadGraph | null>(null)
   const [loadingRoads, setLoadingRoads] = useState(true)
   const [roadError, setRoadError] = useState<string | null>(null)
-  // The map engine is the page's biggest download (~270 KB). It starts once the
-  // page has had a chance to paint (when the phone is idle, after 1.2 s at the
-  // latest), so the sign-in card isn't queued behind it on a slow connection.
-  const [mapOn, setMapOn] = useState(false)
-  useEffect(() => {
-    const hasIdle = "requestIdleCallback" in window
-    const go = () => setMapOn(true)
-    const id = hasIdle ? window.requestIdleCallback(go, { timeout: 1200 }) : window.setTimeout(go, 300)
-    return () => {
-      if (hasIdle) window.cancelIdleCallback(id)
-      else window.clearTimeout(id)
-    }
-  }, [])
   const {
     connected,
     reconnecting,
@@ -589,15 +576,13 @@ export default function Home() {
     return (
       <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-sheet">
         <div className="absolute inset-x-0 bottom-0 top-[var(--shell-top)]">
-          {mapOn && (
-            <MapView
-              center={fallbackStart.position}
-              zoom={15}
-              pitch={48}
-              bearing={-18}
-              onMapReady={onMapReady}
-            />
-          )}
+          <MapView
+            center={fallbackStart.position}
+            zoom={15}
+            pitch={48}
+            bearing={-18}
+            onMapReady={onMapReady}
+          />
           {/* Tiral's 3D city on the lobby map too (inside the map's box, so it lines up). */}
           {map && showWorld && (
             <ThreeLayer map={map}>
