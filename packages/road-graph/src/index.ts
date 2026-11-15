@@ -411,6 +411,8 @@ export {
   type Stillness
 } from "./crowd"
 
+export { compactRoads, expandRoads, type CompactRoads } from "./compact"
+
 export function junctionsToGeoJSON(graph: RoadGraph): GeoJSONFeatureCollection {
   return {
     type: "FeatureCollection",

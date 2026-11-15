@@ -92,6 +92,9 @@ const TreasureBeacon = dynamic(
 
 const fallbackStart = KAMPALA_ZONE.startPoints[0]!
 
+/** Set in this browser once someone has an account here (see the roads effect). */
+const RETURNING_KEY = "tiral:player"
+
 const REMOTE_COLORS = [
   { color: "#38bdf8" },
   { color: "#f472b6" },
@@ -121,6 +124,19 @@ export default function Home() {
   const [graph, setGraph] = useState<RoadGraph | null>(null)
   const [loadingRoads, setLoadingRoads] = useState(true)
   const [roadError, setRoadError] = useState<string | null>(null)
+  // The map engine is the page's biggest download (~270 KB). It starts once the
+  // page has had a chance to paint (when the phone is idle, after 1.2 s at the
+  // latest), so the sign-in card isn't queued behind it on a slow connection.
+  const [mapOn, setMapOn] = useState(false)
+  useEffect(() => {
+    const hasIdle = "requestIdleCallback" in window
+    const go = () => setMapOn(true)
+    const id = hasIdle ? window.requestIdleCallback(go, { timeout: 1200 }) : window.setTimeout(go, 300)
+    return () => {
+      if (hasIdle) window.cancelIdleCallback(id)
+      else window.clearTimeout(id)
+    }
+  }, [])
   const {
     connected,
     reconnecting,
@@ -435,23 +451,58 @@ export default function Home() {
     return list
   }, [roomState, placement.effectivePin, sessionId])
 
+  // Remember who has an account here, so the next visit can start on the roads
+  // straight away (see below).
   useEffect(() => {
+    if (!authReady) return
+    try {
+      if (player) window.localStorage.setItem(RETURNING_KEY, "1")
+      else window.localStorage.removeItem(RETURNING_KEY)
+    } catch {
+      // Storage blocked: the roads just wait for the answer.
+    }
+  }, [authReady, player])
+
+  // The roads (~100 KB, then built on the main thread) matter once you play. A
+  // player, or someone who has played here before, loads them at once. A first
+  // visit sees the sign-in card first: they load when the phone is idle (or at
+  // once if the person signs in), so the card doesn't wait behind them.
+  useEffect(() => {
+    let returning = false
+    try {
+      returning = window.localStorage.getItem(RETURNING_KEY) === "1"
+    } catch {
+      // Treated as a first visit.
+    }
+    if (!player && !returning && !authReady) return
     let cancelled = false
-    loadRoadGraph()
-      .then((loaded) => {
-        if (cancelled) return
-        setGraph(loaded)
-        setLoadingRoads(false)
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        setRoadError(error instanceof Error ? error.message : "Could not load roads")
-        setLoadingRoads(false)
-      })
+    const start = () => {
+      loadRoadGraph()
+        .then((loaded) => {
+          if (cancelled) return
+          setGraph(loaded)
+          setLoadingRoads(false)
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return
+          setRoadError(error instanceof Error ? error.message : "Could not load roads")
+          setLoadingRoads(false)
+        })
+    }
+    if (player || returning) {
+      start()
+      return () => {
+        cancelled = true
+      }
+    }
+    const hasIdle = "requestIdleCallback" in window
+    const idle = hasIdle ? window.requestIdleCallback(start, { timeout: 6000 }) : window.setTimeout(start, 3000)
     return () => {
       cancelled = true
+      if (hasIdle) window.cancelIdleCallback(idle)
+      else window.clearTimeout(idle)
     }
-  }, [])
+  }, [authReady, player])
 
   const [billboardSlots, setBillboardSlots] = useState<BillboardSlot[]>([])
   const [billboardCampaigns, setBillboardCampaigns] = useState<BillboardCampaign[]>([])
@@ -538,13 +589,15 @@ export default function Home() {
     return (
       <main className="tiral-game relative h-dvh w-screen overflow-hidden bg-sheet">
         <div className="absolute inset-x-0 bottom-0 top-[var(--shell-top)]">
-          <MapView
-            center={fallbackStart.position}
-            zoom={15}
-            pitch={48}
-            bearing={-18}
-            onMapReady={onMapReady}
-          />
+          {mapOn && (
+            <MapView
+              center={fallbackStart.position}
+              zoom={15}
+              pitch={48}
+              bearing={-18}
+              onMapReady={onMapReady}
+            />
+          )}
           {/* Tiral's 3D city on the lobby map too (inside the map's box, so it lines up). */}
           {map && showWorld && (
             <ThreeLayer map={map}>
@@ -620,6 +673,7 @@ export default function Home() {
           <>
             <Link
               href="/"
+              prefetch={false}
               className="absolute left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 rounded-xl border border-flame bg-flame px-3 py-2 text-sm font-black text-white shadow-xl"
             >
               Tiral
