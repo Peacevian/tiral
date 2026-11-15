@@ -9,7 +9,6 @@ import type maplibregl from "maplibre-gl"
 import { KAMPALA_ZONE, SPRINT_MULTIPLIER, haversineDistanceMeters } from "@tiral/game-core"
 import { useColyseusContext } from "@/components/ColyseusProvider"
 import { getRoadHeading, type RoadGraph } from "@tiral/road-graph"
-import { WalkableWays } from "@/components/WalkableWays"
 import { useRoadMovement, type RoadInput } from "@/lib/useRoadMovement"
 import { useStartPlacement } from "@/lib/useStartPlacement"
 import { useMyLoadout } from "@/lib/useMyLoadout"
@@ -707,7 +706,6 @@ export default function Home() {
         />
       </div>
 
-      {map && <WalkableWays map={map} graph={graph} visible={showWorld} />}
       {map && (
         <ThreeLayer map={map}>
           {showWorld && <City map={map} />}
