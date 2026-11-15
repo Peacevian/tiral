@@ -1,14 +1,21 @@
+# syntax=docker/dockerfile:1
 FROM node:22-alpine
 
 RUN corepack enable && corepack prepare pnpm@9.15.7 --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+# Packages first, from the lockfile alone, so this layer (and the download cache
+# under it) is reused until a dependency changes. Code-only deploys skip it.
+RUN pnpm config set store-dir /pnpm-store
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=cache,target=/pnpm-store pnpm fetch
+
+COPY package.json ./
 COPY packages ./packages
 COPY apps ./apps
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/pnpm-store pnpm install --frozen-lockfile --offline
 
 ARG NEXT_PUBLIC_GAME_URL=wss://playtiral.com
 ARG NEXT_PUBLIC_RACES_API_URL=https://playtiral.com/races
@@ -21,7 +28,8 @@ ENV NEXT_PUBLIC_RACES_API_URL=$NEXT_PUBLIC_RACES_API_URL
 ENV NEXT_PUBLIC_NEW_BODIES=$NEXT_PUBLIC_NEW_BODIES
 ENV NEXT_PUBLIC_PRIVY_APP_ID=$NEXT_PUBLIC_PRIVY_APP_ID
 
-RUN pnpm --filter @tiral/web build
+# Next's own cache is kept between builds, so only changed files recompile.
+RUN --mount=type=cache,target=/app/apps/web/.next/cache pnpm --filter @tiral/web build
 
 ENV NODE_ENV=production
 ENV PORT=3000

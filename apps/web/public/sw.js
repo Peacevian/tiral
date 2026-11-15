@@ -7,7 +7,7 @@
 //   models + landing images (versioned)    cache first
 //   map style, fonts and tiles             cache first (tile URLs carry the
 //                                          planet version), size-capped
-//   /api/roads                             cached copy now, refresh behind
+//   /api/roads, /api/roads/compact         cached copy now, refresh behind
 //   pages (HTML)                           network first; cached copy only
 //                                          when the network itself fails
 // Everything else (game data, the game connection, payments) goes straight
@@ -51,7 +51,7 @@ self.addEventListener("fetch", (event) => {
       event.respondWith(cacheFirst(request, STATIC))
       return
     }
-    if (url.pathname === "/api/roads") {
+    if (url.pathname === "/api/roads" || url.pathname === "/api/roads/compact") {
       event.respondWith(staleWhileRevalidate(event, request, DATA))
       return
     }
